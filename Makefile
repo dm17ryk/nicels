@@ -1,39 +1,67 @@
-\
-# Simple make-based build for nls (Linux + Windows via MSYS2/MinGW)
-CXX ?= g++
-CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -pedantic
-LDFLAGS ?=
-LDLIBS ?=
+# Makefile for nls (NextLS)
+.DEFAULT_GOAL := all
 
-# Enable libgit2 status with: make USE_LIBGIT2=1
+CXX ?= g++
+BUILD ?= release   # 'release' or 'debug'
+
+# Common flags
+CXXFLAGS_COMMON := -std=c++17 -Wall -Wextra -pedantic
+LDFLAGS :=
+LDLIBS :=
+
+# Build-type flags
+ifeq ($(BUILD),debug)
+  CXXFLAGS := $(CXXFLAGS_COMMON) -O0 -g
+else ifeq ($(BUILD),release)
+  CXXFLAGS := $(CXXFLAGS_COMMON) -O2
+else
+  $(error Unknown BUILD type '$(BUILD)'; use BUILD=debug or BUILD=release)
+endif
+
 USE_LIBGIT2 ?= 0
 
-SRC := src/main.cpp src/console.cpp src/util.cpp src/icons.cpp src/git_status.cpp
-OBJ := $(SRC:.cpp=.o)
-BIN := nls
+# Directories
+SRC_DIR := src
+OBJ_DIR := obj/$(BUILD)
+BIN_DIR := bin
 
-# Detect Windows (cmd sets OS=Windows_NT). For MSYS2 / Git Bash uname contains MINGW.
-ifeq ($(OS),Windows_NT)
-  WIN := 1
-endif
+# Sources/objects/binary
+SRC := $(wildcard $(SRC_DIR)/*.cpp)
+OBJ := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC))
+BIN := $(BIN_DIR)/nls$(if $(filter Windows_NT,$(OS)),.exe,)
 
-# libgit2 (optional)
+# Optional: pkg-config for libgit2 (works on MSYS2, Linux, etc.)
+PKGCONF ?= pkg-config
 ifeq ($(USE_LIBGIT2),1)
-  CXXFLAGS += -DUSE_LIBGIT2
-  LDLIBS += -lgit2
-  # On Windows, you might also need (depending on your libgit2 build):
-  # LDLIBS += -lws2_32 -lcrypt32 -lwinhttp -lbcrypt -lssh2 -lz
+  LIBGIT2_CFLAGS := $(shell $(PKGCONF) --cflags libgit2 2>/dev/null)
+  LIBGIT2_LIBS   := $(shell $(PKGCONF) --libs   libgit2 2>/dev/null)
+  CXXFLAGS += -DUSE_LIBGIT2 $(LIBGIT2_CFLAGS)
+  LDLIBS   += $(LIBGIT2_LIBS)
+  # Fallback if pkg-config not found or empty:
+  ifeq ($(strip $(LIBGIT2_LIBS)),)
+    LDLIBS += -lgit2
+  endif
 endif
+
+# --- Targets ---------------------------------------------------------------
 
 all: $(BIN)
 
-$(BIN): $(OBJ)
+$(BIN): $(OBJ) | $(BIN_DIR)
 	$(CXX) $(OBJ) -o $@ $(LDFLAGS) $(LDLIBS)
 
-%.o: %.cpp
+# Compile objects into OBJ_DIR
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Auto-create build dirs
+$(OBJ_DIR):
+	mkdir -p $@
+
+$(BIN_DIR):
+	mkdir -p $@
+
 clean:
-	$(RM) $(OBJ) $(BIN)
+	$(RM) -r obj bin
 
 .PHONY: all clean
