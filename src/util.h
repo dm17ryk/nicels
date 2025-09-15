@@ -1,4 +1,3 @@
-\
 #pragma once
 #include <string>
 #include <filesystem>
@@ -16,6 +15,7 @@ struct Options {
     bool no_icons = false;
     bool no_color = false;
     bool reverse = false;
+    bool bytes = false;        // show raw bytes instead of human-readable sizes
     enum class Sort { Name, Time, Size, Extension, None } sort = Sort::Name;
     std::vector<std::string> paths;
 };
@@ -50,6 +50,7 @@ bool iequals(char a, char b);
 std::string human_size(uintmax_t bytes);
 std::string format_time(const std::filesystem::file_time_type& tp);
 std::string perm_string(const std::filesystem::directory_entry& de);
+std::string colorize_perm(const std::string& perm, bool no_color);
 void fill_owner_group(FileInfo& fi);
 
 // Sorting helpers

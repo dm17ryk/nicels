@@ -1,0 +1,43 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/msys64/ucrt64/include/c++/15.2.0/x86_64-w64-mingw32",
+                "C:/msys64/ucrt64/include/c++/15.2.0",
+                "C:/msys64/ucrt64/include"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "customConfigurationVariables": {
+                "USE_LIBGIT2": "1",
+                "_HAS_CXX17": "1"
+            },
+            "defines": [
+                "_DEBUG=1",
+                "UNICODE",
+                "_UNICODE",
+                "USE_LIBGIT2=1",
+                "_WIN32=1",
+                "_HAS_CXX17=1"
+            ],
+            "intelliSenseMode": "windows-gcc-x64",
+            "compilerPath": "C:/msys64/ucrt64/bin/g++.exe",
+            "compilerArgs": [
+                "-std=c++17",
+                "-I",
+                "C:/msys64/ucrt64/include/c++/15.2.0/x86_64-w64-mingw32",
+                "-I",
+                "C:/msys64/ucrt64/include/c++/15.2.0",
+                "-I",
+                "C:/msys64/ucrt64/include",
+                "-Wall",
+                "-Wextra",
+                "-pedantic",
+                "-DUSE_LIBGIT2"
+            ]
+        }
+    ],
+    "version": 4
+}

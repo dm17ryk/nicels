@@ -1,4 +1,3 @@
-\
 #include "util.h"
 #include <algorithm>
 #include <cctype>
@@ -38,6 +37,7 @@ Options parse_args(int argc, char** argv) {
         else if (a == "-r") opt.reverse = true;
         else if (a == "-X") opt.sort = Options::Sort::Extension;
         else if (a == "-U") opt.sort = Options::Sort::None;
+        else if (a == "--bytes") opt.bytes = true;
         else if (a == "--gs" || a == "--git-status") opt.git_status = true;
         else if (a == "--group-directories-first") opt.group_dirs_first = true;
         else if (a == "--no-icons") opt.no_icons = true;
@@ -93,7 +93,7 @@ std::string format_time(const fs::file_time_type& tp) {
     localtime_r(&t, &tm);
 #endif
     char buf[64];
-    std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &tm);
+    std::strftime(buf, sizeof(buf), "%a %b %d %H:%M:%S %Y", &tm);
     return buf;
 }
 
@@ -121,6 +121,37 @@ std::string perm_string(const fs::directory_entry& de) {
     out += bit(fs::perms::others_read,  'r');
     out += bit(fs::perms::others_write, 'w');
     out += bit(fs::perms::others_exec,  'x');
+    return out;
+}
+
+// Bootstrap color scheme for permission bits: r=green, w=red, x=yellow.
+// Type char: blue for dir, cyan for link.
+std::string colorize_perm(const std::string& perm, bool no_color) {
+    if (no_color) return perm;
+    const char* C_RESET = "\x1b[0m";
+    const char* C_R = "\x1b[32m"; // green
+    const char* C_W = "\x1b[31m"; // red
+    const char* C_X = "\x1b[33m"; // yellow
+    const char* C_T_DIR = "\x1b[34m";
+    const char* C_T_LNK = "\x1b[36m";
+
+    std::string out; out.reserve(perm.size()*5);
+    for (size_t i = 0; i < perm.size(); ++i) {
+        char ch = perm[i];
+        if (i == 0) {
+            if      (ch == 'd') { out += C_T_DIR; out += ch; out += C_RESET; }
+            else if (ch == 'l') { out += C_T_LNK; out += ch; out += C_RESET; }
+            else { out += ch; }
+        } else if (ch == 'r') {
+            out += C_R; out += 'r'; out += C_RESET;
+        } else if (ch == 'w') {
+            out += C_W; out += 'w'; out += C_RESET;
+        } else if (ch == 'x') {
+            out += C_X; out += 'x'; out += C_RESET;
+        } else {
+            out += ch;
+        }
+    }
     return out;
 }
 
