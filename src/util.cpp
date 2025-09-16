@@ -116,6 +116,22 @@ Options parse_args(int argc, char** argv) {
         .flag()
         .action([&](auto&&){ opt.almost_all = true; });
 
+    program.add_argument("-d", "--dirs")
+        .help("show only directories")
+        .flag()
+        .action([&](auto&&){
+            opt.dirs_only = true;
+            opt.files_only = false;
+        });
+
+    program.add_argument("-f", "--files")
+        .help("show only files")
+        .flag()
+        .action([&](auto&&){
+            opt.files_only = true;
+            opt.dirs_only = false;
+        });
+
     program.add_argument("-t")
         .help("sort by modification time, newest first")
         .flag()

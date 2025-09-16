@@ -85,6 +85,10 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
         info_ec.clear();
         e.info.is_symlink = de.is_symlink(info_ec);
         info_ec.clear();
+
+        if (opt.dirs_only && !e.info.is_dir) return;
+        if (opt.files_only && e.info.is_dir) return;
+
         bool is_reg = de.is_regular_file(info_ec);
         if (info_ec) {
             is_reg = false;

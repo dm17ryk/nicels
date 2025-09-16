@@ -40,6 +40,8 @@ Common options (subset, more coming):
 - `-1` : one entry per line
 - `-a` : include dotfiles
 - `-A` : almost all (exclude `.` and `..`)
+- `-d` : show only directories
+- `-f` : show only files
 - `-t` : sort by mtime
 - `-S` : sort by size
 - `-r` : reverse order

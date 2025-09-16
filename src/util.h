@@ -16,6 +16,8 @@ struct Options {
     bool no_color = false;
     bool reverse = false;
     bool bytes = false;        // show raw bytes instead of human-readable sizes
+    bool dirs_only = false;    // show only directories
+    bool files_only = false;   // show only files
     enum class Sort { Name, Time, Size, Extension, None } sort = Sort::Name;
     std::vector<std::string> paths;
 };
