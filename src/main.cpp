@@ -3,9 +3,9 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <map>
-#include <unordered_map>
+#include <set>
 #include <iomanip>
+#include <utility>
 
 #include "console.h"
 #include "util.h"
@@ -31,7 +31,6 @@ static const char* FG_GIT_NEW   = "\x1b[35m";     // new/untracked
 static const char* FG_GIT_DEL   = "\x1b[31m";     // deleted
 static const char* FG_GIT_REN   = "\x1b[36m";     // renamed
 static const char* FG_GIT_TYP   = "\x1b[34m";     // typechange
-static const char* FG_GIT_IGN   = "\x1b[90m";     // ignored/unreadable
 static const char* FG_GIT_CON   = "\x1b[91m";     // conflicted (bright red)
 
 struct Entry {
@@ -66,20 +65,40 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
         std::cerr << "nls: " << dir.string() << ": No such file or directory\n";
         return;
     }
-    auto add_one = [&](const fs::directory_entry& de) {
-        std::string name = de.path().filename().string();
-        if (!opt.all && !opt.almost_all && is_hidden(name)) return;
+
+    auto add_one = [&](const fs::directory_entry& de, std::string override_name = {}) {
+        std::string name = override_name.empty() ? de.path().filename().string() : std::move(override_name);
+
+        if ((name == "." || name == "..")) {
+            if (!opt.all) return;
+        } else {
+            if (!opt.all && !opt.almost_all && is_hidden(name)) return;
+        }
         if (opt.almost_all && (name == "." || name == "..")) return;
+
         Entry e{};
         e.info.path = de.path();
-        e.info.name = name;
-        e.info.is_dir = de.is_directory(ec);
-        e.info.is_symlink = de.is_symlink(ec);
-        e.info.size = e.info.is_dir ? 0 : (de.is_regular_file(ec) ? de.file_size(ec) : 0);
-        e.info.mtime = de.last_write_time(ec);
+        e.info.name = std::move(name);
+
+        std::error_code info_ec;
+        e.info.is_dir = de.is_directory(info_ec);
+        info_ec.clear();
+        e.info.is_symlink = de.is_symlink(info_ec);
+        info_ec.clear();
+        bool is_reg = de.is_regular_file(info_ec);
+        if (info_ec) {
+            is_reg = false;
+            info_ec.clear();
+        }
+        e.info.size = e.info.is_dir ? 0 : (is_reg ? de.file_size(info_ec) : 0);
+        if (info_ec) {
+            e.info.size = 0;
+            info_ec.clear();
+        }
+        e.info.mtime = de.last_write_time(info_ec);
         e.info.is_exec = is_executable_posix(de);
         fill_owner_group(e.info);
-        if (!opt.no_icons) e.info.icon = icon_for(name, e.info.is_dir, e.info.is_exec);
+        if (!opt.no_icons) e.info.icon = icon_for(e.info.name, e.info.is_dir, e.info.is_exec);
         // color
         if (opt.no_color) {
             e.info.color_fg.clear();
@@ -95,6 +114,16 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
     };
 
     if (fs::is_directory(dir, ec)) {
+        if (opt.all) {
+            std::error_code self_ec;
+            fs::directory_entry self(dir, self_ec);
+            if (!self_ec) add_one(self, ".");
+
+            std::error_code parent_ec;
+            fs::directory_entry parent(dir / "..", parent_ec);
+            if (!parent_ec) add_one(parent, "..");
+        }
+
         for (auto it = fs::directory_iterator(dir, ec); !ec && it != fs::end(it); ++it) {
             add_one(*it);
         }
@@ -105,129 +134,103 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
     }
 }
 
-static const char* color_for_git_code(const std::string& code) {
-    if (code == "!!" || code.find('!') != std::string::npos) return FG_GIT_IGN;
-    if (code.find('U') != std::string::npos) return FG_GIT_CON;
-    if (code.find('D') != std::string::npos) return FG_GIT_DEL;
-    if (code.find('M') != std::string::npos) return FG_GIT_MOD;
-    if (code.find('R') != std::string::npos) return FG_GIT_REN;
-    if (code.find('T') != std::string::npos) return FG_GIT_TYP;
-    if (code.find('A') != std::string::npos || code.find('?') != std::string::npos) return FG_GIT_NEW;
-    return FG_GIT_MOD;
+static const std::set<std::string>* status_modes_for(const GitStatusResult& status,
+                                                     const std::string& rel) {
+    std::string key = rel;
+    auto slash = key.find('/');
+    if (slash != std::string::npos) key = key.substr(0, slash);
+    if (key.empty()) {
+        return status.default_modes.empty() ? nullptr : &status.default_modes;
+    }
+    auto it = status.entries.find(key);
+    if (it != status.entries.end()) return &it->second;
+    return nullptr;
 }
 
-// Aggregate porcelain code for a directory from all descendant entries in map
-static std::string aggregate_dir_code(const std::string& rel_dir, const GitStatusMap& map) {
-    auto starts_with = [](const std::string& s, const std::string& p) -> bool {
-        return s.size() >= p.size() && s.compare(0, p.size(), p) == 0;
-    };
-    std::string prefix = rel_dir;
-    if (!prefix.empty() && prefix.back() != '/') prefix += '/';
+static std::string format_git_prefix(const std::set<std::string>* modes,
+                                     bool is_dir,
+                                     bool is_empty_dir,
+                                     bool no_color) {
+    bool saw_code = false;
+    bool saw_visible = false;
+    std::set<char> glyphs;
 
-    bool any = false;
-    bool any_non_ignored = false;
-    bool has_conflict = false;
-
-    // Index flags
-    bool xA=false, xM=false, xD=false, xR=false, xT=false;
-    // Worktree flags
-    bool yQ=false, yM=false, yD=false, yR=false, yT=false, yBang=false;
-    // Ignored-only?
-    bool saw_ignored = false;
-
-    auto consider = [&](const std::string& code) {
-        any = true;
-        if (code == "!!") { saw_ignored = true; return; }
-        any_non_ignored = true;
-        if (code == "UU") { has_conflict = true; return; }
-
-        char X = code.size() > 0 ? code[0] : ' ';
-        char Y = code.size() > 1 ? code[1] : ' ';
-
-        switch (X) {
-            case 'A': xA = true; break;
-            case 'M': xM = true; break;
-            case 'D': xD = true; break;
-            case 'R': xR = true; break;
-            case 'T': xT = true; break;
-            default: break;
-        }
-        switch (Y) {
-            case '?': yQ = true; break;
-            case 'M': yM = true; break;
-            case 'D': yD = true; break;
-            case 'R': yR = true; break;
-            case 'T': yT = true; break;
-            case '!': yBang = true; break;
-            default: break;
-        }
-    };
-
-    // Consider direct entry (rare but happens for ignored or untracked dirs)
-    auto it_dir = map.find(rel_dir);
-    if (it_dir != map.end()) consider(it_dir->second);
-
-    // Consider descendants
-    for (const auto& kv : map) {
-        const auto& k = kv.first;
-        if (k == rel_dir || (!prefix.empty() && starts_with(k, prefix))) {
-            consider(kv.second);
+    if (modes) {
+        for (const auto& code : *modes) {
+            if (!code.empty()) saw_code = true;
+            for (char ch : code) {
+                if (ch == ' ' || ch == '!') continue;
+                saw_visible = true;
+                glyphs.insert(ch);
+            }
         }
     }
 
-    if (!any) return "";                // No info for this dir
-    if (has_conflict) return "UU";
-    if (!any_non_ignored && saw_ignored) return "!!"; // entirely ignored
+    if (!saw_code) {
+        if (is_dir && is_empty_dir) return std::string(4, ' ');
+        std::string clean = "  \xe2\x9c\x93 ";
+        if (no_color) return clean;
+        return std::string(FG_GIT_CLEAN) + clean + FG_RESET;
+    }
 
-    // Compose X with precedence: D > R > M > A > T
-    char X = ' ';
-    if      (xD) X = 'D';
-    else if (xR) X = 'R';
-    else if (xM) X = 'M';
-    else if (xA) X = 'A';
-    else if (xT) X = 'T';
+    if (!saw_visible) {
+        return std::string(4, ' ');
+    }
 
-    // Compose Y with precedence: ! > D > R > M > T > ?
-    char Y = ' ';
-    if      (yBang) Y = '!';
-    else if (yD)    Y = 'D';
-    else if (yR)    Y = 'R';
-    else if (yM)    Y = 'M';
-    else if (yT)    Y = 'T';
-    else if (yQ)    Y = '?';
+    std::string symbols;
+    for (char ch : glyphs) symbols.push_back(ch);
+    if (symbols.size() < 3) symbols.insert(symbols.begin(), 3 - symbols.size(), ' ');
+    symbols.push_back(' ');
 
-    if (X == ' ' && Y == '?') return "??";
-    if (X == ' ' && Y == ' ') return ""; // treat as clean ✓
-    return std::string() + X + Y;
+    if (no_color) return symbols;
+
+    std::string out;
+    out.reserve(symbols.size() + 16);
+    for (char ch : symbols) {
+        if (ch == ' ') {
+            out.push_back(' ');
+            continue;
+        }
+        const char* col = nullptr;
+        switch (ch) {
+            case '?':
+            case 'A': col = FG_GIT_NEW; break;
+            case 'M': col = FG_GIT_MOD; break;
+            case 'D': col = FG_GIT_DEL; break;
+            case 'R': col = FG_GIT_REN; break;
+            case 'T': col = FG_GIT_TYP; break;
+            case 'U': col = FG_GIT_CON; break;
+            default: break;
+        }
+        if (col) {
+            out += col;
+            out.push_back(ch);
+            out += FG_RESET;
+        } else {
+            out.push_back(ch);
+        }
+    }
+    return out;
 }
 
 static void apply_git_status(std::vector<Entry>& items, const fs::path& dir, const Options& opt) {
     if (!opt.git_status) return;
 
-    auto map = get_git_status_for_dir(dir);
+    auto status = get_git_status_for_dir(dir);
     for (auto& e : items) {
         std::error_code ec;
         fs::path base = fs::is_directory(dir) ? dir : dir.parent_path();
         fs::path relp = fs::relative(e.info.path, base, ec);
         std::string rel = ec ? e.info.path.filename().generic_string() : relp.generic_string();
 
-        std::string code;
-
+        const std::set<std::string>* modes = status_modes_for(status, rel);
+        bool is_empty_dir = false;
         if (e.info.is_dir) {
-            // Aggregate from descendants to get a folder-level porcelain code
-            code = aggregate_dir_code(rel, map);
-        } else {
-            // Files: exact match
-            auto it = map.find(rel);
-            if (it != map.end()) code = it->second;
+            is_empty_dir = fs::is_empty(e.info.path, ec);
+            if (ec) is_empty_dir = false;
         }
 
-        if (code.empty()) {
-            e.info.git_prefix = std::string("") + (opt.no_color ? "" : FG_GIT_CLEAN) + "✓ " + (opt.no_color ? "" : FG_RESET);
-        } else {
-            const char* col = opt.no_color ? "" : color_for_git_code(code);
-            e.info.git_prefix = std::string(col) + code + (opt.no_color ? "" : FG_RESET);
-        }
+        e.info.git_prefix = format_git_prefix(modes, e.info.is_dir, is_empty_dir, opt.no_color);
     }
 }
 
@@ -273,16 +276,28 @@ static std::string make_display_name(const Entry& e) {
 }
 
 static size_t printable_width(const std::string& s) {
-    // Heuristic: count UTF-8 code points (not perfect for double-width glyphs)
+    // Heuristic: count UTF-8 code points, skipping ANSI escapes.
     size_t w = 0;
     for (size_t i = 0; i < s.size(); ) {
-        unsigned char c = (unsigned char)s[i];
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        if (c == 0x1b) { // ESC
+            size_t j = i + 1;
+            if (j < s.size() && s[j] == '[') {
+                ++j;
+                while (j < s.size() && s[j] != 'm') ++j;
+                if (j < s.size()) ++j;
+                i = j;
+                continue;
+            }
+            ++i;
+            continue;
+        }
+
         size_t adv = 1;
-        if      ((c & 0x80) == 0x00) adv = 1;
-        else if ((c & 0xE0) == 0xC0) adv = 2;
-        else if ((c & 0xF0) == 0xE0) adv = 3;
-        else if ((c & 0xF8) == 0xF0) adv = 4;
-        else adv = 1;
+        if      ((c & 0x80u) == 0x00u) adv = 1;
+        else if ((c & 0xE0u) == 0xC0u && i + 1 < s.size()) adv = 2;
+        else if ((c & 0xF0u) == 0xE0u && i + 2 < s.size()) adv = 3;
+        else if ((c & 0xF8u) == 0xF0u && i + 3 < s.size()) adv = 4;
         i += adv;
         w += 1; // count as width 1
     }
@@ -291,7 +306,7 @@ static size_t printable_width(const std::string& s) {
 
 static void print_long(const std::vector<Entry>& v, const Options& opt) {
     // Determine column widths for metadata
-    size_t w_perm = 10, w_nlink = 2, w_owner = 0, w_group = 0, w_size = 0;
+    size_t w_owner = 0, w_group = 0, w_size = 0;
     for (auto& e : v) {
         w_owner = std::max(w_owner, e.info.owner.size());
         w_group = std::max(w_group, e.info.group.size());
@@ -335,28 +350,51 @@ static void print_long(const std::vector<Entry>& v, const Options& opt) {
 }
 
 static void print_columns(const std::vector<Entry>& v, const Options& opt) {
-    int cols = terminal_width();
-    vector<string> cells;
-    size_t maxw = 0;
+    struct Cell { std::string text; size_t width; };
+    std::vector<Cell> cells;
     cells.reserve(v.size());
-    for (auto& e : v) {
+
+    size_t maxw = 0;
+    for (const auto& e : v) {
         std::string cell;
-        if (opt.git_status && !e.info.git_prefix.empty())
-            cell += e.info.git_prefix + " ";
+        if (opt.git_status && !e.info.git_prefix.empty()) {
+            cell += e.info.git_prefix;
+            cell.push_back(' ');
+        }
         if (!opt.no_color && !e.info.color_fg.empty()) cell += e.info.color_fg;
         cell += make_display_name(e);
         if (!opt.no_color && !e.info.color_fg.empty()) cell += FG_RESET;
-        cells.push_back(std::move(cell));
+
+        size_t w = printable_width(cell);
+        maxw = std::max(maxw, w);
+        cells.push_back({std::move(cell), w});
     }
-    for (auto& c : cells) maxw = std::max(maxw, printable_width(c));
-    size_t gutter = 2;
-    size_t per_row = std::max<size_t>(1, (cols) / (maxw + gutter));
-    size_t rows = (v.size() + per_row - 1) / per_row;
+
+    if (cells.empty()) return;
+
+    const size_t gutter = 2;
+    size_t per_row = 1;
+    if (maxw > 0) {
+        int cols = terminal_width();
+        size_t denom = maxw + gutter;
+        if (denom == 0) denom = 1;
+        per_row = std::max<size_t>(1, static_cast<size_t>(std::max(1, cols)) / denom);
+    }
+    size_t rows = (cells.size() + per_row - 1) / per_row;
+
     for (size_t r = 0; r < rows; ++r) {
         for (size_t c = 0; c < per_row; ++c) {
-            size_t idx = c*rows + r;
+            size_t idx = c * rows + r;
             if (idx >= cells.size()) break;
-            std::cout << std::left << std::setw((int)(maxw + gutter)) << cells[idx];
+            const auto& cell = cells[idx];
+            std::cout << cell.text;
+
+            size_t next = (c + 1) * rows + r;
+            if (next < cells.size()) {
+                size_t pad = gutter;
+                if (cell.width < maxw) pad += (maxw - cell.width);
+                std::cout << std::string(pad, ' ');
+            }
         }
         std::cout << "\n";
     }

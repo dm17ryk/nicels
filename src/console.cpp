@@ -3,6 +3,9 @@
 #ifdef _WIN32
 #  define NOMINMAX
 #  include <windows.h>
+#else
+#  include <sys/ioctl.h>
+#  include <unistd.h>
 #endif
 
 #include <cstdio>
@@ -36,8 +39,6 @@ int terminal_width() {
     }
     return 80;
 #else
-    #include <sys/ioctl.h>
-    #include <unistd.h>
     struct winsize w{};
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 && w.ws_col > 0) {
         return w.ws_col;

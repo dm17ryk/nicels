@@ -1,5 +1,5 @@
 #include <system_error>
-#include <unordered_map>
+
 #include "git_status.h"
 
 namespace fs = std::filesystem;
@@ -53,11 +53,11 @@ static std::string to_porcelain_code(unsigned s) {
     return std::string() + X + Y;
 }
 
-GitStatusMap get_git_status_for_dir(const fs::path& dir) {
-    GitStatusMap map;
+GitStatusResult get_git_status_for_dir(const fs::path& dir) {
+    GitStatusResult result;
 
     git_repository* repo = nullptr;
-    if (!repo_open_for_path(dir, &repo)) return map;
+    if (!repo_open_for_path(dir, &repo)) return result;
 
     std::error_code ec;
     fs::path dir_abs = fs::is_directory(dir) ? dir : dir.parent_path();
@@ -80,7 +80,7 @@ GitStatusMap get_git_status_for_dir(const fs::path& dir) {
     git_status_list* status = nullptr;
     if (git_status_list_new(&status, repo, &opts) != 0) {
         git_repository_free(repo);
-        return map;
+        return result;
     }
 
     const size_t count = git_status_list_entrycount(status);
@@ -90,6 +90,8 @@ GitStatusMap get_git_status_for_dir(const fs::path& dir) {
 
         const unsigned s = e->status;
         const std::string code = to_porcelain_code(s);
+
+        if (code.empty()) continue;
 
         // libgit2 paths are relative to repo root; prefer whichever delta is present
         std::string rel_from_repo;
@@ -112,19 +114,29 @@ GitStatusMap get_git_status_for_dir(const fs::path& dir) {
             abs_str.compare(0, dir_str.size(), dir_str) == 0) {
             fs::path rel_to_dir = fs::relative(abs, dir_abs, ec);
             if (!ec) {
-                map[rel_to_dir.generic_string()] = code;
+                std::string rel = rel_to_dir.generic_string();
+                if (rel.empty() || rel == ".") {
+                    result.default_modes.insert(code);
+                    continue;
+                }
+                if (!rel.empty() && rel.back() == '/') rel.pop_back();
+                auto slash = rel.find('/');
+                std::string key = (slash == std::string::npos) ? rel : rel.substr(0, slash);
+                if (!key.empty()) {
+                    result.entries[key].insert(code);
+                }
             }
         }
     }
 
     git_status_list_free(status);
     git_repository_free(repo);
-    return map;
+    return result;
 }
 
 #else
 
-GitStatusMap get_git_status_for_dir(const fs::path& /*dir*/) {
+GitStatusResult get_git_status_for_dir(const fs::path& /*dir*/) {
     // Stub: no git info. Return empty -> treat as clean.
     return {};
 }

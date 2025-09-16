@@ -2,7 +2,8 @@
 .DEFAULT_GOAL := all
 
 CXX ?= g++
-BUILD ?= release   # 'release' or 'debug'
+# 'release' or 'debug'
+BUILD ?= release
 
 # Common flags
 CXXFLAGS_COMMON := -std=c++17 -Wall -Wextra -pedantic

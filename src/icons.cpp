@@ -1,4 +1,3 @@
-\
 #include "icons.h"
 #include <unordered_map>
 #include <algorithm>

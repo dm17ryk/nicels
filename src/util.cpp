@@ -20,10 +20,6 @@ namespace fs = std::filesystem;
 
 namespace nls {
 
-static bool has_flag(const std::string& s, const char* flag) {
-    return s == flag;
-}
-
 Options parse_args(int argc, char** argv) {
     Options opt;
     for (int i = 1; i < argc; ++i) {
@@ -109,18 +105,41 @@ std::string perm_string(const fs::directory_entry& de) {
     else if (fs::is_fifo(s)) type = 'p';
     else if (fs::is_socket(s)) type = 's';
     auto p = s.permissions();
-    auto bit = [&](fs::perms b, char c) { return ( (p & b) != fs::perms::none ) ? c : '-'; };
     std::string out;
     out += type;
-    out += bit(fs::perms::owner_read,  'r');
-    out += bit(fs::perms::owner_write, 'w');
-    out += bit(fs::perms::owner_exec,  'x');
-    out += bit(fs::perms::group_read,  'r');
-    out += bit(fs::perms::group_write, 'w');
-    out += bit(fs::perms::group_exec,  'x');
-    out += bit(fs::perms::others_read,  'r');
-    out += bit(fs::perms::others_write, 'w');
-    out += bit(fs::perms::others_exec,  'x');
+    if (p == fs::perms::unknown) {
+        out.append(9, '?');
+        return out;
+    }
+
+    auto has = [&](fs::perms mask) {
+        return (p & mask) != fs::perms::none;
+    };
+    auto append_triplet = [&](fs::perms r, fs::perms w, fs::perms x, bool special, char special_char) {
+        out += has(r) ? 'r' : '-';
+        out += has(w) ? 'w' : '-';
+        if (special) {
+            out += has(x) ? special_char : static_cast<char>(std::toupper(static_cast<unsigned char>(special_char)));
+        } else {
+            out += has(x) ? 'x' : '-';
+        }
+    };
+
+    append_triplet(fs::perms::owner_read,
+                   fs::perms::owner_write,
+                   fs::perms::owner_exec,
+                   has(fs::perms::set_uid),
+                   's');
+    append_triplet(fs::perms::group_read,
+                   fs::perms::group_write,
+                   fs::perms::group_exec,
+                   has(fs::perms::set_gid),
+                   's');
+    append_triplet(fs::perms::others_read,
+                   fs::perms::others_write,
+                   fs::perms::others_exec,
+                   has(fs::perms::sticky_bit),
+                   't');
     return out;
 }
 
@@ -146,8 +165,8 @@ std::string colorize_perm(const std::string& perm, bool no_color) {
             out += C_R; out += 'r'; out += C_RESET;
         } else if (ch == 'w') {
             out += C_W; out += 'w'; out += C_RESET;
-        } else if (ch == 'x') {
-            out += C_X; out += 'x'; out += C_RESET;
+        } else if (ch == 'x' || ch == 's' || ch == 'S' || ch == 't' || ch == 'T') {
+            out += C_X; out += ch; out += C_RESET;
         } else {
             out += ch;
         }

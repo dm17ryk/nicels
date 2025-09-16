@@ -20,7 +20,8 @@
                 "_UNICODE",
                 "USE_LIBGIT2=1",
                 "_WIN32=1",
-                "_HAS_CXX17=1"
+                "_HAS_CXX17=1",
+                "__HAS_CXX17=1"
             ],
             "intelliSenseMode": "windows-gcc-x64",
             "compilerPath": "C:/msys64/ucrt64/bin/g++.exe",
