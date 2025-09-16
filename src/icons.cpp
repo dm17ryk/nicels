@@ -46,7 +46,7 @@ IconTheme make_fallback_icons() {
     theme.files["json"] = u8"\ue60b";
     theme.files["md"] = u8"\uf48a";
     theme.folders["folder"] = u8"\uf07b";
-    theme.folders["hidden"] = u8"\uf023";
+    theme.folders["hidden"] = u8"\uf19fc";
     return theme;
 }
 
