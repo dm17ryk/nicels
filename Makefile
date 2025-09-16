@@ -6,7 +6,7 @@ CXX ?= g++
 BUILD ?= release
 
 # Common flags
-CXXFLAGS_COMMON := -std=c++17 -Wall -Wextra -pedantic
+CXXFLAGS_COMMON := -std=c++17 -Wall -Wextra -pedantic -Ithird-party/argparse/include
 LDFLAGS :=
 LDLIBS :=
 

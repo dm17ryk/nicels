@@ -8,7 +8,10 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <system_error>
+
+#include <argparse/argparse.hpp>
 
 #ifndef _WIN32
 #include <pwd.h>
@@ -25,30 +28,203 @@ namespace nls {
 
 Options parse_args(int argc, char** argv) {
     Options opt;
-    for (int i = 1; i < argc; ++i) {
-        std::string a = argv[i];
-        if (a == "-l" || a == "--long") opt.long_format = true;
-        else if (a == "-1") opt.one_per_line = true;
-        else if (a == "-a" || a == "--all") opt.all = true;
-        else if (a == "-A" || a == "--almost-all") opt.almost_all = true;
-        else if (a == "-t") opt.sort = Options::Sort::Time;
-        else if (a == "-S") opt.sort = Options::Sort::Size;
-        else if (a == "-r" || a == "--reverse") opt.reverse = true;
-        else if (a == "-X") opt.sort = Options::Sort::Extension;
-        else if (a == "-U") opt.sort = Options::Sort::None;
-        else if (a == "--bytes" || a == "--non-human-readable") opt.bytes = true;
-        else if (a == "--gs" || a == "--git-status") opt.git_status = true;
-        else if (a == "--group-directories-first" || a == "--sd") opt.group_dirs_first = true;
-        else if (a == "--no-icons") opt.no_icons = true;
-        else if (a == "--no-color") opt.no_color = true;
-        else if (!a.empty() && a[0] == '-' ) {
-            std::cerr << "nls: unknown option: " << a << "\n";
+
+    std::vector<std::string> raw_args(argv, argv + argc);
+    std::vector<std::string> normalized_args;
+    normalized_args.reserve(raw_args.size() * 2);
+
+    bool passthrough = false;
+    for (size_t i = 0; i < raw_args.size(); ++i) {
+        const std::string& token = raw_args[i];
+        if (i == 0) {
+            normalized_args.push_back(token);
+            continue;
+        }
+        if (passthrough) {
+            normalized_args.push_back(token);
+            continue;
+        }
+        if (token.size() > 2 && token[0] == '-' && token[1] == '-') {
+            auto eq = token.find('=');
+            if (eq != std::string::npos) {
+                std::string name = token.substr(0, eq);
+                std::string value = token.substr(eq + 1);
+                normalized_args.push_back(name);
+                normalized_args.push_back(value);
+                continue;
+            }
+        }
+        if (token == "--color") {
+            normalized_args.push_back(token);
+            size_t next = i + 1;
+            bool needs_default = (next >= raw_args.size());
+            if (!needs_default) {
+                const std::string& nxt = raw_args[next];
+                needs_default = nxt.empty() || nxt[0] == '-';
+            }
+            if (needs_default) {
+                normalized_args.emplace_back("always");
+            }
+            continue;
+        }
+        if (token == "--") {
+            passthrough = true;
+            continue;
+        }
+        if (token == "-1") {
+            normalized_args.emplace_back("--one-per-line");
+            continue;
+        }
+        if (token.size() > 2 && token[0] == '-' && token[1] != '-' && token.find('1', 1) != std::string::npos) {
+            for (size_t j = 1; j < token.size(); ++j) {
+                char ch = token[j];
+                if (ch == '1') {
+                    normalized_args.emplace_back("--one-per-line");
+                } else {
+                    std::string opt;
+                    opt.reserve(2);
+                    opt.push_back('-');
+                    opt.push_back(ch);
+                    normalized_args.push_back(opt);
+                }
+            }
+            continue;
+        }
+        normalized_args.push_back(token);
+    }
+
+    argparse::ArgumentParser program("nls");
+    program.add_description("NextLS — a colorful ls clone");
+
+    program.add_argument("-l", "--long")
+        .help("use a long listing format")
+        .flag()
+        .action([&](auto&&){ opt.long_format = true; });
+
+    program.add_argument("-1", "--one-per-line")
+        .help("list one file per line")
+        .flag()
+        .action([&](auto&&){ opt.one_per_line = true; });
+
+    program.add_argument("-a", "--all")
+        .help("do not ignore entries starting with .")
+        .flag()
+        .action([&](auto&&){ opt.all = true; });
+
+    program.add_argument("-A", "--almost-all")
+        .help("do not list . and ..")
+        .flag()
+        .action([&](auto&&){ opt.almost_all = true; });
+
+    program.add_argument("-t")
+        .help("sort by modification time, newest first")
+        .flag()
+        .action([&](auto&&){ opt.sort = Options::Sort::Time; });
+
+    program.add_argument("-S")
+        .help("sort by file size, largest first")
+        .flag()
+        .action([&](auto&&){ opt.sort = Options::Sort::Size; });
+
+    program.add_argument("-X")
+        .help("sort by file extension")
+        .flag()
+        .action([&](auto&&){ opt.sort = Options::Sort::Extension; });
+
+    program.add_argument("-U")
+        .help("do not sort; list entries in directory order")
+        .flag()
+        .action([&](auto&&){ opt.sort = Options::Sort::None; });
+
+    program.add_argument("-r", "--reverse")
+        .help("reverse order while sorting")
+        .flag()
+        .action([&](auto&&){ opt.reverse = true; });
+
+    program.add_argument("--sort")
+        .help("sort by WORD instead of name: none, size, time, extension")
+        .metavar("WORD")
+        .action([&](const std::string& value) {
+            std::string word = to_lower(value);
+            if (word == "none") {
+                opt.sort = Options::Sort::None;
+            } else if (word == "time" || word == "mtime") {
+                opt.sort = Options::Sort::Time;
+            } else if (word == "size") {
+                opt.sort = Options::Sort::Size;
+            } else if (word == "extension" || word == "ext") {
+                opt.sort = Options::Sort::Extension;
+            } else if (word == "name") {
+                opt.sort = Options::Sort::Name;
+            } else {
+                throw std::runtime_error("invalid value for --sort: " + value);
+            }
+        });
+
+    program.add_argument("--gs", "--git-status")
+        .help("show git status for each file")
+        .flag()
+        .action([&](auto&&){ opt.git_status = true; });
+
+    program.add_argument("--group-directories-first", "--sd", "--sort-dirs")
+        .help("sort directories before files")
+        .flag()
+        .action([&](auto&&){ opt.group_dirs_first = true; });
+
+    program.add_argument("--no-icons", "--without-icons")
+        .help("disable icons in output")
+        .flag()
+        .action([&](auto&&){ opt.no_icons = true; });
+
+    program.add_argument("--no-color")
+        .help("disable ANSI colors")
+        .flag()
+        .action([&](auto&&){ opt.no_color = true; });
+
+    program.add_argument("--color")
+        .help("colorize the output: auto, always, never")
+        .default_value(std::string("auto"));
+
+    program.add_argument("--bytes", "--non-human-readable")
+        .help("show file sizes in bytes")
+        .flag()
+        .action([&](auto&&){ opt.bytes = true; });
+
+    program.add_argument("paths")
+        .help("paths to list")
+        .remaining();
+
+    try {
+        program.parse_args(normalized_args);
+    } catch (const std::exception& err) {
+        std::cerr << "nls: " << err.what() << "\n";
+        std::cerr << program << '\n';
+        std::exit(2);
+    }
+
+    if (program.is_used("--color")) {
+        std::string value = program.get<std::string>("--color");
+        std::string word = to_lower(value);
+        if (word.empty()) word = "always";
+        if (word == "never") {
+            opt.no_color = true;
+        } else if (word == "always" || word == "auto") {
+            opt.no_color = false;
         } else {
-            opt.paths.push_back(a);
+            std::cerr << "nls: invalid value for --color: " << value << "\n";
+            std::cerr << program << '\n';
+            std::exit(2);
         }
     }
-    if (opt.all) opt.almost_all = false;
+
+    try {
+        opt.paths = program.get<std::vector<std::string>>("paths");
+    } catch (const std::logic_error&) {
+        // no positional paths provided
+    }
+
     if (opt.paths.empty()) opt.paths.push_back(".");
+    if (opt.all) opt.almost_all = false;
     return opt;
 }
 
