@@ -6,6 +6,7 @@
 #include <set>
 #include <iomanip>
 #include <utility>
+#include <cctype>
 
 #include "console.h"
 #include "util.h"
@@ -19,10 +20,26 @@ using std::vector;
 namespace nls {
 
 static const char* FG_RESET = "\x1b[0m";
-static const char* FG_DIR   = "\x1b[34m"; // blue
-static const char* FG_LINK  = "\x1b[36m"; // cyan
-static const char* FG_EXEC  = "\x1b[32m"; // green
-static const char* FG_FILE  = "\x1b[37m"; // light gray
+
+struct ColorPalette {
+    const char* dir;
+    const char* link;
+    const char* exec;
+    const char* file;
+};
+
+static const ColorPalette COLOR_DEFAULT{ "\x1b[34m", "\x1b[36m", "\x1b[32m", "\x1b[37m" };
+static const ColorPalette COLOR_LIGHT  { "\x1b[34m", "\x1b[35m", "\x1b[31m", "\x1b[30m" };
+static const ColorPalette COLOR_DARK   { "\x1b[94m", "\x1b[96m", "\x1b[92m", "\x1b[97m" };
+
+static const ColorPalette& palette_for(const Options& opt) {
+    switch (opt.color_theme) {
+        case Options::ColorTheme::Light: return COLOR_LIGHT;
+        case Options::ColorTheme::Dark:  return COLOR_DARK;
+        case Options::ColorTheme::Default:
+        default:                         return COLOR_DEFAULT;
+    }
+}
 
 // Git colors
 static const char* FG_GIT_CLEAN = "\x1b[32m";     // ✓
@@ -35,7 +52,6 @@ static const char* FG_GIT_CON   = "\x1b[91m";     // conflicted (bright red)
 
 struct Entry {
     FileInfo info;
-    std::string display_name; // icon + name (+ slash for dir)
 };
 
 static bool is_executable_posix(const fs::directory_entry& de) {
@@ -65,6 +81,8 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
         std::cerr << "nls: " << dir.string() << ": No such file or directory\n";
         return;
     }
+
+    const ColorPalette& palette = palette_for(opt);
 
     auto add_one = [&](const fs::directory_entry& de, std::string override_name = {}) {
         std::string name = override_name.empty() ? de.path().filename().string() : std::move(override_name);
@@ -108,10 +126,10 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
             e.info.color_fg.clear();
             e.info.color_reset.clear();
         } else {
-            if (e.info.is_symlink) e.info.color_fg = FG_LINK;
-            else if (e.info.is_dir) e.info.color_fg = FG_DIR;
-            else if (e.info.is_exec) e.info.color_fg = FG_EXEC;
-            else e.info.color_fg = FG_FILE;
+            if (e.info.is_symlink) e.info.color_fg = palette.link;
+            else if (e.info.is_dir) e.info.color_fg = palette.dir;
+            else if (e.info.is_exec) e.info.color_fg = palette.exec;
+            else e.info.color_fg = palette.file;
             e.info.color_reset = FG_RESET;
         }
         out.push_back(std::move(e));
@@ -268,30 +286,101 @@ static void sort_entries(std::vector<Entry>& v, const Options& opt) {
             return a.info.is_dir && !b.info.is_dir;
         });
     }
+    if (opt.sort_files_first) {
+        std::stable_sort(v.begin(), v.end(), [](const Entry& a, const Entry& b){
+            return !a.info.is_dir && b.info.is_dir;
+        });
+    }
+    if (opt.dots_first) {
+        std::stable_sort(v.begin(), v.end(), [](const Entry& a, const Entry& b){
+            bool da = is_hidden(a.info.name);
+            bool db = is_hidden(b.info.name);
+            return da && !db;
+        });
+    }
 }
 
-static std::string make_display_name(const Entry& e) {
+static std::string base_display_name(const Entry& e, const Options& opt) {
     std::string name = e.info.name;
-    if (e.info.is_dir) name += "/";
+    if (opt.indicator == Options::IndicatorStyle::Slash && e.info.is_dir) name.push_back('/');
     if (!e.info.icon.empty()) {
         return e.info.icon + std::string(" ") + name;
     }
     return name;
 }
 
+static std::string percent_encode(const std::string& input) {
+    std::string out;
+    out.reserve(input.size());
+    const char* hex = "0123456789ABCDEF";
+    for (unsigned char ch : input) {
+        if (std::isalnum(ch) || ch == '-' || ch == '_' || ch == '.' || ch == '~' || ch == '/') {
+            out.push_back(static_cast<char>(ch));
+        } else {
+            out.push_back('%');
+            out.push_back(hex[(ch >> 4) & 0x0F]);
+            out.push_back(hex[ch & 0x0F]);
+        }
+    }
+    return out;
+}
+
+static std::string file_uri(const fs::path& path) {
+    std::error_code ec;
+    fs::path abs = fs::absolute(path, ec);
+    if (ec) abs = path;
+    abs = abs.lexically_normal();
+    std::string generic = abs.generic_string();
+#ifdef _WIN32
+    if (generic.size() >= 2 && generic[1] == ':') {
+        generic.insert(generic.begin(), '/');
+    }
+#endif
+    return std::string("file://") + percent_encode(generic);
+}
+
+static std::string styled_name(const Entry& e, const Options& opt) {
+    std::string label = base_display_name(e, opt);
+    std::string out;
+    if (opt.hyperlink) {
+        out += "\x1b]8;;";
+        out += file_uri(e.info.path);
+        out += "\x1b\\";
+    }
+    if (!opt.no_color && !e.info.color_fg.empty()) out += e.info.color_fg;
+    out += label;
+    if (!opt.no_color && !e.info.color_fg.empty()) out += FG_RESET;
+    if (opt.hyperlink) {
+        out += "\x1b]8;;\x1b\\";
+    }
+    return out;
+}
+
 static size_t printable_width(const std::string& s) {
-    // Heuristic: count UTF-8 code points, skipping ANSI escapes.
+    // Heuristic: count UTF-8 code points, skipping ANSI and OSC escapes.
     size_t w = 0;
     for (size_t i = 0; i < s.size(); ) {
         unsigned char c = static_cast<unsigned char>(s[i]);
         if (c == 0x1b) { // ESC
             size_t j = i + 1;
-            if (j < s.size() && s[j] == '[') {
-                ++j;
-                while (j < s.size() && s[j] != 'm') ++j;
-                if (j < s.size()) ++j;
-                i = j;
-                continue;
+            if (j < s.size()) {
+                unsigned char next = static_cast<unsigned char>(s[j]);
+                if (next == '[') {
+                    ++j;
+                    while (j < s.size() && s[j] != 'm') ++j;
+                    if (j < s.size()) ++j;
+                    i = j;
+                    continue;
+                } else if (next == ']') {
+                    ++j;
+                    while (j < s.size()) {
+                        if (s[j] == '\x07') { ++j; break; }
+                        if (s[j] == '\x1b' && j + 1 < s.size() && s[j + 1] == '\\') { j += 2; break; }
+                        ++j;
+                    }
+                    i = j;
+                    continue;
+                }
             }
             ++i;
             continue;
@@ -308,39 +397,69 @@ static size_t printable_width(const std::string& s) {
     return w;
 }
 
-static void print_long(const std::vector<Entry>& v, const Options& opt) {
+static size_t compute_inode_width(const std::vector<Entry>& v, const Options& opt) {
+    if (!opt.show_inode) return 0;
+    size_t width = 0;
+    for (const auto& e : v) {
+        std::string s = std::to_string(e.info.inode);
+        width = std::max(width, s.size());
+    }
+    return width;
+}
+
+static std::string format_entry_cell(const Entry& e, const Options& opt, size_t inode_width, bool include_git_prefix) {
+    std::string out;
+    if (opt.show_inode) {
+        std::string inode = std::to_string(e.info.inode);
+        if (inode_width > inode.size()) out.append(inode_width - inode.size(), ' ');
+        out += inode;
+        out.push_back(' ');
+    }
+    if (include_git_prefix && opt.git_status && !e.info.git_prefix.empty()) {
+        out += e.info.git_prefix;
+        out.push_back(' ');
+    }
+    out += styled_name(e, opt);
+    return out;
+}
+
+static void print_long(const std::vector<Entry>& v, const Options& opt, size_t inode_width) {
     // Determine column widths for metadata
-    size_t w_owner = 0, w_group = 0, w_size = 0;
-    for (auto& e : v) {
-        w_owner = std::max(w_owner, e.info.owner.size());
-        w_group = std::max(w_group, e.info.group.size());
+    size_t w_owner = 0, w_group = 0, w_size = 0, w_nlink = 0;
+    for (const auto& e : v) {
+        if (opt.show_owner) w_owner = std::max(w_owner, e.info.owner.size());
+        if (opt.show_group) w_group = std::max(w_group, e.info.group.size());
+        w_nlink = std::max(w_nlink, std::to_string(e.info.nlink).size());
         std::string size_str = opt.bytes ? std::to_string(e.info.size) : human_size(e.info.size);
         w_size = std::max(w_size, size_str.size());
     }
 
-    for (auto& e : v) {
+    for (const auto& e : v) {
+        if (opt.show_inode) {
+            std::cout << std::right << std::setw(static_cast<int>(inode_width)) << e.info.inode << ' ';
+        }
+
         std::string perm = perm_string(fs::directory_entry(e.info.path));
         std::cout << colorize_perm(perm, opt.no_color) << ' ';
-        std::cout << std::setw(2) << e.info.nlink << ' ';
-        if (!e.info.owner.empty())
-            std::cout << std::left << std::setw((int)w_owner) << e.info.owner << ' ';
-        else
-            std::cout << std::left << std::setw((int)w_owner) << "" << ' ';
-        if (!e.info.group.empty())
-            std::cout << std::left << std::setw((int)w_group) << e.info.group << ' ';
-        else
-            std::cout << std::left << std::setw((int)w_group) << "" << ' ';
+
+        std::cout << std::right << std::setw(static_cast<int>(w_nlink)) << e.info.nlink << ' ';
+
+        if (opt.show_owner) {
+            std::cout << std::left << std::setw(static_cast<int>(w_owner)) << e.info.owner << ' ';
+        }
+        if (opt.show_group) {
+            std::cout << std::left << std::setw(static_cast<int>(w_group)) << e.info.group << ' ';
+        }
 
         std::string size_str = opt.bytes ? std::to_string(e.info.size) : human_size(e.info.size);
-        std::cout << std::right << std::setw((int)w_size) << size_str << ' ';
-        std::cout << format_time(e.info.mtime) << ' ';
+        std::cout << std::right << std::setw(static_cast<int>(w_size)) << size_str << ' ';
+        std::cout << format_time(e.info.mtime, opt) << ' ';
 
-        if (opt.git_status && !e.info.git_prefix.empty())
+        if (opt.git_status && !e.info.git_prefix.empty()) {
             std::cout << e.info.git_prefix << ' ';
+        }
 
-        if (!opt.no_color && !e.info.color_fg.empty()) std::cout << e.info.color_fg;
-        std::cout << make_display_name(e);
-        if (!opt.no_color && !e.info.color_fg.empty()) std::cout << FG_RESET;
+        std::cout << styled_name(e, opt);
 
         // symlink target
         std::error_code ec;
@@ -353,22 +472,14 @@ static void print_long(const std::vector<Entry>& v, const Options& opt) {
     }
 }
 
-static void print_columns(const std::vector<Entry>& v, const Options& opt) {
+static void print_columns(const std::vector<Entry>& v, const Options& opt, size_t inode_width) {
     struct Cell { std::string text; size_t width; };
     std::vector<Cell> cells;
     cells.reserve(v.size());
 
     size_t maxw = 0;
     for (const auto& e : v) {
-        std::string cell;
-        if (opt.git_status && !e.info.git_prefix.empty()) {
-            cell += e.info.git_prefix;
-            cell.push_back(' ');
-        }
-        if (!opt.no_color && !e.info.color_fg.empty()) cell += e.info.color_fg;
-        cell += make_display_name(e);
-        if (!opt.no_color && !e.info.color_fg.empty()) cell += FG_RESET;
-
+        std::string cell = format_entry_cell(e, opt, inode_width, true);
         size_t w = printable_width(cell);
         maxw = std::max(maxw, w);
         cells.push_back({std::move(cell), w});
@@ -388,12 +499,22 @@ static void print_columns(const std::vector<Entry>& v, const Options& opt) {
 
     for (size_t r = 0; r < rows; ++r) {
         for (size_t c = 0; c < per_row; ++c) {
-            size_t idx = c * rows + r;
+            size_t idx;
+            if (opt.format == Options::Format::ColumnsHorizontal) {
+                idx = r * per_row + c;
+            } else {
+                idx = c * rows + r;
+            }
             if (idx >= cells.size()) break;
             const auto& cell = cells[idx];
             std::cout << cell.text;
 
-            size_t next = (c + 1) * rows + r;
+            size_t next;
+            if (opt.format == Options::Format::ColumnsHorizontal) {
+                next = r * per_row + (c + 1);
+            } else {
+                next = (c + 1) * rows + r;
+            }
             if (next < cells.size()) {
                 size_t pad = gutter;
                 if (cell.width < maxw) pad += (maxw - cell.width);
@@ -413,18 +534,21 @@ static int list_path(const fs::path& p, const Options& opt) {
     bool print_header = (opt.paths.size() > 1 && fs::is_directory(p));
     if (print_header) std::cout << p.string() << ":\n";
 
-    if (opt.long_format) print_long(items, opt);
-    else if (opt.one_per_line) {
-        for (auto& e : items) {
-            if (opt.git_status && !e.info.git_prefix.empty())
-                std::cout << e.info.git_prefix << ' ';
-            if (!opt.no_color && !e.info.color_fg.empty()) std::cout << e.info.color_fg;
-            std::cout << make_display_name(e);
-            if (!opt.no_color && !e.info.color_fg.empty()) std::cout << FG_RESET;
-            std::cout << "\n";
-        }
-    } else {
-        print_columns(items, opt);
+    size_t inode_width = compute_inode_width(items, opt);
+    switch (opt.format) {
+        case Options::Format::Long:
+            print_long(items, opt, inode_width);
+            break;
+        case Options::Format::SingleColumn:
+            for (const auto& e : items) {
+                std::cout << format_entry_cell(e, opt, inode_width, true) << "\n";
+            }
+            break;
+        case Options::Format::ColumnsHorizontal:
+        case Options::Format::ColumnsVertical:
+        default:
+            print_columns(items, opt, inode_width);
+            break;
     }
 
     if (opt.paths.size() > 1) std::cout << "\n";

@@ -99,12 +99,40 @@ Options parse_args(int argc, char** argv) {
     program.add_argument("-l", "--long")
         .help("use a long listing format")
         .flag()
-        .action([&](auto&&){ opt.long_format = true; });
+        .action([&](auto&&){ opt.format = Options::Format::Long; });
 
     program.add_argument("-1", "--one-per-line")
         .help("list one file per line")
         .flag()
-        .action([&](auto&&){ opt.one_per_line = true; });
+        .action([&](auto&&){ opt.format = Options::Format::SingleColumn; });
+
+    program.add_argument("-x")
+        .help("list entries by lines instead of by columns")
+        .flag()
+        .action([&](auto&&){ opt.format = Options::Format::ColumnsHorizontal; });
+
+    program.add_argument("-C")
+        .help("list entries by columns instead of by lines")
+        .flag()
+        .action([&](auto&&){ opt.format = Options::Format::ColumnsVertical; });
+
+    program.add_argument("--format")
+        .help("use format: across (-x), horizontal (-x), long (-l), single-column (-1), vertical (-C)")
+        .metavar("WORD")
+        .action([&](const std::string& value) {
+            std::string word = to_lower(value);
+            if (word == "long" || word == "l") {
+                opt.format = Options::Format::Long;
+            } else if (word == "single-column" || word == "single" || word == "1") {
+                opt.format = Options::Format::SingleColumn;
+            } else if (word == "across" || word == "horizontal" || word == "x") {
+                opt.format = Options::Format::ColumnsHorizontal;
+            } else if (word == "vertical" || word == "columns" || word == "column" || word == "c") {
+                opt.format = Options::Format::ColumnsVertical;
+            } else {
+                throw std::runtime_error("invalid value for --format: " + value);
+            }
+        });
 
     program.add_argument("-a", "--all")
         .help("do not ignore entries starting with .")
@@ -131,6 +159,37 @@ Options parse_args(int argc, char** argv) {
             opt.files_only = true;
             opt.dirs_only = false;
         });
+
+    program.add_argument("-p")
+        .help("append / indicator to directories")
+        .flag()
+        .action([&](auto&&){ opt.indicator = Options::IndicatorStyle::Slash; });
+
+    program.add_argument("-i", "--inode")
+        .help("show inode number")
+        .flag()
+        .action([&](auto&&){ opt.show_inode = true; });
+
+    program.add_argument("-o")
+        .help("use a long listing format without group information")
+        .flag()
+        .action([&](auto&&){
+            opt.format = Options::Format::Long;
+            opt.show_group = false;
+        });
+
+    program.add_argument("-g")
+        .help("use a long listing format without owner information")
+        .flag()
+        .action([&](auto&&){
+            opt.format = Options::Format::Long;
+            opt.show_owner = false;
+        });
+
+    program.add_argument("-G", "--no-group")
+        .help("show no group information in a long listing")
+        .flag()
+        .action([&](auto&&){ opt.show_group = false; });
 
     program.add_argument("-t")
         .help("sort by modification time, newest first")
@@ -185,7 +244,23 @@ Options parse_args(int argc, char** argv) {
     program.add_argument("--group-directories-first", "--sd", "--sort-dirs")
         .help("sort directories before files")
         .flag()
-        .action([&](auto&&){ opt.group_dirs_first = true; });
+        .action([&](auto&&){
+            opt.group_dirs_first = true;
+            opt.sort_files_first = false;
+        });
+
+    program.add_argument("--sf", "--sort-files")
+        .help("sort files first")
+        .flag()
+        .action([&](auto&&){
+            opt.sort_files_first = true;
+            opt.group_dirs_first = false;
+        });
+
+    program.add_argument("--df", "--dots-first")
+        .help("sort dot-files and dot-folders first")
+        .flag()
+        .action([&](auto&&){ opt.dots_first = true; });
 
     program.add_argument("--no-icons", "--without-icons")
         .help("disable icons in output")
@@ -201,10 +276,44 @@ Options parse_args(int argc, char** argv) {
         .help("colorize the output: auto, always, never")
         .default_value(std::string("auto"));
 
+    program.add_argument("--light")
+        .help("use light color scheme")
+        .flag()
+        .action([&](auto&&){ opt.color_theme = Options::ColorTheme::Light; });
+
+    program.add_argument("--dark")
+        .help("use dark color scheme")
+        .flag()
+        .action([&](auto&&){ opt.color_theme = Options::ColorTheme::Dark; });
+
+    program.add_argument("--indicator-style")
+        .help("append indicator with style STYLE to entry names: none, slash (-p)")
+        .metavar("STYLE")
+        .action([&](const std::string& value) {
+            std::string word = to_lower(value);
+            if (word == "slash" || word == "slashes") {
+                opt.indicator = Options::IndicatorStyle::Slash;
+            } else if (word == "none" || word == "off") {
+                opt.indicator = Options::IndicatorStyle::None;
+            } else {
+                throw std::runtime_error("invalid value for --indicator-style: " + value);
+            }
+        });
+
+    program.add_argument("--time-style")
+        .help("use time display format")
+        .metavar("FORMAT")
+        .action([&](const std::string& value){ opt.time_style = value; });
+
     program.add_argument("--bytes", "--non-human-readable")
         .help("show file sizes in bytes")
         .flag()
         .action([&](auto&&){ opt.bytes = true; });
+
+    program.add_argument("--hyperlink")
+        .help("emit hyperlinks for entries")
+        .flag()
+        .action([&](auto&&){ opt.hyperlink = true; });
 
     program.add_argument("paths")
         .help("paths to list")
@@ -276,7 +385,28 @@ static std::time_t to_time_t(fs::file_time_type tp) {
     return system_clock::to_time_t(sctp);
 }
 
-std::string format_time(const fs::file_time_type& tp) {
+static std::string resolve_time_format(const Options& opt) {
+    if (opt.time_style.empty() || opt.time_style == "locale" || opt.time_style == "default") {
+        return "%a %b %d %H:%M:%S %Y";
+    }
+
+    std::string word = to_lower(opt.time_style);
+    if (word == "long-iso") {
+        return "%Y-%m-%d %H:%M";
+    }
+    if (word == "full-iso") {
+        return "%Y-%m-%d %H:%M:%S %z";
+    }
+    if (word == "iso" || word == "iso8601") {
+        return "%Y-%m-%d";
+    }
+    if (!opt.time_style.empty() && opt.time_style[0] == '+') {
+        return opt.time_style.substr(1);
+    }
+    return opt.time_style;
+}
+
+std::string format_time(const fs::file_time_type& tp, const Options& opt) {
     std::time_t t = to_time_t(tp);
     std::tm tm{};
 #ifdef _WIN32
@@ -284,8 +414,12 @@ std::string format_time(const fs::file_time_type& tp) {
 #else
     localtime_r(&t, &tm);
 #endif
-    char buf[64];
-    std::strftime(buf, sizeof(buf), "%a %b %d %H:%M:%S %Y", &tm);
+    char buf[128];
+    std::string fmt = resolve_time_format(opt);
+    if (fmt.empty()) fmt = "%a %b %d %H:%M:%S %Y";
+    if (std::strftime(buf, sizeof(buf), fmt.c_str(), &tm) == 0) {
+        std::strftime(buf, sizeof(buf), "%a %b %d %H:%M:%S %Y", &tm);
+    }
     return buf;
 }
 
@@ -399,6 +533,7 @@ void fill_owner_group(FileInfo& fi) {
     struct stat st{};
     if (::lstat(fi.path.c_str(), &st) == 0) {
         fi.nlink = st.st_nlink;
+        fi.inode = static_cast<uintmax_t>(st.st_ino);
         if (auto* pw = ::getpwuid(st.st_uid)) fi.owner = pw->pw_name;
         if (auto* gr = ::getgrgid(st.st_gid)) fi.group = gr->gr_name;
     }
@@ -406,6 +541,7 @@ void fill_owner_group(FileInfo& fi) {
     fi.nlink = 1;
     fi.owner = "";
     fi.group = "";
+    fi.inode = 0;
 #endif
 }
 

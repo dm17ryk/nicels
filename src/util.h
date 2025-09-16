@@ -6,19 +6,29 @@
 namespace nls {
 
 struct Options {
+    enum class Format { ColumnsVertical, ColumnsHorizontal, Long, SingleColumn } format = Format::ColumnsVertical;
+    enum class IndicatorStyle { None, Slash } indicator = IndicatorStyle::Slash;
+    enum class ColorTheme { Default, Light, Dark } color_theme = ColorTheme::Default;
+    enum class Sort { Name, Time, Size, Extension, None } sort = Sort::Name;
+
     bool all = false;
     bool almost_all = false;
-    bool long_format = false;
-    bool one_per_line = false;
     bool git_status = false;
     bool group_dirs_first = false;
+    bool sort_files_first = false;
+    bool dots_first = false;
     bool no_icons = false;
     bool no_color = false;
     bool reverse = false;
     bool bytes = false;        // show raw bytes instead of human-readable sizes
     bool dirs_only = false;    // show only directories
     bool files_only = false;   // show only files
-    enum class Sort { Name, Time, Size, Extension, None } sort = Sort::Name;
+    bool show_inode = false;
+    bool show_owner = true;
+    bool show_group = true;
+    bool hyperlink = false;
+
+    std::string time_style;    // strftime-style pattern or keyword
     std::vector<std::string> paths;
 };
 
@@ -28,6 +38,7 @@ struct FileInfo {
     bool is_dir = false;
     bool is_symlink = false;
     bool is_exec = false;
+    uintmax_t inode = 0;
     uintmax_t size = 0;
     std::filesystem::file_time_type mtime{};
 #ifdef _WIN32
@@ -50,7 +61,7 @@ Options parse_args(int argc, char** argv);
 bool is_hidden(const std::string& name);
 bool iequals(char a, char b);
 std::string human_size(uintmax_t bytes);
-std::string format_time(const std::filesystem::file_time_type& tp);
+std::string format_time(const std::filesystem::file_time_type& tp, const Options& opt);
 std::string perm_string(const std::filesystem::directory_entry& de);
 std::string colorize_perm(const std::string& perm, bool no_color);
 void fill_owner_group(FileInfo& fi);
