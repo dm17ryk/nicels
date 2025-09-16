@@ -1,5 +1,6 @@
 #include "util.h"
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <chrono>
 #include <cstdio>
@@ -14,6 +15,8 @@
 #include <grp.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#else
+#include <windows.h>
 #endif
 
 namespace fs = std::filesystem;
@@ -24,18 +27,18 @@ Options parse_args(int argc, char** argv) {
     Options opt;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "-l") opt.long_format = true;
+        if (a == "-l" || a == "--long") opt.long_format = true;
         else if (a == "-1") opt.one_per_line = true;
-        else if (a == "-a") opt.all = true;
-        else if (a == "-A") opt.almost_all = true;
+        else if (a == "-a" || a == "--all") opt.all = true;
+        else if (a == "-A" || a == "--almost-all") opt.almost_all = true;
         else if (a == "-t") opt.sort = Options::Sort::Time;
         else if (a == "-S") opt.sort = Options::Sort::Size;
-        else if (a == "-r") opt.reverse = true;
+        else if (a == "-r" || a == "--reverse") opt.reverse = true;
         else if (a == "-X") opt.sort = Options::Sort::Extension;
         else if (a == "-U") opt.sort = Options::Sort::None;
-        else if (a == "--bytes") opt.bytes = true;
+        else if (a == "--bytes" || a == "--non-human-readable") opt.bytes = true;
         else if (a == "--gs" || a == "--git-status") opt.git_status = true;
-        else if (a == "--group-directories-first") opt.group_dirs_first = true;
+        else if (a == "--group-directories-first" || a == "--sd") opt.group_dirs_first = true;
         else if (a == "--no-icons") opt.no_icons = true;
         else if (a == "--no-color") opt.no_color = true;
         else if (!a.empty() && a[0] == '-' ) {
@@ -44,6 +47,7 @@ Options parse_args(int argc, char** argv) {
             opt.paths.push_back(a);
         }
     }
+    if (opt.all) opt.almost_all = false;
     if (opt.paths.empty()) opt.paths.push_back(".");
     return opt;
 }
@@ -115,31 +119,55 @@ std::string perm_string(const fs::directory_entry& de) {
     auto has = [&](fs::perms mask) {
         return (p & mask) != fs::perms::none;
     };
-    auto append_triplet = [&](fs::perms r, fs::perms w, fs::perms x, bool special, char special_char) {
-        out += has(r) ? 'r' : '-';
-        out += has(w) ? 'w' : '-';
-        if (special) {
-            out += has(x) ? special_char : static_cast<char>(std::toupper(static_cast<unsigned char>(special_char)));
+
+    std::array<bool, 3> can_read = {
+        has(fs::perms::owner_read),
+        has(fs::perms::group_read),
+        has(fs::perms::others_read)
+    };
+    std::array<bool, 3> can_write = {
+        has(fs::perms::owner_write),
+        has(fs::perms::group_write),
+        has(fs::perms::others_write)
+    };
+    std::array<bool, 3> can_exec = {
+        has(fs::perms::owner_exec),
+        has(fs::perms::group_exec),
+        has(fs::perms::others_exec)
+    };
+
+#ifdef _WIN32
+    const auto native_path = de.path();
+    DWORD attrs = GetFileAttributesW(native_path.c_str());
+    if (attrs != INVALID_FILE_ATTRIBUTES) {
+        if ((attrs & FILE_ATTRIBUTE_READONLY) != 0) {
+            can_write.fill(false);
         } else {
-            out += has(x) ? 'x' : '-';
+            // Windows reports coarse permission bits where write access for
+            // group/others mirrors the owner bit.  Mirror colorls behaviour
+            // by suppressing those write flags unless the entry is read-only.
+            can_write[1] = false;
+            can_write[2] = false;
+        }
+    }
+#endif
+
+    auto append_triplet = [&](int idx, bool special, char special_char) {
+        out += can_read[idx] ? 'r' : '-';
+        bool writable = can_write[idx];
+        out += writable ? 'w' : '-';
+        if (special) {
+            out += can_exec[idx]
+                ? special_char
+                : static_cast<char>(std::toupper(static_cast<unsigned char>(special_char)));
+        } else {
+            out += can_exec[idx] ? 'x' : '-';
         }
     };
 
-    append_triplet(fs::perms::owner_read,
-                   fs::perms::owner_write,
-                   fs::perms::owner_exec,
-                   has(fs::perms::set_uid),
-                   's');
-    append_triplet(fs::perms::group_read,
-                   fs::perms::group_write,
-                   fs::perms::group_exec,
-                   has(fs::perms::set_gid),
-                   's');
-    append_triplet(fs::perms::others_read,
-                   fs::perms::others_write,
-                   fs::perms::others_exec,
-                   has(fs::perms::sticky_bit),
-                   't');
+    append_triplet(0, has(fs::perms::set_uid), 's');
+    append_triplet(1, has(fs::perms::set_gid), 's');
+    append_triplet(2, has(fs::perms::sticky_bit), 't');
     return out;
 }
 

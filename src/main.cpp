@@ -250,12 +250,6 @@ static void sort_entries(std::vector<Entry>& v, const Options& opt) {
         return nls::to_lower(pa) < nls::to_lower(pb);
     };
 
-    if (opt.group_dirs_first) {
-        std::stable_sort(v.begin(), v.end(), [](const Entry& a, const Entry& b){
-            return a.info.is_dir && !b.info.is_dir;
-        });
-    }
-
     switch (opt.sort) {
         case Options::Sort::Time: std::stable_sort(v.begin(), v.end(), cmp_time); break;
         case Options::Sort::Size: std::stable_sort(v.begin(), v.end(), cmp_size); break;
@@ -264,6 +258,12 @@ static void sort_entries(std::vector<Entry>& v, const Options& opt) {
         case Options::Sort::Name: default: std::stable_sort(v.begin(), v.end(), cmp_name); break;
     }
     if (opt.reverse) std::reverse(v.begin(), v.end());
+
+    if (opt.group_dirs_first) {
+        std::stable_sort(v.begin(), v.end(), [](const Entry& a, const Entry& b){
+            return a.info.is_dir && !b.info.is_dir;
+        });
+    }
 }
 
 static std::string make_display_name(const Entry& e) {
