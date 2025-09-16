@@ -1,52 +1,188 @@
 #include "icons.h"
+
+#include "resources.h"
+#include "util.h"
+#include "yaml_loader.h"
+
 #include <unordered_map>
-#include <algorithm>
 
 namespace nls {
+namespace {
 
-static std::string ext(std::string_view name) {
-    auto pos = name.rfind('.');
-    if (pos == std::string_view::npos) return {};
-    std::string e(name.substr(pos+1));
-    std::transform(e.begin(), e.end(), e.begin(), [](unsigned char c){ return (char)std::tolower(c); });
-    return e;
-}
-
-// A tiny starter set (Nerd Font glyphs). Users must use a Nerd Font in the terminal.
-static const std::unordered_map<std::string, const char*> EXT_ICONS = {
-    {"cpp", u8"\ue61d"}, // nf-dev-cplusplus
-    {"cc",  u8"\ue61d"},
-    {"cxx", u8"\ue61d"},
-    {"hpp", u8"\ue61d"},
-    {"h",   u8"\uf0fd"}, // generic file
-    {"rb",  u8"\ue21e"}, // nf-dev-ruby
-    {"py",  u8"\ue235"}, // nf-dev-python
-    {"js",  u8"\ue74e"}, // nf-dev-javascript
-    {"ts",  u8"\ue628"}, // nf-dev-typescript
-    {"json",u8"\ue60b"}, // nf-dev-json
-    {"md",  u8"\uf48a"}, // nf-oct-markdown
-    {"txt", u8"\uf15c"}, // nf-fa-file_text_o
-    {"png", u8"\uf1c5"}, // nf-fa-file_image_o
-    {"jpg", u8"\uf1c5"},
-    {"jpeg",u8"\uf1c5"},
-    {"gif", u8"\uf1c5"},
-    {"svg", u8"\uf1c5"},
-    {"zip", u8"\uf1c6"}, // archive
-    {"gz",  u8"\uf1c6"},
-    {"7z",  u8"\uf1c6"},
-    {"pdf", u8"\uf1c1"},
-    {"exe", u8"\uf489"},
-    {"bat", u8"\uf489"},
-    {"sh",  u8"\uf489"},
+struct IconTheme {
+    std::unordered_map<std::string, std::string> files;
+    std::unordered_map<std::string, std::string> folders;
+    std::unordered_map<std::string, std::string> file_aliases;
+    std::unordered_map<std::string, std::string> folder_aliases;
 };
 
-std::string icon_for(std::string_view name, bool is_dir, bool is_exec) {
-    if (is_dir) return u8"\uf07b"; // nf-fa-folder
-    if (is_exec) return u8"\uf144"; // play (rough stand-in for executable)
-    auto e = ext(name);
-    auto it = EXT_ICONS.find(e);
-    if (it != EXT_ICONS.end()) return it->second;
-    return u8"\uf15b"; // generic file
+IconTheme g_icons;
+bool g_loaded = false;
+
+IconTheme make_fallback_icons() {
+    IconTheme theme;
+    theme.files["file"] = u8"\uf15b"; // generic file
+    theme.files["exe"] = u8"\uf144";
+    theme.files["sh"] = u8"\uf489";
+    theme.files["txt"] = u8"\uf15c";
+    theme.files["png"] = u8"\uf1c5";
+    theme.files["jpg"] = u8"\uf1c5";
+    theme.files["jpeg"] = u8"\uf1c5";
+    theme.files["gif"] = u8"\uf1c5";
+    theme.files["svg"] = u8"\uf1c5";
+    theme.files["zip"] = u8"\uf1c6";
+    theme.files["gz"] = u8"\uf1c6";
+    theme.files["7z"] = u8"\uf1c6";
+    theme.files["pdf"] = u8"\uf1c1";
+    theme.files["cpp"] = u8"\ue61d";
+    theme.files["cc"] = u8"\ue61d";
+    theme.files["c"] = u8"\uf0fd";
+    theme.files["h"] = u8"\uf0fd";
+    theme.files["hpp"] = u8"\uf0fd";
+    theme.files["py"] = u8"\ue235";
+    theme.files["rb"] = u8"\ue21e";
+    theme.files["js"] = u8"\ue74e";
+    theme.files["ts"] = u8"\ue628";
+    theme.files["json"] = u8"\ue60b";
+    theme.files["md"] = u8"\uf48a";
+    theme.folders["folder"] = u8"\uf07b";
+    theme.folders["hidden"] = u8"\uf023";
+    return theme;
+}
+
+void merge_map(std::unordered_map<std::string, std::string>& dest,
+               const std::unordered_map<std::string, std::string>& src,
+               bool lowercase_values = false) {
+    for (const auto& kv : src) {
+        std::string value = kv.second;
+        if (lowercase_values) value = to_lower(std::move(value));
+        dest[to_lower(kv.first)] = std::move(value);
+    }
+}
+
+void ensure_loaded() {
+    if (g_loaded) return;
+    g_loaded = true;
+    g_icons = make_fallback_icons();
+
+    auto files_path = find_resource("files.yaml");
+    if (!files_path.empty()) {
+        merge_map(g_icons.files, load_simple_yaml_map(files_path, true));
+    }
+    auto file_alias_path = find_resource("file_aliases.yaml");
+    if (!file_alias_path.empty()) {
+        merge_map(g_icons.file_aliases, load_simple_yaml_map(file_alias_path, true), true);
+    }
+
+    auto folders_path = find_resource("folders.yaml");
+    if (!folders_path.empty()) {
+        merge_map(g_icons.folders, load_simple_yaml_map(folders_path, true));
+    }
+    auto folder_alias_path = find_resource("folder_aliases.yaml");
+    if (!folder_alias_path.empty()) {
+        merge_map(g_icons.folder_aliases, load_simple_yaml_map(folder_alias_path, true), true);
+    }
+
+    // Ensure defaults exist
+    if (g_icons.files.find("file") == g_icons.files.end()) {
+        g_icons.files["file"] = u8"\uf15b";
+    }
+    if (g_icons.folders.find("folder") == g_icons.folders.end()) {
+        g_icons.folders["folder"] = u8"\uf07b";
+    }
+}
+
+const IconTheme& icon_theme() {
+    ensure_loaded();
+    return g_icons;
+}
+
+IconResult folder_icon(std::string_view name) {
+    const IconTheme& theme = icon_theme();
+    std::string key = to_lower(std::string(name));
+    auto direct = theme.folders.find(key);
+    if (direct != theme.folders.end()) {
+        bool recognized = key != "folder";
+        return {direct->second, recognized};
+    }
+    auto alias = theme.folder_aliases.find(key);
+    if (alias != theme.folder_aliases.end()) {
+        auto base = theme.folders.find(alias->second);
+        if (base != theme.folders.end()) {
+            bool recognized = alias->second != "folder";
+            return {base->second, recognized};
+        }
+    }
+    if (!key.empty() && key.front() == '.') {
+        auto hidden = theme.folders.find("hidden");
+        if (hidden != theme.folders.end()) {
+            return {hidden->second, true};
+        }
+    }
+    auto fallback = theme.folders.find("folder");
+    if (fallback != theme.folders.end()) {
+        return {fallback->second, false};
+    }
+    return {u8"\uf07b", false};
+}
+
+IconResult file_icon(std::string_view name, bool is_exec) {
+    const IconTheme& theme = icon_theme();
+    std::string key = to_lower(std::string(name));
+
+    auto direct = theme.files.find(key);
+    if (direct != theme.files.end()) {
+        bool recognized = key != "file";
+        return {direct->second, recognized};
+    }
+    auto alias = theme.file_aliases.find(key);
+    if (alias != theme.file_aliases.end()) {
+        auto base = theme.files.find(alias->second);
+        if (base != theme.files.end()) {
+            bool recognized = alias->second != "file";
+            return {base->second, recognized};
+        }
+    }
+
+    auto dot = key.find_last_of('.');
+    if (dot != std::string::npos && dot + 1 < key.size()) {
+        std::string ext = key.substr(dot + 1);
+        auto ext_icon = theme.files.find(ext);
+        if (ext_icon != theme.files.end()) {
+            bool recognized = ext != "file";
+            return {ext_icon->second, recognized};
+        }
+        auto ext_alias = theme.file_aliases.find(ext);
+        if (ext_alias != theme.file_aliases.end()) {
+            auto base = theme.files.find(ext_alias->second);
+            if (base != theme.files.end()) {
+                bool recognized = ext_alias->second != "file";
+                return {base->second, recognized};
+            }
+        }
+    }
+
+    if (is_exec) {
+        auto exec_icon = theme.files.find("exe");
+        if (exec_icon != theme.files.end()) {
+            return {exec_icon->second, true};
+        }
+    }
+
+    auto fallback = theme.files.find("file");
+    if (fallback != theme.files.end()) {
+        return {fallback->second, false};
+    }
+    return {u8"\uf15b", false};
+}
+
+} // namespace
+
+IconResult icon_for(std::string_view name, bool is_dir, bool is_exec) {
+    if (is_dir) {
+        return folder_icon(name);
+    }
+    return file_icon(name, is_exec);
 }
 
 } // namespace nls

@@ -1,4 +1,5 @@
 #include "util.h"
+#include "colors.h"
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -501,26 +502,41 @@ std::string perm_string(const fs::directory_entry& de) {
 // Type char: blue for dir, cyan for link.
 std::string colorize_perm(const std::string& perm, bool no_color) {
     if (no_color) return perm;
-    const char* C_RESET = "\x1b[0m";
-    const char* C_R = "\x1b[32m"; // green
-    const char* C_W = "\x1b[31m"; // red
-    const char* C_X = "\x1b[33m"; // yellow
-    const char* C_T_DIR = "\x1b[34m";
-    const char* C_T_LNK = "\x1b[36m";
+    const auto& theme = active_theme();
+    std::string c_r = theme.color_or("read", "\x1b[32m");
+    std::string c_w = theme.color_or("write", "\x1b[31m");
+    std::string c_x = theme.color_or("exec", "\x1b[33m");
+    std::string c_dir = theme.color_or("dir", "\x1b[34m");
+    std::string c_link = theme.color_or("link", "\x1b[36m");
 
-    std::string out; out.reserve(perm.size()*5);
+    std::string out;
+    out.reserve(perm.size() * 5);
     for (size_t i = 0; i < perm.size(); ++i) {
         char ch = perm[i];
         if (i == 0) {
-            if      (ch == 'd') { out += C_T_DIR; out += ch; out += C_RESET; }
-            else if (ch == 'l') { out += C_T_LNK; out += ch; out += C_RESET; }
-            else { out += ch; }
-        } else if (ch == 'r') {
-            out += C_R; out += 'r'; out += C_RESET;
-        } else if (ch == 'w') {
-            out += C_W; out += 'w'; out += C_RESET;
-        } else if (ch == 'x' || ch == 's' || ch == 'S' || ch == 't' || ch == 'T') {
-            out += C_X; out += ch; out += C_RESET;
+            if (ch == 'd' && !c_dir.empty()) {
+                out += c_dir;
+                out += ch;
+                out += theme.reset;
+            } else if (ch == 'l' && !c_link.empty()) {
+                out += c_link;
+                out += ch;
+                out += theme.reset;
+            } else {
+                out += ch;
+            }
+        } else if (ch == 'r' && !c_r.empty()) {
+            out += c_r;
+            out += 'r';
+            out += theme.reset;
+        } else if (ch == 'w' && !c_w.empty()) {
+            out += c_w;
+            out += 'w';
+            out += theme.reset;
+        } else if ((ch == 'x' || ch == 's' || ch == 'S' || ch == 't' || ch == 'T') && !c_x.empty()) {
+            out += c_x;
+            out += ch;
+            out += theme.reset;
         } else {
             out += ch;
         }

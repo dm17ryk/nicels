@@ -38,6 +38,12 @@ struct FileInfo {
     bool is_dir = false;
     bool is_symlink = false;
     bool is_exec = false;
+    bool is_hidden = false;
+    bool is_broken_symlink = false;
+    bool is_socket = false;
+    bool is_block_device = false;
+    bool is_char_device = false;
+    bool has_recognized_icon = false;
     uintmax_t inode = 0;
     uintmax_t size = 0;
     std::filesystem::file_time_type mtime{};

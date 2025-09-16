@@ -7,48 +7,20 @@
 #include <iomanip>
 #include <utility>
 #include <cctype>
+#include <chrono>
 
 #include "console.h"
 #include "util.h"
 #include "icons.h"
 #include "git_status.h"
+#include "colors.h"
+#include "resources.h"
 
 namespace fs = std::filesystem;
 using std::string;
 using std::vector;
 
 namespace nls {
-
-static const char* FG_RESET = "\x1b[0m";
-
-struct ColorPalette {
-    const char* dir;
-    const char* link;
-    const char* exec;
-    const char* file;
-};
-
-static const ColorPalette COLOR_DEFAULT{ "\x1b[34m", "\x1b[36m", "\x1b[32m", "\x1b[37m" };
-static const ColorPalette COLOR_LIGHT  { "\x1b[34m", "\x1b[35m", "\x1b[31m", "\x1b[30m" };
-static const ColorPalette COLOR_DARK   { "\x1b[94m", "\x1b[96m", "\x1b[92m", "\x1b[97m" };
-
-static const ColorPalette& palette_for(const Options& opt) {
-    switch (opt.color_theme) {
-        case Options::ColorTheme::Light: return COLOR_LIGHT;
-        case Options::ColorTheme::Dark:  return COLOR_DARK;
-        case Options::ColorTheme::Default:
-        default:                         return COLOR_DEFAULT;
-    }
-}
-
-// Git colors
-static const char* FG_GIT_CLEAN = "\x1b[32m";     // ✓
-static const char* FG_GIT_MOD   = "\x1b[33m";     // modified
-static const char* FG_GIT_NEW   = "\x1b[35m";     // new/untracked
-static const char* FG_GIT_DEL   = "\x1b[31m";     // deleted
-static const char* FG_GIT_REN   = "\x1b[36m";     // renamed
-static const char* FG_GIT_TYP   = "\x1b[34m";     // typechange
-static const char* FG_GIT_CON   = "\x1b[91m";     // conflicted (bright red)
 
 struct Entry {
     FileInfo info;
@@ -82,7 +54,7 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
         return;
     }
 
-    const ColorPalette& palette = palette_for(opt);
+    const ThemeColors& theme_colors = active_theme();
 
     auto add_one = [&](const fs::directory_entry& de, std::string override_name = {}) {
         std::string name = override_name.empty() ? de.path().filename().string() : std::move(override_name);
@@ -99,6 +71,12 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
         e.info.name = std::move(name);
 
         std::error_code info_ec;
+        auto status = de.symlink_status(info_ec);
+        if (!info_ec) {
+            e.info.is_socket = fs::is_socket(status);
+            e.info.is_block_device = fs::is_block_file(status);
+            e.info.is_char_device = fs::is_character_file(status);
+        }
         e.info.is_dir = de.is_directory(info_ec);
         info_ec.clear();
         e.info.is_symlink = de.is_symlink(info_ec);
@@ -119,18 +97,43 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
         }
         e.info.mtime = de.last_write_time(info_ec);
         e.info.is_exec = is_executable_posix(de);
+        e.info.is_hidden = is_hidden(e.info.name);
+        std::error_code exists_ec;
+        bool exists = fs::exists(e.info.path, exists_ec);
+        e.info.is_broken_symlink = e.info.is_symlink && (!exists || exists_ec);
         fill_owner_group(e.info);
-        if (!opt.no_icons) e.info.icon = icon_for(e.info.name, e.info.is_dir, e.info.is_exec);
-        // color
+        IconResult icon = icon_for(e.info.name, e.info.is_dir, e.info.is_exec);
+        if (!opt.no_icons) {
+            e.info.icon = icon.icon;
+        }
+        e.info.has_recognized_icon = icon.recognized && !e.info.is_dir;
+
         if (opt.no_color) {
             e.info.color_fg.clear();
             e.info.color_reset.clear();
         } else {
-            if (e.info.is_symlink) e.info.color_fg = palette.link;
-            else if (e.info.is_dir) e.info.color_fg = palette.dir;
-            else if (e.info.is_exec) e.info.color_fg = palette.exec;
-            else e.info.color_fg = palette.file;
-            e.info.color_reset = FG_RESET;
+            std::string color;
+            if (e.info.is_symlink) {
+                color = e.info.is_broken_symlink ? theme_colors.get("dead_link") : theme_colors.get("link");
+            } else if (e.info.is_socket) {
+                color = theme_colors.get("socket");
+            } else if (e.info.is_block_device) {
+                color = theme_colors.get("blockdev");
+            } else if (e.info.is_char_device) {
+                color = theme_colors.get("chardev");
+            } else if (e.info.is_dir) {
+                color = e.info.is_hidden ? theme_colors.get("hidden_dir") : theme_colors.get("dir");
+            } else if (e.info.is_hidden) {
+                color = theme_colors.get("hidden");
+            } else if (e.info.is_exec) {
+                color = theme_colors.get("executable_file");
+            } else if (e.info.has_recognized_icon) {
+                color = theme_colors.get("recognized_file");
+            } else {
+                color = theme_colors.get("unrecognized_file");
+            }
+            e.info.color_fg = std::move(color);
+            e.info.color_reset = theme_colors.reset;
         }
         out.push_back(std::move(e));
     };
@@ -176,6 +179,13 @@ static std::string format_git_prefix(const std::set<std::string>* modes,
     bool saw_code = false;
     bool saw_visible = false;
     std::set<char> glyphs;
+    const ThemeColors& theme = active_theme();
+    std::string col_add = theme.color_or("addition", "\x1b[32m");
+    std::string col_mod = theme.color_or("modification", "\x1b[33m");
+    std::string col_del = theme.color_or("deletion", "\x1b[31m");
+    std::string col_untracked = theme.color_or("untracked", "\x1b[35m");
+    std::string col_clean = theme.color_or("unchanged", "\x1b[32m");
+    std::string col_conflict = theme.color_or("error", "\x1b[31m");
 
     if (modes) {
         for (const auto& code : *modes) {
@@ -191,8 +201,8 @@ static std::string format_git_prefix(const std::set<std::string>* modes,
     if (!saw_code) {
         if (is_dir && is_empty_dir) return std::string(4, ' ');
         std::string clean = "  \xe2\x9c\x93 ";
-        if (no_color) return clean;
-        return std::string(FG_GIT_CLEAN) + clean + FG_RESET;
+        if (no_color || col_clean.empty()) return clean;
+        return col_clean + clean + theme.reset;
     }
 
     if (!saw_visible) {
@@ -213,21 +223,31 @@ static std::string format_git_prefix(const std::set<std::string>* modes,
             out.push_back(' ');
             continue;
         }
-        const char* col = nullptr;
+        const std::string* col = nullptr;
         switch (ch) {
             case '?':
-            case 'A': col = FG_GIT_NEW; break;
-            case 'M': col = FG_GIT_MOD; break;
-            case 'D': col = FG_GIT_DEL; break;
-            case 'R': col = FG_GIT_REN; break;
-            case 'T': col = FG_GIT_TYP; break;
-            case 'U': col = FG_GIT_CON; break;
+                col = &col_untracked; break;
+            case 'A':
+                col = &col_add; break;
+            case 'M':
+                col = &col_mod; break;
+            case 'D':
+                col = &col_del; break;
+            case 'R':
+            case 'T':
+                col = &col_mod; break;
+            case 'U':
+                col = &col_conflict; break;
             default: break;
         }
         if (col) {
-            out += col;
-            out.push_back(ch);
-            out += FG_RESET;
+            if (!col->empty()) {
+                out += *col;
+                out.push_back(ch);
+                out += theme.reset;
+            } else {
+                out.push_back(ch);
+            }
         } else {
             out.push_back(ch);
         }
@@ -300,6 +320,36 @@ static void sort_entries(std::vector<Entry>& v, const Options& opt) {
     }
 }
 
+static std::chrono::system_clock::time_point to_system_clock(const fs::file_time_type& tp) {
+    using namespace std::chrono;
+    return time_point_cast<system_clock::duration>(tp - fs::file_time_type::clock::now() + system_clock::now());
+}
+
+static std::string age_color(const fs::file_time_type& tp, const ThemeColors& theme) {
+    auto file_time = to_system_clock(tp);
+    auto now = std::chrono::system_clock::now();
+    auto diff = now - file_time;
+    if (diff <= std::chrono::hours(1)) {
+        return theme.get("hour_old");
+    }
+    if (diff <= std::chrono::hours(24)) {
+        return theme.get("day_old");
+    }
+    return theme.get("no_modifier");
+}
+
+static std::string size_color(uintmax_t size, const ThemeColors& theme) {
+    constexpr uintmax_t MEDIUM_THRESHOLD = 1ull * 1024ull * 1024ull;      // 1 MiB
+    constexpr uintmax_t LARGE_THRESHOLD = 100ull * 1024ull * 1024ull;     // 100 MiB
+    if (size >= LARGE_THRESHOLD) {
+        return theme.get("file_large");
+    }
+    if (size >= MEDIUM_THRESHOLD) {
+        return theme.get("file_medium");
+    }
+    return theme.get("file_small");
+}
+
 static std::string base_display_name(const Entry& e, const Options& opt) {
     std::string name = e.info.name;
     if (opt.indicator == Options::IndicatorStyle::Slash && e.info.is_dir) name.push_back('/');
@@ -342,6 +392,7 @@ static std::string file_uri(const fs::path& path) {
 static std::string styled_name(const Entry& e, const Options& opt) {
     std::string label = base_display_name(e, opt);
     std::string out;
+    const ThemeColors& theme = active_theme();
     if (opt.hyperlink) {
         out += "\x1b]8;;";
         out += file_uri(e.info.path);
@@ -349,7 +400,13 @@ static std::string styled_name(const Entry& e, const Options& opt) {
     }
     if (!opt.no_color && !e.info.color_fg.empty()) out += e.info.color_fg;
     out += label;
-    if (!opt.no_color && !e.info.color_fg.empty()) out += FG_RESET;
+    if (!opt.no_color && !e.info.color_fg.empty()) {
+        if (!e.info.color_reset.empty()) {
+            out += e.info.color_reset;
+        } else {
+            out += theme.reset;
+        }
+    }
     if (opt.hyperlink) {
         out += "\x1b]8;;\x1b\\";
     }
@@ -434,6 +491,8 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
         w_size = std::max(w_size, size_str.size());
     }
 
+    const ThemeColors& theme = active_theme();
+
     for (const auto& e : v) {
         if (opt.show_inode) {
             std::cout << std::right << std::setw(static_cast<int>(inode_width)) << e.info.inode << ' ';
@@ -452,8 +511,18 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
         }
 
         std::string size_str = opt.bytes ? std::to_string(e.info.size) : human_size(e.info.size);
-        std::cout << std::right << std::setw(static_cast<int>(w_size)) << size_str << ' ';
-        std::cout << format_time(e.info.mtime, opt) << ' ';
+        std::string size_col = opt.no_color ? std::string() : size_color(e.info.size, theme);
+        if (!size_col.empty()) std::cout << size_col;
+        std::cout << std::right << std::setw(static_cast<int>(w_size)) << size_str;
+        if (!size_col.empty()) std::cout << theme.reset;
+        std::cout << ' ';
+
+        std::string time_str = format_time(e.info.mtime, opt);
+        std::string time_col = opt.no_color ? std::string() : age_color(e.info.mtime, theme);
+        if (!time_col.empty()) std::cout << time_col;
+        std::cout << time_str;
+        if (!time_col.empty()) std::cout << theme.reset;
+        std::cout << ' ';
 
         if (opt.git_status && !e.info.git_prefix.empty()) {
             std::cout << e.info.git_prefix << ' ';
@@ -560,7 +629,21 @@ static int list_path(const fs::path& p, const Options& opt) {
 int main(int argc, char** argv) {
     using namespace nls;
     enable_virtual_terminal();
+    init_resource_paths(argc > 0 ? argv[0] : nullptr);
+    load_color_themes();
     Options opt = parse_args(argc, argv);
+    ColorScheme scheme = ColorScheme::Dark;
+    switch (opt.color_theme) {
+        case Options::ColorTheme::Light:
+            scheme = ColorScheme::Light;
+            break;
+        case Options::ColorTheme::Dark:
+        case Options::ColorTheme::Default:
+        default:
+            scheme = ColorScheme::Dark;
+            break;
+    }
+    set_active_theme(scheme);
     int rc = 0;
     for (auto& p : opt.paths) {
         try {
