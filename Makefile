@@ -50,6 +50,7 @@ all: $(BIN)
 
 $(BIN): $(OBJ) | $(BIN_DIR)
 	$(CXX) $(OBJ) -o $@ $(LDFLAGS) $(LDLIBS)
+	cp -f $(BIN) .
 
 # Compile objects into OBJ_DIR
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
