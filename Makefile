@@ -34,13 +34,17 @@ BIN := $(BIN_DIR)/nls$(if $(filter Windows_NT,$(OS)),.exe,)
 # Optional: pkg-config for libgit2 (works on MSYS2, Linux, etc.)
 PKGCONF ?= pkg-config
 ifeq ($(USE_LIBGIT2),1)
-  LIBGIT2_CFLAGS := $(shell $(PKGCONF) --cflags libgit2 2>/dev/null)
-  LIBGIT2_LIBS   := $(shell $(PKGCONF) --libs   libgit2 2>/dev/null)
-  CXXFLAGS += -DUSE_LIBGIT2 $(LIBGIT2_CFLAGS)
-  LDLIBS   += $(LIBGIT2_LIBS)
-  # Fallback if pkg-config not found or empty:
-  ifeq ($(strip $(LIBGIT2_LIBS)),)
-    LDLIBS += -lgit2
+  LIBGIT2_AVAILABLE := $(shell $(PKGCONF) --exists libgit2 >/dev/null 2>&1 && echo 1 || echo 0)
+  ifeq ($(LIBGIT2_AVAILABLE),1)
+    LIBGIT2_CFLAGS := $(shell $(PKGCONF) --cflags libgit2 2>/dev/null)
+    LIBGIT2_LIBS   := $(shell $(PKGCONF) --libs   libgit2 2>/dev/null)
+    CXXFLAGS += -DUSE_LIBGIT2 $(LIBGIT2_CFLAGS)
+    LDLIBS   += $(LIBGIT2_LIBS)
+    ifeq ($(strip $(LIBGIT2_LIBS)),)
+      LDLIBS += -lgit2
+    endif
+  else
+    $(warning libgit2 development files not found; building without Git status support)
   endif
 endif
 

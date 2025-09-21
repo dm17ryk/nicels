@@ -4,10 +4,25 @@
 
 namespace fs = std::filesystem;
 
+#if defined(USE_LIBGIT2)
+#  if defined(__has_include)
+#    if __has_include(<git2.h>)
+#      include <git2.h>
+#      define NLS_USE_LIBGIT2 1
+#    endif
+#  else
+#    include <git2.h>
+#    define NLS_USE_LIBGIT2 1
+#  endif
+#endif
+
+#ifndef NLS_USE_LIBGIT2
+#  define NLS_USE_LIBGIT2 0
+#endif
+
 namespace nls {
 
-#ifdef USE_LIBGIT2
-#include <git2.h>
+#if NLS_USE_LIBGIT2
 
 // Open a repository by searching upward from 'p'
 static bool repo_open_for_path(const fs::path& p, git_repository** out) {
