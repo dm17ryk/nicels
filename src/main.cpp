@@ -582,10 +582,28 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
         std::cout << styled_name(e, opt);
 
         // symlink target
-        std::error_code ec;
         if (e.info.is_symlink) {
+            std::error_code ec;
             auto target = fs::read_symlink(e.info.path, ec);
-            if (!ec) std::cout << " -> " << target.string();
+            if (!ec) {
+                std::string target_str = target.string();
+                const char* arrow = "  \xE2\x87\x92 ";
+                bool broken = e.info.is_broken_symlink;
+                bool use_color = !opt.no_color;
+                std::string link_color;
+                if (use_color) {
+                    link_color = broken ? theme.get("dead_link") : theme.get("link");
+                    if (link_color.empty()) use_color = false;
+                }
+
+                if (use_color) std::cout << link_color;
+                std::cout << arrow;
+                std::cout << target_str;
+                if (broken) {
+                    std::cout << " [Dead link]";
+                }
+                if (use_color) std::cout << theme.reset;
+            }
         }
 
         std::cout << "\n";
