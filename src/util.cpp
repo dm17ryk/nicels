@@ -21,6 +21,7 @@
 #include <unistd.h>
 #else
 #include <windows.h>
+#include <Aclapi.h>
 #endif
 
 namespace fs = std::filesystem;
@@ -576,9 +577,78 @@ void fill_owner_group(FileInfo& fi) {
     }
 #else
     fi.nlink = 1;
-    fi.owner = "";
-    fi.group = "";
+    fi.owner.clear();
+    fi.group.clear();
     fi.inode = 0;
+
+    auto wide_to_utf8 = [](const std::wstring& wide) -> std::string {
+        if (wide.empty()) return {};
+        int required = ::WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, nullptr, 0, nullptr, nullptr);
+        if (required <= 1) return {};
+        std::string utf8(static_cast<size_t>(required - 1), '\0');
+        int converted = ::WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, utf8.data(), required, nullptr, nullptr);
+        if (converted <= 0) return {};
+        return utf8;
+    };
+
+    auto sid_to_account_name = [&](PSID sid) -> std::string {
+        if (sid == nullptr || !::IsValidSid(sid)) return {};
+
+        DWORD name_len = 0;
+        DWORD domain_len = 0;
+        SID_NAME_USE sid_type;
+        if (!::LookupAccountSidW(nullptr, sid, nullptr, &name_len, nullptr, &domain_len, &sid_type)) {
+            DWORD err = ::GetLastError();
+            if (err != ERROR_INSUFFICIENT_BUFFER || name_len == 0) {
+                return {};
+            }
+        }
+
+        std::wstring name(name_len, L'\0');
+        std::wstring domain(domain_len, L'\0');
+        if (!::LookupAccountSidW(
+                nullptr,
+                sid,
+                name_len ? name.data() : nullptr,
+                &name_len,
+                domain_len ? domain.data() : nullptr,
+                &domain_len,
+                &sid_type)) {
+            return {};
+        }
+
+        name.resize(name_len);
+        domain.resize(domain_len);
+
+        if (name.empty()) return {};
+        if (!domain.empty()) {
+            return wide_to_utf8(domain + L"\\" + name);
+        }
+        return wide_to_utf8(name);
+    };
+
+    PSECURITY_DESCRIPTOR security_descriptor = nullptr;
+    PSID owner_sid = nullptr;
+    PSID group_sid = nullptr;
+    std::wstring native_path = fi.path.native();
+    DWORD result = ::GetNamedSecurityInfoW(
+        native_path.c_str(),
+        SE_FILE_OBJECT,
+        OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION,
+        &owner_sid,
+        &group_sid,
+        nullptr,
+        nullptr,
+        &security_descriptor);
+
+    if (result == ERROR_SUCCESS) {
+        fi.owner = sid_to_account_name(owner_sid);
+        fi.group = sid_to_account_name(group_sid);
+    }
+
+    if (security_descriptor) {
+        ::LocalFree(security_descriptor);
+    }
 #endif
 }
 

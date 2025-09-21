@@ -10,6 +10,10 @@ CXXFLAGS_COMMON := -std=c++17 -Wall -Wextra -pedantic -Ithird-party/argparse/inc
 LDFLAGS :=
 LDLIBS :=
 
+ifeq ($(OS),Windows_NT)
+  LDLIBS += -ladvapi32
+endif
+
 # Build-type flags
 ifeq ($(BUILD),debug)
   CXXFLAGS := $(CXXFLAGS_COMMON) -O0 -g

@@ -56,7 +56,7 @@ Common options (subset, more coming):
 - Windows: the app enables ANSI support in the console at startup. Use Windows Terminal or a modern console.
 - Icons require a Nerd Font (same as colorls). Set your terminal font accordingly or run with `--no-icons`.
 - Column layout currently uses a simple printable-width heuristic; we’ll add wcwidth-based width later.
-- Owner/group on Windows are placeholders in this bootstrap. POSIX owner/group shown on Linux.
+- Owner/group information is shown on both Linux (POSIX users/groups) and Windows (DOMAIN\\User format).
 
 ## License
 
