@@ -223,6 +223,8 @@ ThemeColors make_fallback_theme() {
     theme.set("error", "\x1b[31m");
     theme.set("normal", "");
     theme.set("inode", "");
+    theme.set("header_directory", "\x1b[36m");
+    theme.set("header_names", "\x1b[37m");
     theme.set("addition", "\x1b[32m");
     theme.set("modification", "\x1b[33m");
     theme.set("deletion", "\x1b[31m");

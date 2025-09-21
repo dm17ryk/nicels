@@ -9,6 +9,7 @@
 #include <cctype>
 #include <chrono>
 #include <array>
+#include <sstream>
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -703,6 +704,7 @@ static std::string format_entry_cell(const Entry& e, const Options& opt, size_t 
 
 static void print_long(const std::vector<Entry>& v, const Options& opt, size_t inode_width) {
     constexpr size_t perm_width = 10;
+    const ThemeColors& theme = active_theme();
 
     // Determine column widths for metadata
     size_t w_owner = 0, w_group = 0, w_size = 0, w_nlink = 0, w_time = 0, w_git = 0;
@@ -728,6 +730,25 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
     const std::string git_header = "Git";
     const std::string name_header = "Name";
 
+    enum class HeaderAlign { Left, Right };
+    const std::string& header_color = theme.get("header_names");
+    auto format_header_cell = [&](const std::string& text, size_t width, HeaderAlign align) {
+        std::ostringstream oss;
+        if (align == HeaderAlign::Left) {
+            oss << std::left;
+        } else {
+            oss << std::right;
+        }
+        if (width > 0) {
+            oss << std::setw(static_cast<int>(width));
+        }
+        oss << text;
+        return apply_color(header_color, oss.str(), theme, opt.no_color);
+    };
+    auto format_simple_header = [&](const std::string& text) {
+        return apply_color(header_color, text, theme, opt.no_color);
+    };
+
     if (opt.header) {
         if (opt.show_inode) inode_width = std::max(inode_width, inode_header.size());
         w_nlink = std::max(w_nlink, links_header.size());
@@ -738,26 +759,24 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
         if (opt.git_status) w_git = std::max(w_git, git_header.size());
     }
 
-    const ThemeColors& theme = active_theme();
-
     if (opt.header) {
         if (opt.show_inode) {
-            std::cout << std::right << std::setw(static_cast<int>(inode_width)) << inode_header << ' ';
+            std::cout << format_header_cell(inode_header, inode_width, HeaderAlign::Right) << ' ';
         }
-        std::cout << std::left << std::setw(static_cast<int>(perm_width)) << "Mode" << ' ';
-        std::cout << std::right << std::setw(static_cast<int>(w_nlink)) << links_header << ' ';
+        std::cout << format_header_cell("Mode", perm_width, HeaderAlign::Left) << ' ';
+        std::cout << format_header_cell(links_header, w_nlink, HeaderAlign::Right) << ' ';
         if (opt.show_owner) {
-            std::cout << std::left << std::setw(static_cast<int>(w_owner)) << owner_header << ' ';
+            std::cout << format_header_cell(owner_header, w_owner, HeaderAlign::Left) << ' ';
         }
         if (opt.show_group) {
-            std::cout << std::left << std::setw(static_cast<int>(w_group)) << group_header << ' ';
+            std::cout << format_header_cell(group_header, w_group, HeaderAlign::Left) << ' ';
         }
-        std::cout << std::right << std::setw(static_cast<int>(w_size)) << size_header << ' ';
-        std::cout << std::left << std::setw(static_cast<int>(w_time)) << time_header << ' ';
+        std::cout << format_header_cell(size_header, w_size, HeaderAlign::Right) << ' ';
+        std::cout << format_header_cell(time_header, w_time, HeaderAlign::Left) << ' ';
         if (opt.git_status) {
-            std::cout << std::left << std::setw(static_cast<int>(w_git)) << git_header << ' ';
+            std::cout << format_header_cell(git_header, w_git, HeaderAlign::Left) << ' ';
         }
-        std::cout << name_header << "\n";
+        std::cout << format_simple_header(name_header) << "\n";
 
         if (opt.show_inode) {
             std::cout << std::string(inode_width, '-') << ' ';
@@ -916,6 +935,7 @@ static int list_path(const fs::path& p, const Options& opt) {
     sort_entries(items, opt);
 
     bool is_directory = fs::is_directory(p);
+    const ThemeColors& theme = active_theme();
     if (opt.header && opt.format == Options::Format::Long) {
         std::error_code ec;
         fs::path absolute_path = fs::absolute(p, ec);
@@ -941,7 +961,8 @@ static int list_path(const fs::path& p, const Options& opt) {
                 header_str.pop_back();
             }
         }
-        std::cout << "\nDirectory: " << header_str << "\n\n";
+        std::string colored_header = apply_color(theme.get("header_directory"), header_str, theme, opt.no_color);
+        std::cout << "\nDirectory: " << colored_header << "\n\n";
     } else if (opt.paths.size() > 1 && is_directory) {
         std::cout << p.string() << ":\n";
     }

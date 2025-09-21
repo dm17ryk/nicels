@@ -31,6 +31,10 @@ file_large:  darkred
 file_medium: saddlebrown
 file_small:  black
 
+# Header
+header_directory: royalblue
+header_names:     darkblue
+
 # Random
 report: black
 user:   darkblue

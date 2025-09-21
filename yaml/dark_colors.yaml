@@ -31,8 +31,12 @@ file_large:  orange
 file_medium: gold
 file_small:  peachpuff
 
+# Header
+header_directory: royalblue
+header_names:     lightgray
+
 # Random
-report: white
+report: lightgray
 user:   moccasin
 tree:   cyan
 empty:  yellow
