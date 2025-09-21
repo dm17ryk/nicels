@@ -2,6 +2,7 @@
 #include <string>
 #include <filesystem>
 #include <vector>
+#include <optional>
 
 namespace nls {
 
@@ -29,6 +30,9 @@ struct Options {
     bool show_group = true;
     bool hyperlink = false;
     bool header = false;
+    bool tree = false;
+
+    std::optional<std::size_t> tree_depth;   // max tree depth (levels of children)
 
     std::string time_style;    // strftime-style pattern or keyword
     std::vector<std::string> paths;

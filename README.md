@@ -47,6 +47,7 @@ Common options (subset, more coming):
 - `-r` : reverse order
 - `--gs` : (stub) show git status prefix; compile with libgit2 for real status
 - `--report[=WORD]` : show summary report (`long` default, `short` for compact totals)
+- `--tree[=DEPTH]` : show a tree view of directories (limit depth with `DEPTH`)
 - `--group-directories-first` : list directories before files
 - `--no-icons` : disable icons
 - `--no-color` : disable ANSI colors

@@ -66,6 +66,11 @@ struct Entry {
     FileInfo info;
 };
 
+struct TreeItem {
+    Entry entry;
+    std::vector<TreeItem> children;
+};
+
 #ifdef _WIN32
 struct WindowsLinkInfo {
     bool is_link = false;
@@ -542,6 +547,38 @@ static void sort_entries(std::vector<Entry>& v, const Options& opt) {
     }
 }
 
+static std::vector<TreeItem> build_tree_items(const fs::path& dir,
+                                             const Options& opt,
+                                             std::size_t depth,
+                                             std::vector<Entry>& flat) {
+    std::vector<TreeItem> nodes;
+    std::vector<Entry> items;
+    collect_entries(dir, opt, items);
+    apply_git_status(items, dir, opt);
+    sort_entries(items, opt);
+
+    nodes.reserve(items.size());
+    for (const auto& item : items) {
+        TreeItem node;
+        node.entry = item;
+        flat.push_back(item);
+
+        bool is_dir = node.entry.info.is_dir && !node.entry.info.is_symlink;
+        bool is_self = (node.entry.info.name == "." || node.entry.info.name == "..");
+        bool within_limit = true;
+        if (opt.tree_depth.has_value()) {
+            within_limit = depth + 1 < *opt.tree_depth;
+        }
+        if (is_dir && within_limit && !is_self) {
+            node.children = build_tree_items(node.entry.info.path, opt, depth + 1, flat);
+        }
+
+        nodes.push_back(std::move(node));
+    }
+
+    return nodes;
+}
+
 static std::chrono::system_clock::time_point to_system_clock(const fs::file_time_type& tp) {
     using namespace std::chrono;
     return time_point_cast<system_clock::duration>(tp - fs::file_time_type::clock::now() + system_clock::now());
@@ -700,6 +737,43 @@ static std::string format_entry_cell(const Entry& e, const Options& opt, size_t 
     }
     out += styled_name(e, opt);
     return out;
+}
+
+static std::string tree_prefix(const std::vector<bool>& branches, bool is_last) {
+    std::string prefix;
+    prefix.reserve(branches.size() * 4 + 5);
+    for (bool branch : branches) {
+        prefix += branch ? " │  " : "    ";
+    }
+    prefix += is_last ? " └── " : " ├── ";
+    return prefix;
+}
+
+static void print_tree_nodes(const std::vector<TreeItem>& nodes,
+                             const Options& opt,
+                             size_t inode_width,
+                             std::vector<bool>& branch_stack,
+                             const ThemeColors& theme) {
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        const TreeItem& node = nodes[i];
+        bool is_last = (i + 1 == nodes.size());
+        std::string prefix = tree_prefix(branch_stack, is_last);
+        std::cout << apply_color(theme.get("tree"), prefix, theme, opt.no_color);
+        std::cout << format_entry_cell(node.entry, opt, inode_width, true) << "\n";
+        if (!node.children.empty()) {
+            branch_stack.push_back(!is_last);
+            print_tree_nodes(node.children, opt, inode_width, branch_stack, theme);
+            branch_stack.pop_back();
+        }
+    }
+}
+
+static void print_tree_view(const std::vector<TreeItem>& nodes,
+                            const Options& opt,
+                            size_t inode_width) {
+    std::vector<bool> branch_stack;
+    const ThemeColors& theme = active_theme();
+    print_tree_nodes(nodes, opt, inode_width, branch_stack, theme);
 }
 
 static void print_long(const std::vector<Entry>& v, const Options& opt, size_t inode_width) {
@@ -938,13 +1012,50 @@ static void print_columns(const std::vector<Entry>& v, const Options& opt, size_
 }
 
 static int list_path(const fs::path& p, const Options& opt) {
+    std::error_code dir_ec;
+    bool is_directory = fs::is_directory(p, dir_ec);
+    const ThemeColors& theme = active_theme();
+
+    if (opt.tree) {
+        std::vector<Entry> flat;
+        if (is_directory) {
+            if (opt.paths.size() > 1) {
+                std::cout << p.string() << ":\n";
+            }
+            auto nodes = build_tree_items(p, opt, 0, flat);
+            size_t inode_width = compute_inode_width(flat, opt);
+            print_tree_view(nodes, opt, inode_width);
+        } else {
+            std::vector<Entry> single;
+            collect_entries(p, opt, single);
+            apply_git_status(single, is_directory ? p : p.parent_path(), opt);
+            sort_entries(single, opt);
+            flat = single;
+            size_t inode_width = compute_inode_width(flat, opt);
+            for (const auto& e : single) {
+                std::cout << format_entry_cell(e, opt, inode_width, true) << "\n";
+            }
+        }
+
+        if (opt.report != Options::Report::None) {
+            ReportStats stats = compute_report_stats(flat);
+            std::cout << "\n";
+            if (opt.report == Options::Report::Long) {
+                print_report_long(stats);
+            } else {
+                print_report_short(stats);
+            }
+        }
+
+        if (opt.paths.size() > 1) std::cout << "\n";
+        return 0;
+    }
+
     std::vector<Entry> items;
     collect_entries(p, opt, items);
-    apply_git_status(items, fs::is_directory(p) ? p : p.parent_path(), opt);
+    apply_git_status(items, is_directory ? p : p.parent_path(), opt);
     sort_entries(items, opt);
 
-    bool is_directory = fs::is_directory(p);
-    const ThemeColors& theme = active_theme();
     if (opt.header && opt.format == Options::Format::Long) {
         std::error_code ec;
         fs::path absolute_path = fs::absolute(p, ec);

@@ -322,6 +322,13 @@ Options parse_args(int argc, char** argv) {
         .flag()
         .action([&](auto&&){ opt.hyperlink = true; });
 
+    program.add_argument("--tree")
+        .help("show tree view of directories, optionally limited to DEPTH")
+        .metavar("DEPTH")
+        .default_value(std::string(""))
+        .implicit_value(std::string(""))
+        .nargs(argparse::nargs_pattern::optional);
+
     program.add_argument("--report")
         .help("show summary report: short, long (default: long)")
         .metavar("WORD")
@@ -353,6 +360,25 @@ Options parse_args(int argc, char** argv) {
             std::cerr << "nls: invalid value for --color: " << value << "\n";
             std::cerr << program << '\n';
             std::exit(2);
+        }
+    }
+
+    if (program.is_used("--tree")) {
+        opt.tree = true;
+        std::string value = program.get<std::string>("--tree");
+        if (!value.empty()) {
+            try {
+                std::size_t idx = 0;
+                unsigned long parsed = std::stoul(value, &idx);
+                if (idx != value.size() || parsed == 0) {
+                    throw std::invalid_argument("invalid depth");
+                }
+                opt.tree_depth = static_cast<std::size_t>(parsed);
+            } catch (const std::exception&) {
+                std::cerr << "nls: invalid value for --tree: " << value << "\n";
+                std::cerr << program << '\n';
+                std::exit(2);
+            }
         }
     }
 
