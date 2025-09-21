@@ -328,9 +328,9 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
             e.info.color_reset.clear();
         } else {
             std::string color;
-            if (e.info.is_symlink) {
+            /*if (e.info.is_symlink) {
                 color = e.info.is_broken_symlink ? theme_colors.get("dead_link") : theme_colors.get("link");
-            } else if (e.info.is_socket) {
+            } else*/ if (e.info.is_socket) {
                 color = theme_colors.get("socket");
             } else if (e.info.is_block_device) {
                 color = theme_colors.get("blockdev");
