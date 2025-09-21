@@ -8,6 +8,7 @@
 #include <cctype>
 #include <cstdio>
 #include <optional>
+#include <sstream>
 #include <unordered_map>
 
 namespace nls {
@@ -48,8 +49,50 @@ std::optional<std::array<int, 3>> parse_hex_triplet(std::string_view hex) {
     return std::nullopt;
 }
 
-const std::unordered_map<std::string, std::array<int, 3>>& color_map() {
-    static const std::unordered_map<std::string, std::array<int, 3>> map = {
+std::string trim_copy(std::string s) {
+    size_t start = 0;
+    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) ++start;
+    size_t end = s.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) --end;
+    return s.substr(start, end - start);
+}
+
+std::optional<std::array<int, 3>> parse_color_triplet(const std::string& value) {
+    std::string trimmed = trim_copy(value);
+    if (trimmed.empty()) return std::nullopt;
+
+    std::string lower = to_lower(trimmed);
+    std::string_view view(lower);
+    if (!view.empty() && view.front() == '#') {
+        view.remove_prefix(1);
+    } else if (view.size() > 2 && view[0] == '0' && (view[1] == 'x' || view[1] == 'X')) {
+        view.remove_prefix(2);
+    }
+
+    if (auto rgb = parse_hex_triplet(view)) {
+        return rgb;
+    }
+
+    std::string normalized = trimmed;
+    for (char& ch : normalized) {
+        if (ch == ',' || ch == ';') ch = ' ';
+    }
+
+    std::istringstream iss(normalized);
+    int r = 0;
+    int g = 0;
+    int b = 0;
+    if (!(iss >> r >> g >> b)) {
+        return std::nullopt;
+    }
+    if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
+        return std::nullopt;
+    }
+    return std::array<int, 3>{r, g, b};
+}
+
+std::unordered_map<std::string, std::array<int, 3>> make_default_color_map() {
+    return {
         {"black", {0, 0, 0}},
         {"white", {255, 255, 255}},
         {"red", {255, 0, 0}},
@@ -95,6 +138,32 @@ const std::unordered_map<std::string, std::array<int, 3>>& color_map() {
         {"purple", {128, 0, 128}},
         {"pink", {255, 192, 203}}
     };
+}
+
+std::unordered_map<std::string, std::array<int, 3>> load_color_map_from_yaml() {
+    std::unordered_map<std::string, std::array<int, 3>> result;
+    auto path = find_resource("colors.yaml");
+    if (path.empty()) {
+        return result;
+    }
+    auto yaml_map = load_simple_yaml_map(path, true);
+    for (auto& kv : yaml_map) {
+        auto rgb = parse_color_triplet(kv.second);
+        if (rgb) {
+            result.emplace(kv.first, *rgb);
+        }
+    }
+    return result;
+}
+
+const std::unordered_map<std::string, std::array<int, 3>>& color_map() {
+    static const std::unordered_map<std::string, std::array<int, 3>> map = [] {
+        auto loaded = load_color_map_from_yaml();
+        if (!loaded.empty()) {
+            return loaded;
+        }
+        return make_default_color_map();
+    }();
     return map;
 }
 
