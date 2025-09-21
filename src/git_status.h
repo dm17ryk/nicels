@@ -10,6 +10,7 @@ namespace nls {
 struct GitStatusResult {
     std::unordered_map<std::string, std::set<std::string>> entries;
     std::set<std::string> default_modes;
+    bool repository_found = false;
 };
 
 GitStatusResult get_git_status_for_dir(const std::filesystem::path& dir);

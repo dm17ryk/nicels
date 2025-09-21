@@ -73,6 +73,7 @@ GitStatusResult get_git_status_for_dir(const fs::path& dir) {
 
     git_repository* repo = nullptr;
     if (!repo_open_for_path(dir, &repo)) return result;
+    result.repository_found = true;
 
     std::error_code ec;
     fs::path dir_abs = fs::is_directory(dir) ? dir : dir.parent_path();
@@ -152,7 +153,7 @@ GitStatusResult get_git_status_for_dir(const fs::path& dir) {
 #else
 
 GitStatusResult get_git_status_for_dir(const fs::path& /*dir*/) {
-    // Stub: no git info. Return empty -> treat as clean.
+    // Stub: no git info.
     return {};
 }
 

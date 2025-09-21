@@ -387,10 +387,12 @@ static const std::set<std::string>* status_modes_for(const GitStatusResult& stat
     return nullptr;
 }
 
-static std::string format_git_prefix(const std::set<std::string>* modes,
+static std::string format_git_prefix(bool has_repo,
+                                     const std::set<std::string>* modes,
                                      bool is_dir,
                                      bool is_empty_dir,
                                      bool no_color) {
+    if (!has_repo) return {};
     bool saw_code = false;
     bool saw_visible = false;
     std::set<char> glyphs;
@@ -414,6 +416,9 @@ static std::string format_git_prefix(const std::set<std::string>* modes,
     }
 
     if (!saw_code) {
+        if (!has_repo) {
+            return {};
+        }
         if (is_dir && is_empty_dir) return std::string(4, ' ');
         std::string clean = "  \xe2\x9c\x93 ";
         if (no_color || col_clean.empty()) return clean;
@@ -487,7 +492,8 @@ static void apply_git_status(std::vector<Entry>& items, const fs::path& dir, con
             if (ec) is_empty_dir = false;
         }
 
-        e.info.git_prefix = format_git_prefix(modes, e.info.is_dir, is_empty_dir, opt.no_color);
+        e.info.git_prefix = format_git_prefix(status.repository_found, modes,
+                                             e.info.is_dir, is_empty_dir, opt.no_color);
     }
 }
 
