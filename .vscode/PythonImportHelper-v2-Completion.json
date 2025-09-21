@@ -1,0 +1,19 @@
+[
+    {
+        "label": "ConanFile",
+        "importPath": "conans",
+        "description": "conans",
+        "isExtraImport": true,
+        "detail": "conans",
+        "documentation": {}
+    },
+    {
+        "label": "ArgparseConan",
+        "kind": 6,
+        "importPath": "third-party.argparse.conanfile",
+        "description": "third-party.argparse.conanfile",
+        "peekOfCode": "class ArgparseConan(ConanFile):\n    name = \"argparse\"\n    version = \"3.1\"\n    exports_sources = \"include/argparse.hpp\"\n    no_copy_source = True\n    def package(self):\n        self.copy(\"argparse.hpp\")",
+        "detail": "third-party.argparse.conanfile",
+        "documentation": {}
+    }
+]
