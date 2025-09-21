@@ -136,6 +136,11 @@ Options parse_args(int argc, char** argv) {
             }
         });
 
+    program.add_argument("--header")
+        .help("print directory header and column names in long listing")
+        .flag()
+        .action([&](auto&&){ opt.header = true; });
+
     program.add_argument("-a", "--all")
         .help("do not ignore entries starting with .")
         .flag()

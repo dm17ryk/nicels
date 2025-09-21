@@ -28,6 +28,7 @@ struct Options {
     bool show_owner = true;
     bool show_group = true;
     bool hyperlink = false;
+    bool header = false;
 
     std::string time_style;    // strftime-style pattern or keyword
     std::vector<std::string> paths;

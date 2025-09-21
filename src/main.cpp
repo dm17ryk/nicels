@@ -702,17 +702,75 @@ static std::string format_entry_cell(const Entry& e, const Options& opt, size_t 
 }
 
 static void print_long(const std::vector<Entry>& v, const Options& opt, size_t inode_width) {
+    constexpr size_t perm_width = 10;
+
     // Determine column widths for metadata
-    size_t w_owner = 0, w_group = 0, w_size = 0, w_nlink = 0;
+    size_t w_owner = 0, w_group = 0, w_size = 0, w_nlink = 0, w_time = 0, w_git = 0;
     for (const auto& e : v) {
         if (opt.show_owner) w_owner = std::max(w_owner, e.info.owner.size());
         if (opt.show_group) w_group = std::max(w_group, e.info.group.size());
         w_nlink = std::max(w_nlink, std::to_string(e.info.nlink).size());
         std::string size_str = opt.bytes ? std::to_string(e.info.size) : human_size(e.info.size);
         w_size = std::max(w_size, size_str.size());
+        std::string time_str = format_time(e.info.mtime, opt);
+        w_time = std::max(w_time, time_str.size());
+        if (opt.git_status) {
+            w_git = std::max(w_git, printable_width(e.info.git_prefix));
+        }
+    }
+
+    const std::string size_header = opt.bytes ? "Length" : "Size";
+    const std::string links_header = "Links";
+    const std::string owner_header = "Owner";
+    const std::string group_header = "Group";
+    const std::string time_header = "LastWriteTime";
+    const std::string inode_header = "Inode";
+    const std::string git_header = "Git";
+    const std::string name_header = "Name";
+
+    if (opt.header) {
+        if (opt.show_inode) inode_width = std::max(inode_width, inode_header.size());
+        w_nlink = std::max(w_nlink, links_header.size());
+        if (opt.show_owner) w_owner = std::max(w_owner, owner_header.size());
+        if (opt.show_group) w_group = std::max(w_group, group_header.size());
+        w_size = std::max(w_size, size_header.size());
+        w_time = std::max(w_time, time_header.size());
+        if (opt.git_status) w_git = std::max(w_git, git_header.size());
     }
 
     const ThemeColors& theme = active_theme();
+
+    if (opt.header) {
+        if (opt.show_inode) {
+            std::cout << std::right << std::setw(static_cast<int>(inode_width)) << inode_header << ' ';
+        }
+        std::cout << std::left << std::setw(static_cast<int>(perm_width)) << "Mode" << ' ';
+        std::cout << std::right << std::setw(static_cast<int>(w_nlink)) << links_header << ' ';
+        if (opt.show_owner) {
+            std::cout << std::left << std::setw(static_cast<int>(w_owner)) << owner_header << ' ';
+        }
+        if (opt.show_group) {
+            std::cout << std::left << std::setw(static_cast<int>(w_group)) << group_header << ' ';
+        }
+        std::cout << std::right << std::setw(static_cast<int>(w_size)) << size_header << ' ';
+        std::cout << std::left << std::setw(static_cast<int>(w_time)) << time_header << ' ';
+        if (opt.git_status) {
+            std::cout << std::left << std::setw(static_cast<int>(w_git)) << git_header << ' ';
+        }
+        std::cout << name_header << "\n";
+
+        if (opt.show_inode) {
+            std::cout << std::string(inode_width, '-') << ' ';
+        }
+        std::cout << std::string(perm_width, '-') << ' ';
+        std::cout << std::string(w_nlink, '-') << ' ';
+        if (opt.show_owner) std::cout << std::string(w_owner, '-') << ' ';
+        if (opt.show_group) std::cout << std::string(w_group, '-') << ' ';
+        std::cout << std::string(w_size, '-') << ' ';
+        std::cout << std::string(w_time, '-') << ' ';
+        if (opt.git_status) std::cout << std::string(w_git, '-') << ' ';
+        std::cout << std::string(name_header.size(), '-') << "\n";
+    }
 
     for (const auto& e : v) {
         if (opt.show_inode) {
@@ -741,12 +799,25 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
         std::string time_str = format_time(e.info.mtime, opt);
         std::string time_col = opt.no_color ? std::string() : age_color(e.info.mtime, theme);
         if (!time_col.empty()) std::cout << time_col;
-        std::cout << time_str;
+        if (opt.header) {
+            std::cout << std::left << std::setw(static_cast<int>(w_time)) << time_str;
+        } else {
+            std::cout << time_str;
+        }
         if (!time_col.empty()) std::cout << theme.reset;
         std::cout << ' ';
 
-        if (opt.git_status && !e.info.git_prefix.empty()) {
-            std::cout << e.info.git_prefix << ' ';
+        if (opt.git_status) {
+            if (opt.header) {
+                std::cout << e.info.git_prefix;
+                size_t git_width = printable_width(e.info.git_prefix);
+                if (w_git > git_width) {
+                    std::cout << std::string(w_git - git_width, ' ');
+                }
+                std::cout << ' ';
+            } else if (!e.info.git_prefix.empty()) {
+                std::cout << e.info.git_prefix << ' ';
+            }
         }
 
         std::cout << styled_name(e, opt);
@@ -844,8 +915,36 @@ static int list_path(const fs::path& p, const Options& opt) {
     apply_git_status(items, fs::is_directory(p) ? p : p.parent_path(), opt);
     sort_entries(items, opt);
 
-    bool print_header = (opt.paths.size() > 1 && fs::is_directory(p));
-    if (print_header) std::cout << p.string() << ":\n";
+    bool is_directory = fs::is_directory(p);
+    if (opt.header && opt.format == Options::Format::Long) {
+        std::error_code ec;
+        fs::path absolute_path = fs::absolute(p, ec);
+        fs::path header_path;
+        if (!ec) {
+            header_path = is_directory ? absolute_path : absolute_path.parent_path();
+        }
+        if (header_path.empty()) {
+            header_path = is_directory ? p : p.parent_path();
+        }
+        if (header_path.empty()) {
+            std::error_code cwd_ec;
+            fs::path cwd = fs::current_path(cwd_ec);
+            if (!cwd_ec) header_path = cwd;
+        }
+        if (!header_path.empty()) {
+            header_path = header_path.lexically_normal();
+        }
+        std::string header_str = header_path.string();
+        if (!header_str.empty()) {
+            std::string root_str = header_path.root_path().string();
+            while (header_str.size() > 1 && (header_str.back() == '/' || header_str.back() == '\\') && header_str != root_str) {
+                header_str.pop_back();
+            }
+        }
+        std::cout << "\nDirectory: " << header_str << "\n\n";
+    } else if (opt.paths.size() > 1 && is_directory) {
+        std::cout << p.string() << ":\n";
+    }
 
     size_t inode_width = compute_inode_width(items, opt);
     switch (opt.format) {
