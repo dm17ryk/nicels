@@ -316,6 +316,13 @@ Options parse_args(int argc, char** argv) {
         .flag()
         .action([&](auto&&){ opt.hyperlink = true; });
 
+    program.add_argument("--report")
+        .help("show summary report: short, long (default: long)")
+        .metavar("WORD")
+        .default_value(std::string(""))
+        .implicit_value(std::string("long"))
+        .nargs(argparse::nargs_pattern::optional);
+
     program.add_argument("paths")
         .help("paths to list")
         .remaining();
@@ -338,6 +345,20 @@ Options parse_args(int argc, char** argv) {
             opt.no_color = false;
         } else {
             std::cerr << "nls: invalid value for --color: " << value << "\n";
+            std::cerr << program << '\n';
+            std::exit(2);
+        }
+    }
+
+    if (program.is_used("--report")) {
+        std::string value = program.get<std::string>("--report");
+        std::string word = to_lower(value);
+        if (word.empty() || word == "long") {
+            opt.report = Options::Report::Long;
+        } else if (word == "short") {
+            opt.report = Options::Report::Short;
+        } else {
+            std::cerr << "nls: invalid value for --report: " << value << "\n";
             std::cerr << program << '\n';
             std::exit(2);
         }

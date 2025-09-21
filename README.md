@@ -46,6 +46,7 @@ Common options (subset, more coming):
 - `-S` : sort by size
 - `-r` : reverse order
 - `--gs` : (stub) show git status prefix; compile with libgit2 for real status
+- `--report[=WORD]` : show summary report (`long` default, `short` for compact totals)
 - `--group-directories-first` : list directories before files
 - `--no-icons` : disable icons
 - `--no-color` : disable ANSI colors

@@ -26,6 +26,57 @@ struct Entry {
     FileInfo info;
 };
 
+struct ReportStats {
+    size_t total = 0;
+    size_t folders = 0;
+    size_t recognized_files = 0;
+    size_t unrecognized_files = 0;
+    size_t links = 0;
+    size_t dead_links = 0;
+
+    size_t files() const { return recognized_files + unrecognized_files; }
+};
+
+static ReportStats compute_report_stats(const std::vector<Entry>& items) {
+    ReportStats stats;
+    stats.total = items.size();
+    for (const auto& e : items) {
+        bool is_directory = e.info.is_dir && !e.info.is_symlink;
+        if (is_directory) {
+            ++stats.folders;
+        } else {
+            if (e.info.has_recognized_icon) {
+                ++stats.recognized_files;
+            } else {
+                ++stats.unrecognized_files;
+            }
+        }
+        if (e.info.is_symlink) {
+            ++stats.links;
+            if (e.info.is_broken_symlink) {
+                ++stats.dead_links;
+            }
+        }
+    }
+    return stats;
+}
+
+static void print_report_short(const ReportStats& stats) {
+    std::cout << "    Folders: " << stats.folders
+              << ", Files: " << stats.files() << ".\n\n";
+}
+
+static void print_report_long(const ReportStats& stats) {
+    std::cout << "    Found " << stats.total << ' '
+              << (stats.total == 1 ? "item" : "items")
+              << " in total.\n\n";
+    std::cout << "        Folders                 : " << stats.folders << "\n";
+    std::cout << "        Recognized files        : " << stats.recognized_files << "\n";
+    std::cout << "        Unrecognized files      : " << stats.unrecognized_files << "\n";
+    std::cout << "        Links                   : " << stats.links << "\n";
+    std::cout << "        Dead links              : " << stats.dead_links << "\n\n";
+}
+
 static bool is_executable_posix(const fs::directory_entry& de) {
 #ifdef _WIN32
     // simple heuristic: .exe/.bat/.cmd/.ps1
@@ -618,6 +669,16 @@ static int list_path(const fs::path& p, const Options& opt) {
         default:
             print_columns(items, opt, inode_width);
             break;
+    }
+
+    if (opt.report != Options::Report::None) {
+        ReportStats stats = compute_report_stats(items);
+        std::cout << "\n";
+        if (opt.report == Options::Report::Long) {
+            print_report_long(stats);
+        } else {
+            print_report_short(stats);
+        }
     }
 
     if (opt.paths.size() > 1) std::cout << "\n";

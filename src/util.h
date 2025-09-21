@@ -10,6 +10,7 @@ struct Options {
     enum class IndicatorStyle { None, Slash } indicator = IndicatorStyle::Slash;
     enum class ColorTheme { Default, Light, Dark } color_theme = ColorTheme::Default;
     enum class Sort { Name, Time, Size, Extension, None } sort = Sort::Name;
+    enum class Report { None, Short, Long } report = Report::None;
 
     bool all = false;
     bool almost_all = false;
