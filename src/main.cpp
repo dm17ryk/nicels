@@ -8,6 +8,45 @@
 #include <utility>
 #include <cctype>
 #include <chrono>
+#include <array>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <winioctl.h>
+
+#ifndef REPARSE_DATA_BUFFER_HEADER_SIZE
+typedef struct _REPARSE_DATA_BUFFER {
+    DWORD ReparseTag;
+    WORD ReparseDataLength;
+    WORD Reserved;
+    union {
+        struct {
+            WORD SubstituteNameOffset;
+            WORD SubstituteNameLength;
+            WORD PrintNameOffset;
+            WORD PrintNameLength;
+            ULONG Flags;
+            WCHAR PathBuffer[1];
+        } SymbolicLinkReparseBuffer;
+        struct {
+            WORD SubstituteNameOffset;
+            WORD SubstituteNameLength;
+            WORD PrintNameOffset;
+            WORD PrintNameLength;
+            WCHAR PathBuffer[1];
+        } MountPointReparseBuffer;
+        struct {
+            BYTE DataBuffer[1];
+        } GenericReparseBuffer;
+    };
+} REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
+
+#define REPARSE_DATA_BUFFER_HEADER_SIZE FIELD_OFFSET(REPARSE_DATA_BUFFER, GenericReparseBuffer)
+#endif
+#endif
 
 #include "console.h"
 #include "util.h"
@@ -25,6 +64,102 @@ namespace nls {
 struct Entry {
     FileInfo info;
 };
+
+#ifdef _WIN32
+struct WindowsLinkInfo {
+    bool is_link = false;
+    bool has_target = false;
+    fs::path target;
+};
+
+static std::wstring read_reparse_string(const WCHAR* path_buffer, USHORT offset, USHORT length) {
+    if (length == 0) return {};
+    const unsigned char* bytes = reinterpret_cast<const unsigned char*>(path_buffer);
+    const WCHAR* start = reinterpret_cast<const WCHAR*>(bytes + offset);
+    size_t count = length / sizeof(WCHAR);
+    return std::wstring(start, start + count);
+}
+
+static std::wstring clean_windows_reparse_target(std::wstring target) {
+    const std::wstring prefix = L"\\??\\";
+    if (target.rfind(prefix, 0) == 0) {
+        target.erase(0, prefix.size());
+        const std::wstring unc_prefix = L"UNC\\";
+        if (target.rfind(unc_prefix, 0) == 0) {
+            target.erase(0, unc_prefix.size());
+            target.insert(0, L"\\\\");
+        }
+    }
+    return target;
+}
+
+static WindowsLinkInfo query_windows_link(const fs::path& path) {
+    WindowsLinkInfo info;
+    DWORD attrs = GetFileAttributesW(path.c_str());
+    if (attrs == INVALID_FILE_ATTRIBUTES) {
+        return info;
+    }
+    if ((attrs & FILE_ATTRIBUTE_REPARSE_POINT) == 0) {
+        return info;
+    }
+
+    HANDLE handle = CreateFileW(path.c_str(), 0,
+                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                nullptr, OPEN_EXISTING,
+                                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                                nullptr);
+    if (handle == INVALID_HANDLE_VALUE) {
+        info.is_link = true;
+        return info;
+    }
+
+    std::array<unsigned char, MAXIMUM_REPARSE_DATA_BUFFER_SIZE> buffer{};
+    DWORD bytes_returned = 0;
+    BOOL ok = DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+                              buffer.data(), static_cast<DWORD>(buffer.size()),
+                              &bytes_returned, nullptr);
+    CloseHandle(handle);
+    if (!ok) {
+        info.is_link = true;
+        return info;
+    }
+
+    auto* header = reinterpret_cast<REPARSE_DATA_BUFFER*>(buffer.data());
+    switch (header->ReparseTag) {
+        case IO_REPARSE_TAG_SYMLINK: {
+            info.is_link = true;
+            const auto& data = header->SymbolicLinkReparseBuffer;
+            std::wstring target = read_reparse_string(data.PathBuffer, data.PrintNameOffset, data.PrintNameLength);
+            if (target.empty()) {
+                target = read_reparse_string(data.PathBuffer, data.SubstituteNameOffset, data.SubstituteNameLength);
+            }
+            target = clean_windows_reparse_target(std::move(target));
+            if (!target.empty()) {
+                info.target = fs::path(target);
+                info.has_target = true;
+            }
+            break;
+        }
+        case IO_REPARSE_TAG_MOUNT_POINT: {
+            info.is_link = true;
+            const auto& data = header->MountPointReparseBuffer;
+            std::wstring target = read_reparse_string(data.PathBuffer, data.PrintNameOffset, data.PrintNameLength);
+            if (target.empty()) {
+                target = read_reparse_string(data.PathBuffer, data.SubstituteNameOffset, data.SubstituteNameLength);
+            }
+            target = clean_windows_reparse_target(std::move(target));
+            if (!target.empty()) {
+                info.target = fs::path(target);
+                info.has_target = true;
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    return info;
+}
+#endif
 
 struct ReportStats {
     size_t total = 0;
@@ -127,11 +262,40 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
             e.info.is_socket = fs::is_socket(status);
             e.info.is_block_device = fs::is_block_file(status);
             e.info.is_char_device = fs::is_character_file(status);
+            e.info.is_symlink = fs::is_symlink(status);
         }
+        info_ec.clear();
+        if (!e.info.is_symlink) {
+            e.info.is_symlink = de.is_symlink(info_ec);
+        }
+        info_ec.clear();
         e.info.is_dir = de.is_directory(info_ec);
         info_ec.clear();
-        e.info.is_symlink = de.is_symlink(info_ec);
-        info_ec.clear();
+
+        auto fill_symlink_target = [&]() {
+            if (!e.info.is_symlink || e.info.has_symlink_target) return;
+            std::error_code link_ec;
+            auto target = fs::read_symlink(e.info.path, link_ec);
+            if (!link_ec) {
+                e.info.symlink_target = std::move(target);
+                e.info.has_symlink_target = true;
+            }
+        };
+
+        fill_symlink_target();
+#ifdef _WIN32
+        if (!e.info.is_symlink || !e.info.has_symlink_target) {
+            WindowsLinkInfo link_info = query_windows_link(de.path());
+            if (link_info.is_link) {
+                e.info.is_symlink = true;
+                if (!e.info.has_symlink_target && link_info.has_target) {
+                    e.info.symlink_target = std::move(link_info.target);
+                    e.info.has_symlink_target = true;
+                }
+            }
+        }
+        fill_symlink_target();
+#endif
 
         if (opt.dirs_only && !e.info.is_dir) return;
         if (opt.files_only && e.info.is_dir) return;
@@ -583,10 +747,15 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
 
         // symlink target
         if (e.info.is_symlink) {
-            std::error_code ec;
-            auto target = fs::read_symlink(e.info.path, ec);
-            if (!ec) {
-                std::string target_str = target.string();
+            std::string target_str;
+            if (e.info.has_symlink_target) {
+                target_str = e.info.symlink_target.string();
+            } else {
+                std::error_code ec;
+                auto target = fs::read_symlink(e.info.path, ec);
+                if (!ec) target_str = target.string();
+            }
+            if (!target_str.empty()) {
                 const char* arrow = "  \xE2\x87\x92 ";
                 bool broken = e.info.is_broken_symlink;
                 bool use_color = !opt.no_color;

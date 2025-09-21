@@ -48,6 +48,8 @@ struct FileInfo {
     uintmax_t inode = 0;
     uintmax_t size = 0;
     std::filesystem::file_time_type mtime{};
+    std::filesystem::path symlink_target;
+    bool has_symlink_target = false;
 #ifdef _WIN32
     unsigned long nlink = 1;
     std::string owner = "";
