@@ -31,6 +31,10 @@ file_large:  orange
 file_medium: gold
 file_small:  peachpuff
 
+# Ownership
+owned: moccasin
+group: darkkhaki
+
 # Header
 header_directory: royalblue
 header_names:     lightgray

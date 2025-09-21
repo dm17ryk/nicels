@@ -721,6 +721,9 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
         }
     }
 
+    const std::string owner_color = opt.no_color ? std::string() : theme.get("owned");
+    const std::string group_color = opt.no_color ? std::string() : theme.get("group");
+
     const std::string size_header = opt.bytes ? "Length" : "Size";
     const std::string links_header = "Links";
     const std::string owner_header = "Owner";
@@ -802,10 +805,16 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
         std::cout << std::right << std::setw(static_cast<int>(w_nlink)) << e.info.nlink << ' ';
 
         if (opt.show_owner) {
-            std::cout << std::left << std::setw(static_cast<int>(w_owner)) << e.info.owner << ' ';
+            if (!owner_color.empty()) std::cout << owner_color;
+            std::cout << std::left << std::setw(static_cast<int>(w_owner)) << e.info.owner;
+            if (!owner_color.empty()) std::cout << theme.reset;
+            std::cout << ' ';
         }
         if (opt.show_group) {
-            std::cout << std::left << std::setw(static_cast<int>(w_group)) << e.info.group << ' ';
+            if (!group_color.empty()) std::cout << group_color;
+            std::cout << std::left << std::setw(static_cast<int>(w_group)) << e.info.group;
+            if (!group_color.empty()) std::cout << theme.reset;
+            std::cout << ' ';
         }
 
         std::string size_str = opt.bytes ? std::to_string(e.info.size) : human_size(e.info.size);
