@@ -331,7 +331,36 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
         std::error_code exists_ec;
         bool exists = fs::exists(e.info.path, exists_ec);
         e.info.is_broken_symlink = e.info.is_symlink && (!exists || exists_ec);
-        fill_owner_group(e.info);
+        fill_owner_group(e.info, opt.dereference);
+        if (opt.dereference && e.info.is_symlink && !e.info.is_broken_symlink) {
+            std::error_code follow_ec;
+            auto follow_status = fs::status(e.info.path, follow_ec);
+            if (!follow_ec) {
+                e.info.is_dir = fs::is_directory(follow_status);
+                e.info.is_socket = fs::is_socket(follow_status);
+                e.info.is_block_device = fs::is_block_file(follow_status);
+                e.info.is_char_device = fs::is_character_file(follow_status);
+
+                bool follow_is_reg = fs::is_regular_file(follow_status);
+                std::error_code size_ec;
+                if (e.info.is_dir) {
+                    e.info.size = 0;
+                } else if (follow_is_reg) {
+                    e.info.size = fs::file_size(e.info.path, size_ec);
+                    if (size_ec) {
+                        e.info.size = 0;
+                    }
+                }
+            }
+
+            std::error_code time_ec;
+            auto follow_time = fs::last_write_time(e.info.path, time_ec);
+            if (!time_ec) {
+                e.info.mtime = follow_time;
+            }
+        } else if (e.info.is_symlink && e.info.has_link_size) {
+            e.info.size = e.info.link_size;
+        }
         IconResult icon = icon_for(e.info.name, e.info.is_dir, e.info.is_exec);
         if (!opt.no_icons) {
             e.info.icon = icon.icon;
@@ -618,9 +647,131 @@ static std::string size_color(uintmax_t size, const ThemeColors& theme) {
     return theme.get("file_small");
 }
 
+static bool is_shell_safe_char(unsigned char ch) {
+    if (std::isalnum(ch)) return true;
+    switch (ch) {
+        case '_': case '@': case '%': case '+': case '=':
+        case ':': case ',': case '.': case '/': case '-':
+            return true;
+        default:
+            return false;
+    }
+}
+
+static std::string c_style_escape(const std::string& input, bool include_quotes, bool escape_single_quote) {
+    const char* hex = "0123456789ABCDEF";
+    std::string out;
+    if (include_quotes) out.push_back('"');
+    out.reserve(input.size() + 4);
+    for (unsigned char ch : input) {
+        switch (ch) {
+            case '\\':
+                out += "\\\\";
+                break;
+            case '\"':
+                out += "\\\"";
+                break;
+            case '\'':
+                if (escape_single_quote) {
+                    out += "\\'";
+                } else {
+                    out.push_back('\'');
+                }
+                break;
+            case '\a':
+                out += "\\a";
+                break;
+            case '\b':
+                out += "\\b";
+                break;
+            case '\f':
+                out += "\\f";
+                break;
+            case '\n':
+                out += "\\n";
+                break;
+            case '\r':
+                out += "\\r";
+                break;
+            case '\t':
+                out += "\\t";
+                break;
+            case '\v':
+                out += "\\v";
+                break;
+            default:
+                if (std::isprint(ch)) {
+                    out.push_back(static_cast<char>(ch));
+                } else {
+                    out.push_back('\\');
+                    out.push_back('x');
+                    out.push_back(hex[(ch >> 4) & 0x0F]);
+                    out.push_back(hex[ch & 0x0F]);
+                }
+                break;
+        }
+    }
+    if (include_quotes) out.push_back('"');
+    return out;
+}
+
+static bool needs_shell_quotes(const std::string& text) {
+    if (text.empty()) return true;
+    for (unsigned char ch : text) {
+        if (!is_shell_safe_char(ch)) return true;
+    }
+    return false;
+}
+
+static std::string shell_quote(const std::string& text, bool always) {
+    bool needs = always || needs_shell_quotes(text);
+    if (!needs) return text;
+    std::string out;
+    out.reserve(text.size() + 2);
+    out.push_back('\'');
+    for (unsigned char ch : text) {
+        if (ch == '\'') {
+            out += "'\\''";
+        } else {
+            out.push_back(static_cast<char>(ch));
+        }
+    }
+    out.push_back('\'');
+    return out;
+}
+
+static std::string shell_escape(const std::string& text, bool always) {
+    bool needs = always || needs_shell_quotes(text);
+    if (!needs) return text;
+    return std::string("$'") + c_style_escape(text, false, true) + "'";
+}
+
+static std::string apply_quoting(const std::string& name, const Options& opt) {
+    using QS = Options::QuotingStyle;
+    switch (opt.quoting_style) {
+        case QS::Literal:
+            return name;
+        case QS::Locale:
+        case QS::C:
+            return c_style_escape(name, true, false);
+        case QS::Escape:
+            return c_style_escape(name, false, false);
+        case QS::Shell:
+            return shell_quote(name, false);
+        case QS::ShellAlways:
+            return shell_quote(name, true);
+        case QS::ShellEscape:
+            return shell_escape(name, false);
+        case QS::ShellEscapeAlways:
+            return shell_escape(name, true);
+    }
+    return name;
+}
+
 static std::string base_display_name(const Entry& e, const Options& opt) {
     std::string name = e.info.name;
     if (opt.indicator == Options::IndicatorStyle::Slash && e.info.is_dir) name.push_back('/');
+    name = apply_quoting(name, opt);
     if (!e.info.icon.empty()) {
         return e.info.icon + std::string(" ") + name;
     }
@@ -789,11 +940,37 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
     constexpr size_t perm_width = 10;
     const ThemeColors& theme = active_theme();
 
+    auto owner_display = [&](const Entry& entry) -> std::string {
+        if (opt.numeric_uid_gid && entry.info.has_owner_id) {
+            return std::to_string(entry.info.owner_id);
+        }
+        if (!entry.info.owner.empty()) {
+            return entry.info.owner;
+        }
+        if (entry.info.has_owner_id) {
+            return std::to_string(entry.info.owner_id);
+        }
+        return std::string();
+    };
+
+    auto group_display = [&](const Entry& entry) -> std::string {
+        if (opt.numeric_uid_gid && entry.info.has_group_id) {
+            return std::to_string(entry.info.group_id);
+        }
+        if (!entry.info.group.empty()) {
+            return entry.info.group;
+        }
+        if (entry.info.has_group_id) {
+            return std::to_string(entry.info.group_id);
+        }
+        return std::string();
+    };
+
     // Determine column widths for metadata
     size_t w_owner = 0, w_group = 0, w_size = 0, w_nlink = 0, w_time = 0, w_git = 0;
     for (const auto& e : v) {
-        if (opt.show_owner) w_owner = std::max(w_owner, e.info.owner.size());
-        if (opt.show_group) w_group = std::max(w_group, e.info.group.size());
+        if (opt.show_owner) w_owner = std::max(w_owner, owner_display(e).size());
+        if (opt.show_group) w_group = std::max(w_group, group_display(e).size());
         w_nlink = std::max(w_nlink, std::to_string(e.info.nlink).size());
         std::string size_str = opt.bytes ? std::to_string(e.info.size) : human_size(e.info.size);
         w_size = std::max(w_size, size_str.size());
@@ -882,20 +1059,22 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
             std::cout << std::right << std::setw(static_cast<int>(inode_width)) << e.info.inode << ' ';
         }
 
-        std::string perm = perm_string(fs::directory_entry(e.info.path), e.info.is_symlink);
+        std::string perm = perm_string(fs::directory_entry(e.info.path), e.info.is_symlink, opt.dereference);
         std::cout << colorize_perm(perm, opt.no_color) << ' ';
 
         std::cout << std::right << std::setw(static_cast<int>(w_nlink)) << e.info.nlink << ' ';
 
         if (opt.show_owner) {
+            std::string owner_text = owner_display(e);
             if (!owner_color.empty()) std::cout << owner_color;
-            std::cout << std::left << std::setw(static_cast<int>(w_owner)) << e.info.owner;
+            std::cout << std::left << std::setw(static_cast<int>(w_owner)) << owner_text;
             if (!owner_color.empty()) std::cout << theme.reset;
             std::cout << ' ';
         }
         if (opt.show_group) {
+            std::string group_text = group_display(e);
             if (!group_color.empty()) std::cout << group_color;
-            std::cout << std::left << std::setw(static_cast<int>(w_group)) << e.info.group;
+            std::cout << std::left << std::setw(static_cast<int>(w_group)) << group_text;
             if (!group_color.empty()) std::cout << theme.reset;
             std::cout << ' ';
         }
@@ -944,6 +1123,7 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
                 if (!ec) target_str = target.string();
             }
             if (!target_str.empty()) {
+                target_str = apply_quoting(target_str, opt);
                 const char* arrow = "  \xE2\x87\x92 ";
                 bool broken = e.info.is_broken_symlink;
                 bool use_color = !opt.no_color;
