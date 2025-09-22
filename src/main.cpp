@@ -174,6 +174,7 @@ struct ReportStats {
     size_t unrecognized_files = 0;
     size_t links = 0;
     size_t dead_links = 0;
+    uintmax_t total_size = 0;
 
     size_t files() const { return recognized_files + unrecognized_files; }
 };
@@ -191,6 +192,7 @@ static ReportStats compute_report_stats(const std::vector<Entry>& items) {
             } else {
                 ++stats.unrecognized_files;
             }
+            stats.total_size += e.info.size;
         }
         if (e.info.is_symlink) {
             ++stats.links;
@@ -202,12 +204,18 @@ static ReportStats compute_report_stats(const std::vector<Entry>& items) {
     return stats;
 }
 
-static void print_report_short(const ReportStats& stats) {
-    std::cout << "    Folders: " << stats.folders
-              << ", Files: " << stats.files() << ".\n\n";
+static std::string format_report_size(uintmax_t bytes, const Options& opt) {
+    return opt.bytes ? std::to_string(bytes) : human_size(bytes);
 }
 
-static void print_report_long(const ReportStats& stats) {
+static void print_report_short(const ReportStats& stats, const Options& opt) {
+    std::cout << "    Folders: " << stats.folders
+              << ", Files: " << stats.files()
+              << ", Size: " << format_report_size(stats.total_size, opt)
+              << ".\n\n";
+}
+
+static void print_report_long(const ReportStats& stats, const Options& opt) {
     std::cout << "    Found " << stats.total << ' '
               << (stats.total == 1 ? "item" : "items")
               << " in total.\n\n";
@@ -215,7 +223,8 @@ static void print_report_long(const ReportStats& stats) {
     std::cout << "        Recognized files        : " << stats.recognized_files << "\n";
     std::cout << "        Unrecognized files      : " << stats.unrecognized_files << "\n";
     std::cout << "        Links                   : " << stats.links << "\n";
-    std::cout << "        Dead links              : " << stats.dead_links << "\n\n";
+    std::cout << "        Dead links              : " << stats.dead_links << "\n";
+    std::cout << "        Total displayed size    : " << format_report_size(stats.total_size, opt) << "\n\n";
 }
 
 static bool is_executable_posix(const fs::directory_entry& de) {
@@ -873,7 +882,7 @@ static void print_long(const std::vector<Entry>& v, const Options& opt, size_t i
             std::cout << std::right << std::setw(static_cast<int>(inode_width)) << e.info.inode << ' ';
         }
 
-        std::string perm = perm_string(fs::directory_entry(e.info.path));
+        std::string perm = perm_string(fs::directory_entry(e.info.path), e.info.is_symlink);
         std::cout << colorize_perm(perm, opt.no_color) << ' ';
 
         std::cout << std::right << std::setw(static_cast<int>(w_nlink)) << e.info.nlink << ' ';
@@ -1041,9 +1050,9 @@ static int list_path(const fs::path& p, const Options& opt) {
             ReportStats stats = compute_report_stats(flat);
             std::cout << "\n";
             if (opt.report == Options::Report::Long) {
-                print_report_long(stats);
+                print_report_long(stats, opt);
             } else {
-                print_report_short(stats);
+                print_report_short(stats, opt);
             }
         }
 
@@ -1108,9 +1117,9 @@ static int list_path(const fs::path& p, const Options& opt) {
         ReportStats stats = compute_report_stats(items);
         std::cout << "\n";
         if (opt.report == Options::Report::Long) {
-            print_report_long(stats);
+            print_report_long(stats, opt);
         } else {
-            print_report_short(stats);
+            print_report_short(stats, opt);
         }
     }
 

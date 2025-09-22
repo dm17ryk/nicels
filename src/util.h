@@ -76,7 +76,7 @@ bool is_hidden(const std::string& name);
 bool iequals(char a, char b);
 std::string human_size(uintmax_t bytes);
 std::string format_time(const std::filesystem::file_time_type& tp, const Options& opt);
-std::string perm_string(const std::filesystem::directory_entry& de);
+std::string perm_string(const std::filesystem::directory_entry& de, bool is_symlink_hint);
 std::string colorize_perm(const std::string& perm, bool no_color);
 void fill_owner_group(FileInfo& fi);
 

@@ -477,13 +477,14 @@ std::string format_time(const fs::file_time_type& tp, const Options& opt) {
     return buf;
 }
 
-std::string perm_string(const fs::directory_entry& de) {
+std::string perm_string(const fs::directory_entry& de, bool is_symlink_hint) {
     std::error_code ec;
     auto s = de.symlink_status(ec);
     if (ec) return "???????????";
+    bool is_link = fs::is_symlink(s) || is_symlink_hint;
     char type = '-';
-    if (fs::is_directory(s)) type = 'd';
-    else if (fs::is_symlink(s)) type = 'l';
+    if (is_link) type = 'l';
+    else if (fs::is_directory(s)) type = 'd';
     else if (fs::is_character_file(s)) type = 'c';
     else if (fs::is_block_file(s)) type = 'b';
     else if (fs::is_fifo(s)) type = 'p';
@@ -612,6 +613,32 @@ void fill_owner_group(FileInfo& fi) {
     fi.group.clear();
     fi.inode = 0;
 
+    std::wstring native_path = fi.path.native();
+
+    DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    DWORD flags = FILE_FLAG_BACKUP_SEMANTICS;
+    if (fi.is_symlink) {
+        flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+    }
+    HANDLE handle = ::CreateFileW(native_path.c_str(),
+                                  FILE_READ_ATTRIBUTES,
+                                  share_mode,
+                                  nullptr,
+                                  OPEN_EXISTING,
+                                  flags,
+                                  nullptr);
+    if (handle != INVALID_HANDLE_VALUE) {
+        BY_HANDLE_FILE_INFORMATION file_info{};
+        if (::GetFileInformationByHandle(handle, &file_info)) {
+            fi.nlink = file_info.nNumberOfLinks;
+            ULARGE_INTEGER index{};
+            index.HighPart = file_info.nFileIndexHigh;
+            index.LowPart = file_info.nFileIndexLow;
+            fi.inode = static_cast<uintmax_t>(index.QuadPart);
+        }
+        ::CloseHandle(handle);
+    }
+
     auto wide_to_utf8 = [](const std::wstring& wide) -> std::string {
         if (wide.empty()) return {};
         int required = ::WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, nullptr, 0, nullptr, nullptr);
@@ -661,7 +688,6 @@ void fill_owner_group(FileInfo& fi) {
     PSECURITY_DESCRIPTOR security_descriptor = nullptr;
     PSID owner_sid = nullptr;
     PSID group_sid = nullptr;
-    std::wstring native_path = fi.path.native();
     DWORD result = ::GetNamedSecurityInfoW(
         native_path.c_str(),
         SE_FILE_OBJECT,
