@@ -243,8 +243,9 @@ Options parse_args(int argc, char** argv) {
         normalized_args.push_back(token);
     }
 
-    argparse::ArgumentParser program("nls");
-    program.add_description("NextLS — a colorful ls clone");
+    argparse::ArgumentParser program("nls", "1.0.0");
+    program.add_description(R"(List information about the FILEs (the current directory by default).
+Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.)");
     program.add_epilog(R"(The SIZE argument is an integer and optional unit (example: 10K is 10*1024).
 Units are K,M,G,T,P,E,Z,Y,R,Q (powers of 1024) or KB,MB,... (powers of 1000).
 Binary prefixes can be used, too: KiB=K, MiB=M, and so on.
@@ -293,7 +294,8 @@ Exit status:
         .action([&](auto&&){ opt.format = Options::Format::ColumnsVertical; });
 
     program.add_argument("--format")
-        .help("use format: across (-x), horizontal (-x), long (-l), single-column (-1), vertical (-C)")
+        .help(R"(use format: across (-x), horizontal (-x), 
+long (-l), single-column (-1), vertical (-C))")
         .metavar("WORD")
         .action([&](const std::string& value) {
             std::string word = to_lower(value);
@@ -484,7 +486,8 @@ Exit status:
         .action([&](auto&&){ opt.hide_control_chars = false; });
 
     program.add_argument("--color")
-        .help("colorize the output: auto, always, never")
+        .help(R"(colorize the output: auto, always, 
+never)")
         .default_value(std::string("auto"));
 
     program.add_argument("--light")
@@ -498,7 +501,8 @@ Exit status:
         .action([&](auto&&){ opt.color_theme = Options::ColorTheme::Dark; });
 
     program.add_argument("--indicator-style")
-        .help("append indicator with style STYLE to entry names: none, slash (-p)")
+        .help(R"(append indicator with style STYLE to entry names: 
+none, slash (-p))")
         .metavar("STYLE")
         .action([&](const std::string& value) {
             std::string word = to_lower(value);
@@ -517,7 +521,9 @@ Exit status:
         .action([&](auto&&){ opt.quoting_style = Options::QuotingStyle::C; });
 
     program.add_argument("--quoting-style")
-        .help("use quoting style WORD for entry names: literal, locale, shell, shell-always, shell-escape, shell-escape-always, c, escape")
+        .help(R"(use quoting style WORD for entry names: 
+literal, locale, shell, shell-always, shell-escape, 
+shell-escape-always, c, escape)")
         .metavar("WORD")
         .action([&](const std::string& value) {
             auto style = parse_quoting_style_word(value);
@@ -528,7 +534,8 @@ Exit status:
         });
 
     program.add_argument("--hide")
-        .help("do not list implied entries matching shell PATTERN (overridden by -a or -A)")
+        .help(R"(do not list implied entries matching shell 
+PATTERN (overridden by -a or -A))")
         .metavar("PATTERN")
         .action([&](const std::string& value){ opt.hide_patterns.push_back(value); });
 
@@ -538,7 +545,9 @@ Exit status:
         .action([&](const std::string& value){ opt.ignore_patterns.push_back(value); });
 
     program.add_argument("--time-style")
-        .help("use time display format: default, locale, long-iso, full-iso, iso, iso8601, +FORMAT (default: locale)")
+        .help(R"(use time display format: default, locale, 
+long-iso, full-iso, iso, iso8601, 
++FORMAT (default: locale))")
         .metavar("FORMAT")
         .action([&](const std::string& value){ opt.time_style = value; });
 
@@ -551,7 +560,8 @@ Exit status:
         });
 
     program.add_argument("-L", "--dereference")
-        .help("when showing file information for a symbolic link, show information for the file the link references")
+        .help(R"(when showing file information for a symbolic link, 
+show information for the file the link references)")
         .flag()
         .action([&](auto&&){ opt.dereference = true; });
 
@@ -622,14 +632,16 @@ Exit status:
         });
 
     program.add_argument("--tree")
-        .help("show tree view of directories, optionally limited to DEPTH")
+        .help(R"(show tree view of directories, optionally limited to DEPTH
+ )")
         .metavar("DEPTH")
         .default_value(std::string(""))
         .implicit_value(std::string(""))
         .nargs(argparse::nargs_pattern::optional);
 
     program.add_argument("--report")
-        .help("show summary report: short, long (default: long)")
+        .help(R"(show summary report: short, long (default: long)
+ )")
         .metavar("WORD")
         .default_value(std::string(""))
         .implicit_value(std::string("long"))
