@@ -8,12 +8,202 @@
         "documentation": {}
     },
     {
+        "label": "ConanFile",
+        "importPath": "conans",
+        "description": "conans",
+        "isExtraImport": true,
+        "detail": "conans",
+        "documentation": {}
+    },
+    {
+        "label": "Meson",
+        "importPath": "conans",
+        "description": "conans",
+        "isExtraImport": true,
+        "detail": "conans",
+        "documentation": {}
+    },
+    {
+        "label": "ConanFile",
+        "importPath": "conans",
+        "description": "conans",
+        "isExtraImport": true,
+        "detail": "conans",
+        "documentation": {}
+    },
+    {
+        "label": "Meson",
+        "importPath": "conans",
+        "description": "conans",
+        "isExtraImport": true,
+        "detail": "conans",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "re",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "re",
+        "description": "re",
+        "detail": "re",
+        "documentation": {}
+    },
+    {
+        "label": "print_function",
+        "importPath": "__future__",
+        "description": "__future__",
+        "isExtraImport": true,
+        "detail": "__future__",
+        "documentation": {}
+    },
+    {
+        "label": "unicode_literals",
+        "importPath": "__future__",
+        "description": "__future__",
+        "isExtraImport": true,
+        "detail": "__future__",
+        "documentation": {}
+    },
+    {
+        "label": "argparse",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "argparse",
+        "description": "argparse",
+        "detail": "argparse",
+        "documentation": {}
+    },
+    {
+        "label": "Popen",
+        "importPath": "subprocess",
+        "description": "subprocess",
+        "isExtraImport": true,
+        "detail": "subprocess",
+        "documentation": {}
+    },
+    {
+        "label": "PIPE",
+        "importPath": "subprocess",
+        "description": "subprocess",
+        "isExtraImport": true,
+        "detail": "subprocess",
+        "documentation": {}
+    },
+    {
+        "label": "warnings",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "warnings",
+        "description": "warnings",
+        "detail": "warnings",
+        "documentation": {}
+    },
+    {
         "label": "ArgparseConan",
         "kind": 6,
         "importPath": "third-party.argparse.conanfile",
         "description": "third-party.argparse.conanfile",
         "peekOfCode": "class ArgparseConan(ConanFile):\n    name = \"argparse\"\n    version = \"3.1\"\n    exports_sources = \"include/argparse.hpp\"\n    no_copy_source = True\n    def package(self):\n        self.copy(\"argparse.hpp\")",
         "detail": "third-party.argparse.conanfile",
+        "documentation": {}
+    },
+    {
+        "label": "base_path",
+        "kind": 5,
+        "importPath": "third-party.cli11.scripts.ExtractVersion",
+        "description": "third-party.cli11.scripts.ExtractVersion",
+        "peekOfCode": "base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), \"..\"))\nconfig_h = os.path.join(base_path, \"include\", \"CLI\", \"Version.hpp\")\ndata = {\"MAJOR\": 0, \"MINOR\": 0, \"PATCH\": 0}\nreg = re.compile(r\"^\\s*#define\\s+CLI11_VERSION_([A-Z]+)\\s+([0-9]+).*$\")\nwith open(config_h, \"r\") as fp:\n    for l in fp:\n        m = reg.match(l)\n        if m:\n            data[m.group(1)] = int(m.group(2))\nprint(\"{}.{}.{}\".format(data[\"MAJOR\"], data[\"MINOR\"], data[\"PATCH\"]))",
+        "detail": "third-party.cli11.scripts.ExtractVersion",
+        "documentation": {}
+    },
+    {
+        "label": "config_h",
+        "kind": 5,
+        "importPath": "third-party.cli11.scripts.ExtractVersion",
+        "description": "third-party.cli11.scripts.ExtractVersion",
+        "peekOfCode": "config_h = os.path.join(base_path, \"include\", \"CLI\", \"Version.hpp\")\ndata = {\"MAJOR\": 0, \"MINOR\": 0, \"PATCH\": 0}\nreg = re.compile(r\"^\\s*#define\\s+CLI11_VERSION_([A-Z]+)\\s+([0-9]+).*$\")\nwith open(config_h, \"r\") as fp:\n    for l in fp:\n        m = reg.match(l)\n        if m:\n            data[m.group(1)] = int(m.group(2))\nprint(\"{}.{}.{}\".format(data[\"MAJOR\"], data[\"MINOR\"], data[\"PATCH\"]))",
+        "detail": "third-party.cli11.scripts.ExtractVersion",
+        "documentation": {}
+    },
+    {
+        "label": "data",
+        "kind": 5,
+        "importPath": "third-party.cli11.scripts.ExtractVersion",
+        "description": "third-party.cli11.scripts.ExtractVersion",
+        "peekOfCode": "data = {\"MAJOR\": 0, \"MINOR\": 0, \"PATCH\": 0}\nreg = re.compile(r\"^\\s*#define\\s+CLI11_VERSION_([A-Z]+)\\s+([0-9]+).*$\")\nwith open(config_h, \"r\") as fp:\n    for l in fp:\n        m = reg.match(l)\n        if m:\n            data[m.group(1)] = int(m.group(2))\nprint(\"{}.{}.{}\".format(data[\"MAJOR\"], data[\"MINOR\"], data[\"PATCH\"]))",
+        "detail": "third-party.cli11.scripts.ExtractVersion",
+        "documentation": {}
+    },
+    {
+        "label": "reg",
+        "kind": 5,
+        "importPath": "third-party.cli11.scripts.ExtractVersion",
+        "description": "third-party.cli11.scripts.ExtractVersion",
+        "peekOfCode": "reg = re.compile(r\"^\\s*#define\\s+CLI11_VERSION_([A-Z]+)\\s+([0-9]+).*$\")\nwith open(config_h, \"r\") as fp:\n    for l in fp:\n        m = reg.match(l)\n        if m:\n            data[m.group(1)] = int(m.group(2))\nprint(\"{}.{}.{}\".format(data[\"MAJOR\"], data[\"MINOR\"], data[\"PATCH\"]))",
+        "detail": "third-party.cli11.scripts.ExtractVersion",
+        "documentation": {}
+    },
+    {
+        "label": "HeaderGroups",
+        "kind": 6,
+        "importPath": "third-party.cli11.scripts.MakeSingleHeader",
+        "description": "third-party.cli11.scripts.MakeSingleHeader",
+        "peekOfCode": "class HeaderGroups(dict):\n    def __init__(self, tag):\n        \"\"\"\n        A dictionary that also can read headers given a tag expression.\n        TODO: might have gone overboard on this one, could maybe be two functions.\n        \"\"\"\n        self.re_matcher = re.compile(\n            tag_str.format(tag=tag), re.MULTILINE | re.DOTALL | re.VERBOSE\n        )\n        super(HeaderGroups, self).__init__()",
+        "detail": "third-party.cli11.scripts.MakeSingleHeader",
+        "documentation": {}
+    },
+    {
+        "label": "make_header",
+        "kind": 2,
+        "importPath": "third-party.cli11.scripts.MakeSingleHeader",
+        "description": "third-party.cli11.scripts.MakeSingleHeader",
+        "peekOfCode": "def make_header(output, main_header, files, tag, namespace, macro=None, version=None):\n    \"\"\"\n    Makes a single header given a main header template and a list of files.\n    \"\"\"\n    groups = HeaderGroups(tag)\n    # Set tag if possible to class variable\n    try:\n        proc = Popen(\n            [\"git\", \"describe\", \"--tags\", \"--always\"], cwd=str(DIR), stdout=PIPE\n        )",
+        "detail": "third-party.cli11.scripts.MakeSingleHeader",
+        "documentation": {}
+    },
+    {
+        "label": "tag_str",
+        "kind": 5,
+        "importPath": "third-party.cli11.scripts.MakeSingleHeader",
+        "description": "third-party.cli11.scripts.MakeSingleHeader",
+        "peekOfCode": "tag_str = r\"\"\"\n^                  # Begin of line\n[/\\s]+             # Whitespace or comment // chars\n\\[                 # A literal [\n{tag}:             # The tag\n(?P<name>[\\w_]+)   # name: group name\n:                  # Colon\n(?P<action>[\\w_]+) # action: type of include\n\\]                 # A literal ]\n\\s*                # Whitespace",
+        "detail": "third-party.cli11.scripts.MakeSingleHeader",
+        "documentation": {}
+    },
+    {
+        "label": "DIR",
+        "kind": 5,
+        "importPath": "third-party.cli11.scripts.MakeSingleHeader",
+        "description": "third-party.cli11.scripts.MakeSingleHeader",
+        "peekOfCode": "DIR = os.path.dirname(os.path.abspath(__file__))\nclass HeaderGroups(dict):\n    def __init__(self, tag):\n        \"\"\"\n        A dictionary that also can read headers given a tag expression.\n        TODO: might have gone overboard on this one, could maybe be two functions.\n        \"\"\"\n        self.re_matcher = re.compile(\n            tag_str.format(tag=tag), re.MULTILINE | re.DOTALL | re.VERBOSE\n        )",
+        "detail": "third-party.cli11.scripts.MakeSingleHeader",
+        "documentation": {}
+    },
+    {
+        "label": "RangConan",
+        "kind": 6,
+        "importPath": "third-party.rang.test_package.conanfile",
+        "description": "third-party.rang.test_package.conanfile",
+        "peekOfCode": "class RangConan(ConanFile):\n    generators = \"pkg_config\"\n    exports_sources = \"*\"\n    def build(self):\n        meson = Meson(self)\n        meson.configure()\n        meson.build()\n    def imports(self):\n        self.copy(\"*.hpp\")\n    def test(self):",
+        "detail": "third-party.rang.test_package.conanfile",
+        "documentation": {}
+    },
+    {
+        "label": "RangConan",
+        "kind": 6,
+        "importPath": "third-party.rang.conanfile",
+        "description": "third-party.rang.conanfile",
+        "peekOfCode": "class RangConan(ConanFile):\n    name = \"rang\"\n    version = \"3.2.0\"\n    license = \"The Unlicense\"\n    url = \"https://github.com/agauniyal/rang\"\n    description = \"A Minimal, Header only Modern c++ library for colors in your terminal\"\n    generators = \"pkg_config\"\n    build_requires = \"doctest/1.2.6@bincrafters/stable\"\n    exports_sources = \"*\"\n    settings = \"build_type\"",
+        "detail": "third-party.rang.conanfile",
         "documentation": {}
     }
 ]

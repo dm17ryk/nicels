@@ -1,3 +1,9 @@
 [submodule "third-party/argparse"]
         path = third-party/argparse
         url = https://github.com/p-ranav/argparse.git
+[submodule "third-party/cli11"]
+	path = third-party/cli11
+	url = https://github.com/CLIUtils/CLI11.git
+[submodule "third-party/rang"]
+	path = third-party/rang
+	url = https://github.com/agauniyal/rang.git
