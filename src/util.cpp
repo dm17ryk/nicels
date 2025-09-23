@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <system_error>
@@ -22,14 +23,34 @@
 #else
 #include <windows.h>
 #include <Aclapi.h>
+#include <sddl.h>
 #endif
 
 namespace fs = std::filesystem;
 
 namespace nls {
 
+static std::optional<Options::QuotingStyle> parse_quoting_style_word(std::string word) {
+    word = to_lower(std::move(word));
+    if (word == "literal") return Options::QuotingStyle::Literal;
+    if (word == "locale") return Options::QuotingStyle::Locale;
+    if (word == "shell") return Options::QuotingStyle::Shell;
+    if (word == "shell-always") return Options::QuotingStyle::ShellAlways;
+    if (word == "shell-escape") return Options::QuotingStyle::ShellEscape;
+    if (word == "shell-escape-always") return Options::QuotingStyle::ShellEscapeAlways;
+    if (word == "c") return Options::QuotingStyle::C;
+    if (word == "escape") return Options::QuotingStyle::Escape;
+    return std::nullopt;
+}
+
 Options parse_args(int argc, char** argv) {
     Options opt;
+
+    if (const char* env = std::getenv("QUOTING_STYLE")) {
+        if (auto style = parse_quoting_style_word(env)) {
+            opt.quoting_style = *style;
+        }
+    }
 
     std::vector<std::string> raw_args(argv, argv + argc);
     std::vector<std::string> normalized_args;
@@ -198,6 +219,14 @@ Options parse_args(int argc, char** argv) {
         .flag()
         .action([&](auto&&){ opt.show_group = false; });
 
+    program.add_argument("-n", "--numeric-uid-gid")
+        .help("like -l, but list numeric user and group IDs")
+        .flag()
+        .action([&](auto&&){
+            opt.format = Options::Format::Long;
+            opt.numeric_uid_gid = true;
+        });
+
     program.add_argument("-t")
         .help("sort by modification time, newest first")
         .flag()
@@ -307,10 +336,31 @@ Options parse_args(int argc, char** argv) {
             }
         });
 
+    program.add_argument("-Q", "--quote-name")
+        .help("enclose entry names in double quotes")
+        .flag()
+        .action([&](auto&&){ opt.quoting_style = Options::QuotingStyle::C; });
+
+    program.add_argument("--quoting-style")
+        .help("use quoting style WORD for entry names: literal, locale, shell, shell-always, shell-escape, shell-escape-always, c, escape")
+        .metavar("WORD")
+        .action([&](const std::string& value) {
+            auto style = parse_quoting_style_word(value);
+            if (!style) {
+                throw std::runtime_error("invalid value for --quoting-style: " + value);
+            }
+            opt.quoting_style = *style;
+        });
+
     program.add_argument("--time-style")
-        .help("use time display format")
+        .help("use time display format: default, locale, long-iso, full-iso, iso, iso8601, +FORMAT (default: locale)")
         .metavar("FORMAT")
         .action([&](const std::string& value){ opt.time_style = value; });
+
+    program.add_argument("-L", "--dereference")
+        .help("when showing file information for a symbolic link, show information for the file the link references")
+        .flag()
+        .action([&](auto&&){ opt.dereference = true; });
 
     program.add_argument("--bytes", "--non-human-readable")
         .help("show file sizes in bytes")
@@ -477,19 +527,31 @@ std::string format_time(const fs::file_time_type& tp, const Options& opt) {
     return buf;
 }
 
-std::string perm_string(const fs::directory_entry& de, bool is_symlink_hint) {
+std::string perm_string(const fs::directory_entry& de, bool is_symlink_hint, bool dereference) {
     std::error_code ec;
-    auto s = de.symlink_status(ec);
+    auto link_status = de.symlink_status(ec);
     if (ec) return "???????????";
-    bool is_link = fs::is_symlink(s) || is_symlink_hint;
+    bool is_link = fs::is_symlink(link_status) || is_symlink_hint;
+
+    fs::file_status used_status = link_status;
+    bool followed = false;
+    if (dereference) {
+        std::error_code follow_ec;
+        auto follow = de.status(follow_ec);
+        if (!follow_ec) {
+            used_status = follow;
+            followed = true;
+        }
+    }
+
     char type = '-';
-    if (is_link) type = 'l';
-    else if (fs::is_directory(s)) type = 'd';
-    else if (fs::is_character_file(s)) type = 'c';
-    else if (fs::is_block_file(s)) type = 'b';
-    else if (fs::is_fifo(s)) type = 'p';
-    else if (fs::is_socket(s)) type = 's';
-    auto p = s.permissions();
+    if (!followed && is_link) type = 'l';
+    else if (fs::is_directory(used_status)) type = 'd';
+    else if (fs::is_character_file(used_status)) type = 'c';
+    else if (fs::is_block_file(used_status)) type = 'b';
+    else if (fs::is_fifo(used_status)) type = 'p';
+    else if (fs::is_socket(used_status)) type = 's';
+    auto p = used_status.permissions();
     std::string out;
     out += type;
     if (p == fs::perms::unknown) {
@@ -598,26 +660,104 @@ std::string colorize_perm(const std::string& perm, bool no_color) {
     return out;
 }
 
-void fill_owner_group(FileInfo& fi) {
+std::optional<fs::path> resolve_symlink_target_path(const FileInfo& fi) {
+    if (!fi.is_symlink || !fi.has_symlink_target) {
+        return std::nullopt;
+    }
+
+    fs::path target = fi.symlink_target;
+    if (target.empty()) {
+        return std::nullopt;
+    }
+
+    if (!target.is_absolute()) {
+        fs::path base = fi.path.parent_path();
+        if (base.empty()) {
+            target = target.lexically_normal();
+        } else {
+            target = (base / target).lexically_normal();
+        }
+    } else {
+        target = target.lexically_normal();
+    }
+
+    return target;
+}
+
+void fill_owner_group(FileInfo& fi, bool dereference) {
 #ifndef _WIN32
-    struct stat st{};
-    if (::lstat(fi.path.c_str(), &st) == 0) {
+    fi.owner.clear();
+    fi.group.clear();
+    fi.has_owner_id = false;
+    fi.has_group_id = false;
+    fi.owner_numeric.clear();
+    fi.group_numeric.clear();
+    fi.has_owner_numeric = false;
+    fi.has_group_numeric = false;
+    fi.has_link_size = false;
+
+    auto assign_from_stat = [&](const struct stat& st) {
         fi.nlink = st.st_nlink;
         fi.inode = static_cast<uintmax_t>(st.st_ino);
-        if (auto* pw = ::getpwuid(st.st_uid)) fi.owner = pw->pw_name;
-        if (auto* gr = ::getgrgid(st.st_gid)) fi.group = gr->gr_name;
+        fi.owner_id = static_cast<uintmax_t>(st.st_uid);
+        fi.group_id = static_cast<uintmax_t>(st.st_gid);
+        fi.has_owner_id = true;
+        fi.has_group_id = true;
+        fi.owner_numeric = std::to_string(static_cast<uintmax_t>(st.st_uid));
+        fi.group_numeric = std::to_string(static_cast<uintmax_t>(st.st_gid));
+        fi.has_owner_numeric = true;
+        fi.has_group_numeric = true;
+        if (auto* pw = ::getpwuid(st.st_uid)) {
+            fi.owner = pw->pw_name;
+        } else {
+            fi.owner = std::to_string(static_cast<uintmax_t>(st.st_uid));
+        }
+        if (auto* gr = ::getgrgid(st.st_gid)) {
+            fi.group = gr->gr_name;
+        } else {
+            fi.group = std::to_string(static_cast<uintmax_t>(st.st_gid));
+        }
+    };
+
+    struct stat st{};
+    if (::lstat(fi.path.c_str(), &st) == 0) {
+        assign_from_stat(st);
+        fi.link_size = static_cast<uintmax_t>(st.st_size);
+        fi.has_link_size = true;
+    }
+
+    if (dereference) {
+        struct stat st_follow{};
+        if (::stat(fi.path.c_str(), &st_follow) == 0) {
+            assign_from_stat(st_follow);
+        }
     }
 #else
     fi.nlink = 1;
     fi.owner.clear();
     fi.group.clear();
     fi.inode = 0;
+    fi.has_owner_id = false;
+    fi.has_group_id = false;
+    fi.owner_numeric.clear();
+    fi.group_numeric.clear();
+    fi.has_owner_numeric = false;
+    fi.has_group_numeric = false;
+    fi.has_link_size = false;
 
-    std::wstring native_path = fi.path.native();
+    bool want_target_attributes = dereference && !fi.is_broken_symlink;
+    fs::path query_path = fi.path;
+    if (want_target_attributes) {
+        if (auto resolved = resolve_symlink_target_path(fi)) {
+            query_path = std::move(*resolved);
+        }
+    }
+
+    std::wstring native_path = query_path.native();
 
     DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
     DWORD flags = FILE_FLAG_BACKUP_SEMANTICS;
-    if (fi.is_symlink) {
+    if (fi.is_symlink && !want_target_attributes) {
         flags |= FILE_FLAG_OPEN_REPARSE_POINT;
     }
     HANDLE handle = ::CreateFileW(native_path.c_str(),
@@ -635,6 +775,18 @@ void fill_owner_group(FileInfo& fi) {
             index.HighPart = file_info.nFileIndexHigh;
             index.LowPart = file_info.nFileIndexLow;
             fi.inode = static_cast<uintmax_t>(index.QuadPart);
+            if (fi.is_symlink) {
+                ULARGE_INTEGER sz{};
+                sz.HighPart = file_info.nFileSizeHigh;
+                sz.LowPart = file_info.nFileSizeLow;
+                uintmax_t handle_size = static_cast<uintmax_t>(sz.QuadPart);
+                if (!want_target_attributes) {
+                    fi.link_size = handle_size;
+                    fi.has_link_size = true;
+                } else if ((file_info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+                    fi.size = handle_size;
+                }
+            }
         }
         ::CloseHandle(handle);
     }
@@ -647,6 +799,27 @@ void fill_owner_group(FileInfo& fi) {
         int converted = ::WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, utf8.data(), required, nullptr, nullptr);
         if (converted <= 0) return {};
         return utf8;
+    };
+
+    auto sid_to_string = [&](PSID sid) -> std::string {
+        if (sid == nullptr || !::IsValidSid(sid)) return {};
+        LPWSTR sid_w = nullptr;
+        if (!::ConvertSidToStringSidW(sid, &sid_w)) {
+            return {};
+        }
+        std::wstring sid_native = sid_w ? sid_w : L"";
+        if (sid_w) {
+            ::LocalFree(sid_w);
+        }
+        return wide_to_utf8(sid_native);
+    };
+
+    auto sid_to_rid = [&](PSID sid) -> std::optional<uintmax_t> {
+        if (sid == nullptr || !::IsValidSid(sid)) return std::nullopt;
+        auto* count = ::GetSidSubAuthorityCount(sid);
+        if (count == nullptr || *count == 0) return std::nullopt;
+        DWORD value = *::GetSidSubAuthority(sid, static_cast<DWORD>(*count - 1));
+        return static_cast<uintmax_t>(value);
     };
 
     auto sid_to_account_name = [&](PSID sid) -> std::string {
@@ -701,6 +874,24 @@ void fill_owner_group(FileInfo& fi) {
     if (result == ERROR_SUCCESS) {
         fi.owner = sid_to_account_name(owner_sid);
         fi.group = sid_to_account_name(group_sid);
+        std::string owner_sid_string = sid_to_string(owner_sid);
+        if (!owner_sid_string.empty()) {
+            fi.owner_numeric = std::move(owner_sid_string);
+            fi.has_owner_numeric = true;
+        }
+        std::string group_sid_string = sid_to_string(group_sid);
+        if (!group_sid_string.empty()) {
+            fi.group_numeric = std::move(group_sid_string);
+            fi.has_group_numeric = true;
+        }
+        if (auto owner_rid = sid_to_rid(owner_sid)) {
+            fi.owner_id = *owner_rid;
+            fi.has_owner_id = true;
+        }
+        if (auto group_rid = sid_to_rid(group_sid)) {
+            fi.group_id = *group_rid;
+            fi.has_group_id = true;
+        }
     }
 
     if (security_descriptor) {

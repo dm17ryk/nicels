@@ -12,6 +12,16 @@ struct Options {
     enum class ColorTheme { Default, Light, Dark } color_theme = ColorTheme::Default;
     enum class Sort { Name, Time, Size, Extension, None } sort = Sort::Name;
     enum class Report { None, Short, Long } report = Report::None;
+    enum class QuotingStyle {
+        Literal,
+        Locale,
+        Shell,
+        ShellAlways,
+        ShellEscape,
+        ShellEscapeAlways,
+        C,
+        Escape
+    } quoting_style = QuotingStyle::Literal;
 
     bool all = false;
     bool almost_all = false;
@@ -31,6 +41,8 @@ struct Options {
     bool hyperlink = false;
     bool header = false;
     bool tree = false;
+    bool numeric_uid_gid = false;
+    bool dereference = false;
 
     std::optional<std::size_t> tree_depth;   // max tree depth (levels of children)
 
@@ -55,6 +67,16 @@ struct FileInfo {
     std::filesystem::file_time_type mtime{};
     std::filesystem::path symlink_target;
     bool has_symlink_target = false;
+    uintmax_t owner_id = 0;
+    uintmax_t group_id = 0;
+    bool has_owner_id = false;
+    bool has_group_id = false;
+    std::string owner_numeric;
+    std::string group_numeric;
+    bool has_owner_numeric = false;
+    bool has_group_numeric = false;
+    uintmax_t link_size = 0;
+    bool has_link_size = false;
 #ifdef _WIN32
     unsigned long nlink = 1;
     std::string owner = "";
@@ -76,9 +98,10 @@ bool is_hidden(const std::string& name);
 bool iequals(char a, char b);
 std::string human_size(uintmax_t bytes);
 std::string format_time(const std::filesystem::file_time_type& tp, const Options& opt);
-std::string perm_string(const std::filesystem::directory_entry& de, bool is_symlink_hint);
+std::string perm_string(const std::filesystem::directory_entry& de, bool is_symlink_hint, bool dereference);
 std::string colorize_perm(const std::string& perm, bool no_color);
-void fill_owner_group(FileInfo& fi);
+std::optional<std::filesystem::path> resolve_symlink_target_path(const FileInfo& fi);
+void fill_owner_group(FileInfo& fi, bool dereference);
 
 // Sorting helpers
 std::string to_lower(std::string s);
