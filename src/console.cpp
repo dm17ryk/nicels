@@ -1,7 +1,9 @@
 #include "console.h"
 
 #ifdef _WIN32
-#  define NOMINMAX
+#   ifndef NOMINMAX
+#       define NOMINMAX 1
+#   endif
 #  include <windows.h>
 #else
 #  include <sys/ioctl.h>

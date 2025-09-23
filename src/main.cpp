@@ -14,9 +14,9 @@
 #include <system_error>
 
 #ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
+#   ifndef NOMINMAX
+#       define NOMINMAX 1
+#   endif
 #include <windows.h>
 #include <winioctl.h>
 
