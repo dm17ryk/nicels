@@ -11,6 +11,7 @@
 #include <array>
 #include <sstream>
 #include <limits>
+#include <system_error>
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -71,6 +72,28 @@ struct TreeItem {
     Entry entry;
     std::vector<TreeItem> children;
 };
+
+enum class VisitResult {
+    Ok = 0,
+    Minor = 1,
+    Serious = 2
+};
+
+static VisitResult combine_visit_result(VisitResult a, VisitResult b) {
+    return static_cast<VisitResult>(std::max(static_cast<int>(a), static_cast<int>(b)));
+}
+
+static void report_path_error(const fs::path& path, const std::error_code& ec, const char* fallback) {
+    std::cerr << "nls: " << path.string() << ": ";
+    if (ec) {
+        std::cerr << ec.message();
+    } else if (fallback) {
+        std::cerr << fallback;
+    } else {
+        std::cerr << "Unknown error";
+    }
+    std::cerr << '\n';
+}
 
 static bool is_nongraphic(unsigned char ch) {
     return !std::isprint(ch);
@@ -358,11 +381,23 @@ static bool is_executable_posix(const fs::directory_entry& de) {
 #endif
 }
 
-static void collect_entries(const fs::path& dir, const Options& opt, std::vector<Entry>& out) {
-    std::error_code ec;
-    if (!fs::exists(dir, ec)) {
-        std::cerr << "nls: " << dir.string() << ": No such file or directory\n";
-        return;
+static VisitResult collect_entries(const fs::path& dir,
+                                   const Options& opt,
+                                   std::vector<Entry>& out,
+                                   bool is_top_level) {
+    VisitResult status = VisitResult::Ok;
+
+    std::error_code exists_ec;
+    if (!fs::exists(dir, exists_ec)) {
+        report_path_error(dir, exists_ec, "No such file or directory");
+        return is_top_level ? VisitResult::Serious : VisitResult::Minor;
+    }
+
+    std::error_code type_ec;
+    bool is_directory = fs::is_directory(dir, type_ec);
+    if (type_ec) {
+        report_path_error(dir, type_ec, "Unable to access");
+        return is_top_level ? VisitResult::Serious : VisitResult::Minor;
     }
 
     const ThemeColors& theme_colors = active_theme();
@@ -517,7 +552,7 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
         out.push_back(std::move(e));
     };
 
-    if (fs::is_directory(dir, ec)) {
+    if (is_directory) {
         if (opt.all) {
             std::error_code self_ec;
             fs::directory_entry self(dir, self_ec);
@@ -528,14 +563,34 @@ static void collect_entries(const fs::path& dir, const Options& opt, std::vector
             if (!parent_ec) add_one(parent, "..");
         }
 
-        for (auto it = fs::directory_iterator(dir, ec); !ec && it != fs::end(it); ++it) {
+        std::error_code iter_ec;
+        fs::directory_iterator it(dir, iter_ec);
+        if (iter_ec) {
+            report_path_error(dir, iter_ec, "Unable to open directory");
+            return is_top_level ? VisitResult::Serious : VisitResult::Minor;
+        }
+
+        fs::directory_iterator end;
+        while (it != end) {
             add_one(*it);
+            it.increment(iter_ec);
+            if (iter_ec) break;
+        }
+        if (iter_ec) {
+            report_path_error(dir, iter_ec, "Unable to read directory");
+            status = combine_visit_result(status, is_top_level ? VisitResult::Serious : VisitResult::Minor);
         }
     } else {
         // single file path
-        fs::directory_entry de(dir, ec);
-        if (!ec) add_one(de, {}, true);
+        std::error_code entry_ec;
+        fs::directory_entry de(dir, entry_ec);
+        if (entry_ec) {
+            report_path_error(dir, entry_ec, "Unable to access");
+            return is_top_level ? VisitResult::Serious : VisitResult::Minor;
+        }
+        add_one(de, {}, true);
     }
+    return status;
 }
 
 static const std::set<std::string>* status_modes_for(const GitStatusResult& status,
@@ -708,10 +763,15 @@ static void sort_entries(std::vector<Entry>& v, const Options& opt) {
 static std::vector<TreeItem> build_tree_items(const fs::path& dir,
                                              const Options& opt,
                                              std::size_t depth,
-                                             std::vector<Entry>& flat) {
+                                             std::vector<Entry>& flat,
+                                             VisitResult& status) {
     std::vector<TreeItem> nodes;
     std::vector<Entry> items;
-    collect_entries(dir, opt, items);
+    VisitResult local = collect_entries(dir, opt, items, depth == 0);
+    status = combine_visit_result(status, local);
+    if (local == VisitResult::Serious) {
+        return nodes;
+    }
     apply_git_status(items, dir, opt);
     sort_entries(items, opt);
 
@@ -728,7 +788,7 @@ static std::vector<TreeItem> build_tree_items(const fs::path& dir,
             within_limit = depth + 1 < *opt.tree_depth;
         }
         if (is_dir && within_limit && !is_self) {
-            node.children = build_tree_items(node.entry.info.path, opt, depth + 1, flat);
+            node.children = build_tree_items(node.entry.info.path, opt, depth + 1, flat, status);
         }
 
         nodes.push_back(std::move(node));
@@ -1487,10 +1547,12 @@ static void print_comma_separated(const std::vector<Entry>& v,
     write_line_terminator(opt);
 }
 
-static int list_path(const fs::path& p, const Options& opt) {
+static VisitResult list_path(const fs::path& p, const Options& opt) {
     std::error_code dir_ec;
     bool is_directory = fs::is_directory(p, dir_ec);
+    (void)dir_ec;
     const ThemeColors& theme = active_theme();
+    VisitResult status = VisitResult::Ok;
 
     if (opt.tree) {
         std::vector<Entry> flat;
@@ -1499,13 +1561,22 @@ static int list_path(const fs::path& p, const Options& opt) {
                 std::cout << p.string() << ':';
                 write_line_terminator(opt);
             }
-            auto nodes = build_tree_items(p, opt, 0, flat);
+            VisitResult tree_status = VisitResult::Ok;
+            auto nodes = build_tree_items(p, opt, 0, flat, tree_status);
+            status = combine_visit_result(status, tree_status);
+            if (tree_status == VisitResult::Serious) {
+                return status;
+            }
             size_t inode_width = compute_inode_width(flat, opt);
             size_t block_width = compute_block_width(flat, opt);
             print_tree_view(nodes, opt, inode_width, block_width);
         } else {
             std::vector<Entry> single;
-            collect_entries(p, opt, single);
+            VisitResult collect_status = collect_entries(p, opt, single, true);
+            status = combine_visit_result(status, collect_status);
+            if (collect_status == VisitResult::Serious) {
+                return status;
+            }
             apply_git_status(single, is_directory ? p : p.parent_path(), opt);
             sort_entries(single, opt);
             flat = single;
@@ -1528,11 +1599,15 @@ static int list_path(const fs::path& p, const Options& opt) {
         }
 
         if (opt.paths.size() > 1) write_line_terminator(opt);
-        return 0;
+        return status;
     }
 
     std::vector<Entry> items;
-    collect_entries(p, opt, items);
+    VisitResult collect_status = collect_entries(p, opt, items, true);
+    status = combine_visit_result(status, collect_status);
+    if (collect_status == VisitResult::Serious) {
+        return status;
+    }
     apply_git_status(items, is_directory ? p : p.parent_path(), opt);
     sort_entries(items, opt);
 
@@ -1601,7 +1676,7 @@ static int list_path(const fs::path& p, const Options& opt) {
     }
 
     if (opt.paths.size() > 1) write_line_terminator(opt);
-    return 0;
+    return status;
 }
 
 } // namespace nls
@@ -1624,14 +1699,16 @@ int main(int argc, char** argv) {
             break;
     }
     set_active_theme(scheme);
-    int rc = 0;
+    VisitResult rc = VisitResult::Ok;
     for (auto& p : opt.paths) {
+        VisitResult path_result = VisitResult::Ok;
         try {
-            rc |= list_path(std::filesystem::path(p), opt);
+            path_result = list_path(std::filesystem::path(p), opt);
         } catch (const std::exception& e) {
             std::cerr << "nls: error: " << e.what() << "\n";
-            rc = 1;
+            path_result = VisitResult::Serious;
         }
+        rc = combine_visit_result(rc, path_result);
     }
-    return rc;
+    return static_cast<int>(rc);
 }
