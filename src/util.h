@@ -7,7 +7,13 @@
 namespace nls {
 
 struct Options {
-    enum class Format { ColumnsVertical, ColumnsHorizontal, Long, SingleColumn } format = Format::ColumnsVertical;
+    enum class Format {
+        ColumnsVertical,
+        ColumnsHorizontal,
+        Long,
+        SingleColumn,
+        CommaSeparated
+    } format = Format::ColumnsVertical;
     enum class IndicatorStyle { None, Slash } indicator = IndicatorStyle::Slash;
     enum class ColorTheme { Default, Light, Dark } color_theme = ColorTheme::Default;
     enum class Sort { Name, Time, Size, Extension, None } sort = Sort::Name;
@@ -43,11 +49,24 @@ struct Options {
     bool tree = false;
     bool numeric_uid_gid = false;
     bool dereference = false;
+    bool ignore_backups = false;
+    bool hide_control_chars = false;
+    bool zero_terminate = false;
+    bool show_block_size = false;
 
     std::optional<std::size_t> tree_depth;   // max tree depth (levels of children)
+    std::optional<int> output_width;         // desired terminal width override
 
     std::string time_style;    // strftime-style pattern or keyword
+    std::vector<std::string> hide_patterns;
+    std::vector<std::string> ignore_patterns;
     std::vector<std::string> paths;
+
+    int tab_size = 8;
+    uintmax_t block_size = 0;
+    bool block_size_specified = false;
+    bool block_size_show_suffix = false;
+    std::string block_size_suffix;
 };
 
 struct FileInfo {
@@ -77,6 +96,8 @@ struct FileInfo {
     bool has_group_numeric = false;
     uintmax_t link_size = 0;
     bool has_link_size = false;
+    uintmax_t allocated_size = 0;
+    bool has_allocated_size = false;
 #ifdef _WIN32
     unsigned long nlink = 1;
     std::string owner = "";

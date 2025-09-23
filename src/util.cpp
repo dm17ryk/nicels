@@ -12,6 +12,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <system_error>
+#include <limits>
 
 #include <argparse/argparse.hpp>
 
@@ -43,6 +44,114 @@ static std::optional<Options::QuotingStyle> parse_quoting_style_word(std::string
     return std::nullopt;
 }
 
+namespace {
+
+struct SizeSpec {
+    uintmax_t value = 0;
+    bool show_suffix = false;
+    std::string suffix;
+};
+
+static bool multiply_with_overflow(uintmax_t a, uintmax_t b, uintmax_t& result) {
+    if (a == 0 || b == 0) {
+        result = 0;
+        return true;
+    }
+    if (a > std::numeric_limits<uintmax_t>::max() / b) {
+        return false;
+    }
+    result = a * b;
+    return true;
+}
+
+static bool pow_with_overflow(uintmax_t base, unsigned exponent, uintmax_t& result) {
+    result = 1;
+    for (unsigned i = 0; i < exponent; ++i) {
+        if (!multiply_with_overflow(result, base, result)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static std::optional<SizeSpec> parse_size_spec(const std::string& text) {
+    if (text.empty()) return std::nullopt;
+
+    size_t pos = 0;
+    while (pos < text.size() && std::isdigit(static_cast<unsigned char>(text[pos]))) {
+        ++pos;
+    }
+
+    std::string number_part = text.substr(0, pos);
+    std::string suffix_part = text.substr(pos);
+    if (number_part.empty() && suffix_part.empty()) {
+        return std::nullopt;
+    }
+
+    uintmax_t number = 1;
+    if (!number_part.empty()) {
+        try {
+            size_t idx = 0;
+            unsigned long long parsed = std::stoull(number_part, &idx, 10);
+            if (idx != number_part.size()) return std::nullopt;
+            number = static_cast<uintmax_t>(parsed);
+        } catch (const std::exception&) {
+            return std::nullopt;
+        }
+    }
+
+    uintmax_t multiplier = 1;
+    if (!suffix_part.empty()) {
+        std::string upper;
+        upper.reserve(suffix_part.size());
+        for (char ch : suffix_part) {
+            upper.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(ch))));
+        }
+
+        bool binary = true;
+        std::string base = upper;
+        if (!base.empty() && base.back() == 'B') {
+            if (base.size() >= 2 && base[base.size() - 2] == 'I') {
+                binary = true;
+                base.erase(base.end() - 2, base.end());
+            } else {
+                binary = false;
+                base.pop_back();
+            }
+        } else {
+            binary = true;
+        }
+
+        if (base.empty()) {
+            return std::nullopt;
+        }
+
+        const std::string letters = "KMGTPEZYRQ";
+        auto it = letters.find(base);
+        if (it == std::string::npos) {
+            return std::nullopt;
+        }
+        unsigned exponent = static_cast<unsigned>(it) + 1;
+        uintmax_t base_value = binary ? 1024u : 1000u;
+        if (!pow_with_overflow(base_value, exponent, multiplier)) {
+            return std::nullopt;
+        }
+    }
+
+    uintmax_t scaled = 0;
+    if (!multiply_with_overflow(number, multiplier, scaled)) {
+        return std::nullopt;
+    }
+
+    SizeSpec spec;
+    spec.value = scaled;
+    spec.show_suffix = suffix_part.size() > 0 && number_part.empty();
+    spec.suffix = suffix_part;
+    return spec;
+}
+
+} // namespace
+
 Options parse_args(int argc, char** argv) {
     Options opt;
 
@@ -57,6 +166,8 @@ Options parse_args(int argc, char** argv) {
     normalized_args.reserve(raw_args.size() * 2);
 
     bool passthrough = false;
+    const std::string short_with_value = "ITw";
+
     for (size_t i = 0; i < raw_args.size(); ++i) {
         const std::string& token = raw_args[i];
         if (i == 0) {
@@ -98,18 +209,34 @@ Options parse_args(int argc, char** argv) {
             normalized_args.emplace_back("--one-per-line");
             continue;
         }
-        if (token.size() > 2 && token[0] == '-' && token[1] != '-' && token.find('1', 1) != std::string::npos) {
+        if (token.size() > 1 && token[0] == '-' && token[1] != '-') {
+            bool consumed = false;
             for (size_t j = 1; j < token.size(); ++j) {
                 char ch = token[j];
                 if (ch == '1') {
                     normalized_args.emplace_back("--one-per-line");
-                } else {
-                    std::string opt;
-                    opt.reserve(2);
-                    opt.push_back('-');
-                    opt.push_back(ch);
-                    normalized_args.push_back(opt);
+                    continue;
                 }
+                std::string opt_short;
+                opt_short.reserve(2);
+                opt_short.push_back('-');
+                opt_short.push_back(ch);
+                if (short_with_value.find(ch) != std::string::npos) {
+                    normalized_args.push_back(opt_short);
+                    std::string rest = token.substr(j + 1);
+                    if (!rest.empty()) {
+                        normalized_args.push_back(rest);
+                    }
+                    consumed = true;
+                    break;
+                }
+                normalized_args.push_back(opt_short);
+            }
+            if (consumed) {
+                continue;
+            }
+            if (token.size() == 2 && token[1] == '-') {
+                normalized_args.push_back(token);
             }
             continue;
         }
@@ -123,6 +250,11 @@ Options parse_args(int argc, char** argv) {
         .help("use a long listing format")
         .flag()
         .action([&](auto&&){ opt.format = Options::Format::Long; });
+
+    program.add_argument("-b", "--escape")
+        .help("print C-style escapes for nongraphic characters")
+        .flag()
+        .action([&](auto&&){ opt.quoting_style = Options::QuotingStyle::Escape; });
 
     program.add_argument("-1", "--one-per-line")
         .help("list one file per line")
@@ -152,6 +284,8 @@ Options parse_args(int argc, char** argv) {
                 opt.format = Options::Format::ColumnsHorizontal;
             } else if (word == "vertical" || word == "columns" || word == "column" || word == "c") {
                 opt.format = Options::Format::ColumnsVertical;
+            } else if (word == "comma" || word == "commas" || word == "m") {
+                opt.format = Options::Format::CommaSeparated;
             } else {
                 throw std::runtime_error("invalid value for --format: " + value);
             }
@@ -187,6 +321,11 @@ Options parse_args(int argc, char** argv) {
             opt.files_only = true;
             opt.dirs_only = false;
         });
+
+    program.add_argument("-B", "--ignore-backups")
+        .help("do not list implied entries ending with ~")
+        .flag()
+        .action([&](auto&&){ opt.ignore_backups = true; });
 
     program.add_argument("-p")
         .help("append / indicator to directories")
@@ -226,6 +365,11 @@ Options parse_args(int argc, char** argv) {
             opt.format = Options::Format::Long;
             opt.numeric_uid_gid = true;
         });
+
+    program.add_argument("-N", "--literal")
+        .help("print entry names without quoting")
+        .flag()
+        .action([&](auto&&){ opt.quoting_style = Options::QuotingStyle::Literal; });
 
     program.add_argument("-t")
         .help("sort by modification time, newest first")
@@ -308,6 +452,16 @@ Options parse_args(int argc, char** argv) {
         .flag()
         .action([&](auto&&){ opt.no_color = true; });
 
+    program.add_argument("-q", "--hide-control-chars")
+        .help("print ? instead of nongraphic characters")
+        .flag()
+        .action([&](auto&&){ opt.hide_control_chars = true; });
+
+    program.add_argument("--show-control-chars")
+        .help("show nongraphic characters as-is")
+        .flag()
+        .action([&](auto&&){ opt.hide_control_chars = false; });
+
     program.add_argument("--color")
         .help("colorize the output: auto, always, never")
         .default_value(std::string("auto"));
@@ -352,10 +506,28 @@ Options parse_args(int argc, char** argv) {
             opt.quoting_style = *style;
         });
 
+    program.add_argument("--hide")
+        .help("do not list implied entries matching shell PATTERN (overridden by -a or -A)")
+        .metavar("PATTERN")
+        .action([&](const std::string& value){ opt.hide_patterns.push_back(value); });
+
+    program.add_argument("-I", "--ignore")
+        .help("do not list implied entries matching shell PATTERN")
+        .metavar("PATTERN")
+        .action([&](const std::string& value){ opt.ignore_patterns.push_back(value); });
+
     program.add_argument("--time-style")
         .help("use time display format: default, locale, long-iso, full-iso, iso, iso8601, +FORMAT (default: locale)")
         .metavar("FORMAT")
         .action([&](const std::string& value){ opt.time_style = value; });
+
+    program.add_argument("--full-time")
+        .help("like -l --time-style=full-iso")
+        .flag()
+        .action([&](auto&&){
+            opt.format = Options::Format::Long;
+            opt.time_style = "full-iso";
+        });
 
     program.add_argument("-L", "--dereference")
         .help("when showing file information for a symbolic link, show information for the file the link references")
@@ -372,6 +544,62 @@ Options parse_args(int argc, char** argv) {
         .flag()
         .action([&](auto&&){ opt.hyperlink = true; });
 
+    program.add_argument("-m")
+        .help("fill width with a comma separated list of entries")
+        .flag()
+        .action([&](auto&&){ opt.format = Options::Format::CommaSeparated; });
+
+    program.add_argument("-s", "--size")
+        .help("print the allocated size of each file, in blocks")
+        .flag()
+        .action([&](auto&&){ opt.show_block_size = true; });
+
+    program.add_argument("--block-size")
+        .help("with -l, scale sizes by SIZE when printing them")
+        .metavar("SIZE")
+        .action([&](const std::string& value) {
+            auto spec = parse_size_spec(value);
+            if (!spec) {
+                throw std::runtime_error("invalid value for --block-size: " + value);
+            }
+            opt.block_size = spec->value;
+            opt.block_size_specified = true;
+            opt.block_size_show_suffix = spec->show_suffix;
+            opt.block_size_suffix = spec->suffix;
+        });
+
+    program.add_argument("-T", "--tabsize")
+        .help("assume tab stops at each COLS instead of 8")
+        .metavar("COLS")
+        .action([&](const std::string& value) {
+            try {
+                size_t idx = 0;
+                int parsed = std::stoi(value, &idx, 10);
+                if (idx != value.size() || parsed < 0) {
+                    throw std::invalid_argument("invalid tab size");
+                }
+                opt.tab_size = parsed;
+            } catch (const std::exception&) {
+                throw std::runtime_error("invalid value for --tabsize: " + value);
+            }
+        });
+
+    program.add_argument("-w", "--width")
+        .help("set output width to COLS.  0 means no limit")
+        .metavar("COLS")
+        .action([&](const std::string& value) {
+            try {
+                size_t idx = 0;
+                int parsed = std::stoi(value, &idx, 10);
+                if (idx != value.size() || parsed < 0) {
+                    throw std::invalid_argument("invalid width");
+                }
+                opt.output_width = parsed;
+            } catch (const std::exception&) {
+                throw std::runtime_error("invalid value for --width: " + value);
+            }
+        });
+
     program.add_argument("--tree")
         .help("show tree view of directories, optionally limited to DEPTH")
         .metavar("DEPTH")
@@ -385,6 +613,11 @@ Options parse_args(int argc, char** argv) {
         .default_value(std::string(""))
         .implicit_value(std::string("long"))
         .nargs(argparse::nargs_pattern::optional);
+
+    program.add_argument("--zero")
+        .help("end each output line with NUL, not newline")
+        .flag()
+        .action([&](auto&&){ opt.zero_terminate = true; });
 
     program.add_argument("paths")
         .help("paths to list")
@@ -695,6 +928,8 @@ void fill_owner_group(FileInfo& fi, bool dereference) {
     fi.has_owner_numeric = false;
     fi.has_group_numeric = false;
     fi.has_link_size = false;
+    fi.allocated_size = 0;
+    fi.has_allocated_size = false;
 
     auto assign_from_stat = [&](const struct stat& st) {
         fi.nlink = st.st_nlink;
@@ -716,6 +951,15 @@ void fill_owner_group(FileInfo& fi, bool dereference) {
             fi.group = gr->gr_name;
         } else {
             fi.group = std::to_string(static_cast<uintmax_t>(st.st_gid));
+        }
+        if (st.st_blocks >= 0) {
+            uintmax_t blocks = static_cast<uintmax_t>(st.st_blocks);
+            uintmax_t allocated = 0;
+            if (!multiply_with_overflow(blocks, static_cast<uintmax_t>(512), allocated)) {
+                allocated = std::numeric_limits<uintmax_t>::max();
+            }
+            fi.allocated_size = allocated;
+            fi.has_allocated_size = true;
         }
     };
 
@@ -744,6 +988,8 @@ void fill_owner_group(FileInfo& fi, bool dereference) {
     fi.has_owner_numeric = false;
     fi.has_group_numeric = false;
     fi.has_link_size = false;
+    fi.allocated_size = 0;
+    fi.has_allocated_size = false;
 
     bool want_target_attributes = dereference && !fi.is_broken_symlink;
     fs::path query_path = fi.path;
@@ -754,6 +1000,18 @@ void fill_owner_group(FileInfo& fi, bool dereference) {
     }
 
     std::wstring native_path = query_path.native();
+
+    ::SetLastError(ERROR_SUCCESS);
+    DWORD compressed_high = 0;
+    DWORD compressed_low = ::GetCompressedFileSizeW(native_path.c_str(), &compressed_high);
+    DWORD compressed_err = ::GetLastError();
+    if (compressed_low != INVALID_FILE_SIZE || compressed_err == ERROR_SUCCESS) {
+        ULARGE_INTEGER comp{};
+        comp.HighPart = compressed_high;
+        comp.LowPart = compressed_low;
+        fi.allocated_size = static_cast<uintmax_t>(comp.QuadPart);
+        fi.has_allocated_size = true;
+    }
 
     DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
     DWORD flags = FILE_FLAG_BACKUP_SEMANTICS;
