@@ -9,11 +9,14 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bin/nls.exe",
-            "args": [
+            /* "args": [
                 "-l",
                 "-A",
                 "-a",
                 "--gs",
+            ], */
+            "args": [
+                "-h"
             ],
             "stopAtEntry": true,
             "cwd": "${fileDirname}/../",

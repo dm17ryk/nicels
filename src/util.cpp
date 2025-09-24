@@ -162,6 +162,10 @@ public:
         }
         return out.str();
     }
+
+    std::string make_option_opts(const CLI::Option* opt) const override {
+        return color_text(Formatter::make_option_opts(opt), rang::fg::blue);
+    }
 };
 
 struct SizeSpec {
@@ -279,83 +283,83 @@ Options parse_args(int argc, char** argv) {
         }
     }
 
-    std::vector<std::string> raw_args(argv, argv + argc);
-    std::vector<std::string> normalized_args;
-    normalized_args.reserve(raw_args.size() * 2);
+    // std::vector<std::string> raw_args(argv, argv + argc);
+    // std::vector<std::string> normalized_args;
+    // normalized_args.reserve(raw_args.size() * 2);
 
-    bool passthrough = false;
-    const std::string short_with_value = "ITw";
+    // bool passthrough = false;
+    // const std::string short_with_value = "ITw";
 
-    for (size_t i = 0; i < raw_args.size(); ++i) {
-        const std::string& token = raw_args[i];
-        if (i == 0) {
-            normalized_args.push_back(token);
-            continue;
-        }
-        if (passthrough) {
-            normalized_args.push_back(token);
-            continue;
-        }
-        if (token.size() > 2 && token[0] == '-' && token[1] == '-') {
-            auto eq = token.find('=');
-            if (eq != std::string::npos) {
-                std::string name = token.substr(0, eq);
-                std::string value = token.substr(eq + 1);
-                normalized_args.push_back(name);
-                normalized_args.push_back(value);
-                continue;
-            }
-        }
-        if (token == "--color") {
-            normalized_args.push_back(token);
-            continue;
-        }
-        if (token == "--") {
-            passthrough = true;
-            continue;
-        }
-        if (token == "-1") {
-            normalized_args.emplace_back("--one-per-line");
-            continue;
-        }
-        if (token.size() > 1 && token[0] == '-' && token[1] != '-') {
-            bool consumed = false;
-            for (size_t j = 1; j < token.size(); ++j) {
-                char ch = token[j];
-                if (ch == '1') {
-                    normalized_args.emplace_back("--one-per-line");
-                    continue;
-                }
-                std::string opt_short;
-                opt_short.reserve(2);
-                opt_short.push_back('-');
-                opt_short.push_back(ch);
-                if (short_with_value.find(ch) != std::string::npos) {
-                    normalized_args.push_back(opt_short);
-                    std::string rest = token.substr(j + 1);
-                    if (!rest.empty()) {
-                        normalized_args.push_back(rest);
-                    }
-                    consumed = true;
-                    break;
-                }
-                normalized_args.push_back(opt_short);
-            }
-            if (consumed) {
-                continue;
-            }
-            if (token.size() == 2 && token[1] == '-') {
-                normalized_args.push_back(token);
-            }
-            continue;
-        }
-        normalized_args.push_back(token);
-    }
+    // for (size_t i = 0; i < raw_args.size(); ++i) {
+    //     const std::string& token = raw_args[i];
+    //     if (i == 0) {
+    //         normalized_args.push_back(token);
+    //         continue;
+    //     }
+    //     if (passthrough) {
+    //         normalized_args.push_back(token);
+    //         continue;
+    //     }
+    //     if (token.size() > 2 && token[0] == '-' && token[1] == '-') {
+    //         auto eq = token.find('=');
+    //         if (eq != std::string::npos) {
+    //             std::string name = token.substr(0, eq);
+    //             std::string value = token.substr(eq + 1);
+    //             normalized_args.push_back(name);
+    //             normalized_args.push_back(value);
+    //             continue;
+    //         }
+    //     }
+    //     if (token == "--color") {
+    //         normalized_args.push_back(token);
+    //         continue;
+    //     }
+    //     if (token == "--") {
+    //         passthrough = true;
+    //         continue;
+    //     }
+    //     if (token == "-1") {
+    //         normalized_args.emplace_back("--one-per-line");
+    //         continue;
+    //     }
+    //     if (token.size() > 1 && token[0] == '-' && token[1] != '-') {
+    //         bool consumed = false;
+    //         for (size_t j = 1; j < token.size(); ++j) {
+    //             char ch = token[j];
+    //             if (ch == '1') {
+    //                 normalized_args.emplace_back("--one-per-line");
+    //                 continue;
+    //             }
+    //             std::string opt_short;
+    //             opt_short.reserve(2);
+    //             opt_short.push_back('-');
+    //             opt_short.push_back(ch);
+    //             if (short_with_value.find(ch) != std::string::npos) {
+    //                 normalized_args.push_back(opt_short);
+    //                 std::string rest = token.substr(j + 1);
+    //                 if (!rest.empty()) {
+    //                     normalized_args.push_back(rest);
+    //                 }
+    //                 consumed = true;
+    //                 break;
+    //             }
+    //             normalized_args.push_back(opt_short);
+    //         }
+    //         if (consumed) {
+    //             continue;
+    //         }
+    //         if (token.size() == 2 && token[1] == '-') {
+    //             normalized_args.push_back(token);
+    //         }
+    //         continue;
+    //     }
+    //     normalized_args.push_back(token);
+    // }
 
     CLI::App program{R"(List information about the FILEs (the current directory by default).
 Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.)", "nls"};
     program.formatter(std::make_shared<ColorFormatter>());
-    program.usage("");
+    // program.usage("");
     program.set_version_flag("--version", "1.0.0");
     program.footer(R"(The SIZE argument is an integer and optional unit (example: 10K is 10*1024).
 Units are K,M,G,T,P,E,Z,Y,R,Q (powers of 1024) or KB,MB,... (powers of 1000).
@@ -443,12 +447,13 @@ Exit status:
 
     auto format_option = layout->add_option("--format", opt.format,
         R"(use format: across (-x), horizontal (-x),
-long (-l), single-column (-1), vertical (-C))");
+long (-l), single-column (-1), vertical (-C)
+or comma (-m) (default: vertical))");
     format_option->type_name("WORD");
     format_option->transform(
         CLI::CheckedTransformer(format_map, CLI::ignore_case)
-            .description(
-                " allowed values: long (-l), single-column (-1), across (-x), vertical (-C), comma (-m)"));
+            .description(""));
+    format_option->default_str("vertical");
 
     layout->add_flag_callback("--header", [&]() { opt.header = true; },
         "print directory header and column names in long listing");
@@ -464,6 +469,7 @@ long (-l), single-column (-1), vertical (-C))");
         },
         "assume tab stops at each COLS instead of 8");
     tab_option->type_name("COLS");
+    tab_option->expected(1);
 
     auto width_option = layout->add_option_function<int>("-w,--width",
         [&](const int& cols) {
@@ -474,28 +480,33 @@ long (-l), single-column (-1), vertical (-C))");
         },
         "set output width to COLS.  0 means no limit");
     width_option->type_name("COLS");
+    width_option->expected(0, 256);
 
-    std::optional<std::size_t> tree_depth_value;
+    // std::optional<std::size_t> tree_depth_value;
     auto tree_option = layout->add_option_function<std::size_t>("--tree",
         [&](const std::size_t& depth) {
             if (depth == 0) {
                 throw CLI::ValidationError("--tree", "DEPTH must be greater than zero");
             }
-            tree_depth_value = depth;
+            opt.tree = true;
+            opt.tree_depth = depth;
         },
         "show tree view of directories, optionally limited to DEPTH");
     tree_option->type_name("DEPTH");
-    tree_option->expected(0, 1);
+    tree_option->expected(1);
 
-    Options::Report report_choice = Options::Report::Long;
-    auto report_option = layout->add_option("--report", report_choice,
+    // Options::Report report_choice = Options::Report::Long;
+    auto report_option = layout->add_option_function<Options::Report>("--report",
+        [&](const Options::Report& report) {
+            opt.report = report;
+        },
         R"(show summary report: short, long (default: long)
  )");
     report_option->type_name("WORD");
-    report_option->expected(0, 1);
+    report_option->expected(1);
     report_option->transform(
         CLI::CheckedTransformer(report_map, CLI::ignore_case)
-            .description(" allowed values: long, short"));
+            .description(""));
     report_option->default_str("long");
 
     layout->add_flag_callback("--zero", [&]() { opt.zero_terminate = true; },
@@ -535,11 +546,13 @@ PATTERN (overridden by -a or -A))")->type_name("PATTERN");
         "reverse order while sorting");
 
     auto sort_option = sorting->add_option("--sort", opt.sort,
-        "sort by WORD instead of name: none, size, time, extension");
+        R"(sort by WORD instead of name: none, size,
+time, extension (default: name))");
     sort_option->type_name("WORD");
     sort_option->transform(
         CLI::CheckedTransformer(sort_map, CLI::ignore_case)
-            .description(" allowed values: name, time (mtime), size, extension (ext), none"));
+            .description(""));
+    sort_option->default_str("name");
 
     sorting->add_flag_callback("--group-directories-first,--sd,--sort-dirs", [&]() {
         opt.group_dirs_first = true;
@@ -563,38 +576,42 @@ PATTERN (overridden by -a or -A))")->type_name("PATTERN");
     auto quoting_option = appearance->add_option("--quoting-style", opt.quoting_style,
         R"(use quoting style WORD for entry names:
 literal, locale, shell, shell-always, shell-escape,
-shell-escape-always, c, escape)");
+shell-escape-always, c, escape (default: literal))");
     quoting_option->type_name("WORD");
     quoting_option->transform(
         CLI::CheckedTransformer(quoting_map, CLI::ignore_case)
-            .description(
-                " allowed values: literal, locale, shell, shell-always, shell-escape, shell-escape-always, c, escape"));
+            .description(""));
+    quoting_option->default_str("literal");
 
     appearance->add_flag_callback("-p", [&]() { opt.indicator = Options::IndicatorStyle::Slash; },
         "append / indicator to directories");
 
     auto indicator_option = appearance->add_option("--indicator-style", opt.indicator,
         R"(append indicator with style STYLE to entry names:
-none, slash (-p))");
+none, slash (-p) (default: slash))");
     indicator_option->type_name("STYLE");
     indicator_option->transform(
         CLI::CheckedTransformer(indicator_map, CLI::ignore_case)
-            .description(" allowed values: slash (-p), none (off)"));
+            .description(""));
+    indicator_option->default_str("slash");
 
     appearance->add_flag_callback("--no-icons,--without-icons", [&]() { opt.no_icons = true; },
         "disable icons in output");
     appearance->add_flag_callback("--no-color", [&]() { opt.no_color = true; },
         "disable ANSI colors");
 
-    ColorMode color_choice = ColorMode::Auto;
-    auto color_option = appearance->add_option("--color", color_choice,
+    // ColorMode color_choice = ColorMode::Auto;
+    auto color_option = appearance->add_option_function<ColorMode>("--color",
+        [&](const ColorMode& color) {
+            // opt.color = color;
+            opt.no_color = (color == ColorMode::Never);
+        },
         R"(colorize the output: auto, always,
-never)");
+never (default: auto))");
     color_option->type_name("WHEN");
-    color_option->expected(0, 1);
     color_option->transform(
         CLI::CheckedTransformer(color_map, CLI::ignore_case)
-            .description(" allowed values: auto, always, never"));
+            .description(""));
     color_option->default_str("auto");
 
     appearance->add_flag_callback("--light", [&]() { opt.color_theme = Options::ColorTheme::Light; },
@@ -659,34 +676,36 @@ show information for the file the link references)");
         "show git status for each file");
 
     try {
-        std::vector<const char*> argv_ptrs;
-        argv_ptrs.reserve(normalized_args.size());
-        for (const auto& arg : normalized_args) {
-            argv_ptrs.push_back(arg.c_str());
-        }
+        // std::vector<const char*> argv_ptrs;
+        // argv_ptrs.reserve(normalized_args.size());
+        // for (const auto& arg : normalized_args) {
+        //     argv_ptrs.push_back(arg.c_str());
+        // }
 
-        program.parse(static_cast<int>(argv_ptrs.size()), argv_ptrs.data());
+        // program.parse(static_cast<int>(argv_ptrs.size()), argv_ptrs.data());
+        // CLI11_PARSE(program, argc, argv);
+        program.parse(argc, argv);
 
-        if (tree_option->count() > 0) {
+        /* if (tree_option->count() > 0) {
             opt.tree = true;
             opt.tree_depth = tree_depth_value;
-        }
+        } */
 
-        if (report_option->count() > 0) {
+        /* if (report_option->count() > 0) {
             if (report_option->results().empty()) {
                 opt.report = Options::Report::Long;
             } else {
                 opt.report = report_choice;
             }
-        }
+        } */
 
-        if (color_option->count() > 0) {
+        /* if (color_option->count() > 0) {
             ColorMode effective = color_choice;
             if (color_option->results().empty()) {
                 effective = ColorMode::Always;
             }
             opt.no_color = (effective == ColorMode::Never);
-        }
+        } */
     } catch (const CLI::ParseError& e) {
         std::exit(program.exit(e));
     }
