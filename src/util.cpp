@@ -163,8 +163,32 @@ public:
         return out.str();
     }
 
+    std::string make_option_name(const CLI::Option *opt, bool is_positional) const override {
+        return color_text(Formatter::make_option_name(opt, is_positional), rang::fg::yellow);
+    }
+
     std::string make_option_opts(const CLI::Option* opt) const override {
         return color_text(Formatter::make_option_opts(opt), rang::fg::blue);
+    }
+
+    std::string make_option_desc(const CLI::Option *opt) const override {
+        return color_text(Formatter::make_option_desc(opt), rang::fg::green);
+    }
+
+    std::string make_footer(const CLI::App *app) const override {
+        std::string footer = Formatter::make_footer(app);
+        if (footer.empty()) {
+            return footer;
+        }
+        return color_text(footer, rang::fg::magenta);
+    }
+
+    std::string make_description(const CLI::App *app) const override {
+        std::string desc = Formatter::make_description(app);
+        if (desc.empty()) {
+            return desc;
+        }
+        return color_text(desc, rang::fg::magenta);
     }
 };
 
@@ -276,6 +300,9 @@ static std::optional<SizeSpec> parse_size_spec(const std::string& text) {
 
 Options parse_args(int argc, char** argv) {
     Options opt;
+
+    rang::setControlMode(rang::control::Force);
+    rang::setWinTermMode(rang::winTerm::Ansi);
 
     if (const char* env = std::getenv("QUOTING_STYLE")) {
         if (auto style = parse_quoting_style_word(env)) {

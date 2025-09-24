@@ -4,6 +4,8 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
+                "${workspaceFolder}/third-party/cli11/include",
+                "${workspaceFolder}/third-party/rang/include",
                 "C:/msys64/ucrt64/include/c++/15.2.0/x86_64-w64-mingw32",
                 "C:/msys64/ucrt64/include/c++/15.2.0",
                 "C:/msys64/ucrt64/include"
@@ -28,6 +30,10 @@
             "compilerArgs": [
                 "-std=c++17",
                 "-I",
+                "${workspaceFolder}/third-party/cli11/include",
+                "-I",
+                "${workspaceFolder}/third-party/rang/include",
+                "-I",
                 "C:/msys64/ucrt64/include/c++/15.2.0/x86_64-w64-mingw32",
                 "-I",
                 "C:/msys64/ucrt64/include/c++/15.2.0",
@@ -41,6 +47,8 @@
             "mergeConfigurations": true,
             "browse": {
                 "path": [
+                    "${workspaceFolder}/third-party/cli11/include",
+                    "${workspaceFolder}/third-party/rang/include",
                     "C:/msys64/ucrt64/include/c++/15.2.0/x86_64-w64-mingw32",
                     "C:/msys64/ucrt64/include/c++/15.2.0",
                     "C:/msys64/ucrt64/include"
