@@ -60,7 +60,47 @@ static std::optional<Options::QuotingStyle> parse_quoting_style_word(std::string
 
 namespace {
 
+static bool should_colorize_help() {
+    using rang::rang_implementation::controlMode;
+    using rang::rang_implementation::isTerminal;
+
+    if (controlMode().load() == rang::control::Off) {
+        return false;
+    }
+
+    return isTerminal(std::cout.rdbuf());
+}
+
+class RangControlGuard {
+public:
+    explicit RangControlGuard(rang::control mode)
+        : previous_(rang::rang_implementation::controlMode().load()),
+          changed_(previous_ != mode) {
+        if (changed_) {
+            rang::setControlMode(mode);
+        }
+    }
+
+    ~RangControlGuard() {
+        if (changed_) {
+            rang::setControlMode(previous_);
+        }
+    }
+
+    RangControlGuard(const RangControlGuard&) = delete;
+    RangControlGuard& operator=(const RangControlGuard&) = delete;
+
+private:
+    rang::control previous_;
+    bool changed_;
+};
+
 static std::string color_text(const std::string& text, rang::fg color) {
+    if (!should_colorize_help()) {
+        return text;
+    }
+
+    RangControlGuard guard{rang::control::Force};
     std::ostringstream oss;
     oss << color << text << rang::style::reset;
     return oss.str();
@@ -69,18 +109,12 @@ static std::string color_text(const std::string& text, rang::fg color) {
 class ColorFormatter : public CLI::Formatter {
 public:
     std::string make_usage(const CLI::App* app, std::string name) const override {
-        std::string usage = app->get_usage();
-        if (!usage.empty()) {
-            return usage + "\n\n";
-        }
-
         std::ostringstream out;
         out << '\n';
 
-        if (name.empty()) {
-            out << color_text(get_label("Usage"), rang::fg::yellow) << ':';
-        } else {
-            out << color_text(name, rang::fg::yellow);
+        out << color_text(get_label("Usage"), rang::fg::yellow) << ':';
+        if (!name.empty()) {
+            out << ' ' << color_text(name, rang::fg::yellow);
         }
 
         std::vector<const CLI::Option*> non_positional =
@@ -321,6 +355,7 @@ Options parse_args(int argc, char** argv) {
     CLI::App program{R"(List information about the FILEs (the current directory by default).
 Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.)", "nls"};
     program.formatter(std::make_shared<ColorFormatter>());
+    program.usage("");
     program.set_version_flag("--version", "1.0.0");
     program.footer(R"(The SIZE argument is an integer and optional unit (example: 10K is 10*1024).
 Units are K,M,G,T,P,E,Z,Y,R,Q (powers of 1024) or KB,MB,... (powers of 1000).
@@ -410,7 +445,10 @@ Exit status:
         R"(use format: across (-x), horizontal (-x),
 long (-l), single-column (-1), vertical (-C))");
     format_option->type_name("WORD");
-    format_option->transform(CLI::CheckedTransformer(format_map, CLI::ignore_case));
+    format_option->transform(
+        CLI::CheckedTransformer(format_map, CLI::ignore_case)
+            .description(
+                " allowed values: long (-l), single-column (-1), across (-x), vertical (-C), comma (-m)"));
 
     layout->add_flag_callback("--header", [&]() { opt.header = true; },
         "print directory header and column names in long listing");
@@ -455,7 +493,9 @@ long (-l), single-column (-1), vertical (-C))");
  )");
     report_option->type_name("WORD");
     report_option->expected(0, 1);
-    report_option->transform(CLI::CheckedTransformer(report_map, CLI::ignore_case));
+    report_option->transform(
+        CLI::CheckedTransformer(report_map, CLI::ignore_case)
+            .description(" allowed values: long, short"));
     report_option->default_str("long");
 
     layout->add_flag_callback("--zero", [&]() { opt.zero_terminate = true; },
@@ -497,7 +537,9 @@ PATTERN (overridden by -a or -A))")->type_name("PATTERN");
     auto sort_option = sorting->add_option("--sort", opt.sort,
         "sort by WORD instead of name: none, size, time, extension");
     sort_option->type_name("WORD");
-    sort_option->transform(CLI::CheckedTransformer(sort_map, CLI::ignore_case));
+    sort_option->transform(
+        CLI::CheckedTransformer(sort_map, CLI::ignore_case)
+            .description(" allowed values: name, time (mtime), size, extension (ext), none"));
 
     sorting->add_flag_callback("--group-directories-first,--sd,--sort-dirs", [&]() {
         opt.group_dirs_first = true;
@@ -523,7 +565,10 @@ PATTERN (overridden by -a or -A))")->type_name("PATTERN");
 literal, locale, shell, shell-always, shell-escape,
 shell-escape-always, c, escape)");
     quoting_option->type_name("WORD");
-    quoting_option->transform(CLI::CheckedTransformer(quoting_map, CLI::ignore_case));
+    quoting_option->transform(
+        CLI::CheckedTransformer(quoting_map, CLI::ignore_case)
+            .description(
+                " allowed values: literal, locale, shell, shell-always, shell-escape, shell-escape-always, c, escape"));
 
     appearance->add_flag_callback("-p", [&]() { opt.indicator = Options::IndicatorStyle::Slash; },
         "append / indicator to directories");
@@ -532,7 +577,9 @@ shell-escape-always, c, escape)");
         R"(append indicator with style STYLE to entry names:
 none, slash (-p))");
     indicator_option->type_name("STYLE");
-    indicator_option->transform(CLI::CheckedTransformer(indicator_map, CLI::ignore_case));
+    indicator_option->transform(
+        CLI::CheckedTransformer(indicator_map, CLI::ignore_case)
+            .description(" allowed values: slash (-p), none (off)"));
 
     appearance->add_flag_callback("--no-icons,--without-icons", [&]() { opt.no_icons = true; },
         "disable icons in output");
@@ -545,7 +592,9 @@ none, slash (-p))");
 never)");
     color_option->type_name("WHEN");
     color_option->expected(0, 1);
-    color_option->transform(CLI::CheckedTransformer(color_map, CLI::ignore_case));
+    color_option->transform(
+        CLI::CheckedTransformer(color_map, CLI::ignore_case)
+            .description(" allowed values: auto, always, never"));
     color_option->default_str("auto");
 
     appearance->add_flag_callback("--light", [&]() { opt.color_theme = Options::ColorTheme::Light; },
