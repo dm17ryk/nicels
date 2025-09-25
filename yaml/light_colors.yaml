@@ -39,6 +39,16 @@ group: black
 header_directory: royalblue
 header_names:     darkblue
 
+# Help
+help_usage_label:   darkblue
+help_usage_command: darkblue
+help_option_group:  royalblue
+help_option_name:   darkblue
+help_option_opts:   saddlebrown
+help_option_desc:   darkgreen
+help_footer:        purple
+help_description:   purple
+
 # Random
 report: black
 user:   darkblue

@@ -39,6 +39,16 @@ group: darkkhaki
 header_directory: royalblue
 header_names:     lightgray
 
+# Help
+help_usage_label:   yellow
+help_usage_command: yellow
+help_option_group:  cyan
+help_option_name:   yellow
+help_option_opts:   dodgerblue
+help_option_desc:   limegreen
+help_footer:        magenta
+help_description:   magenta
+
 # Random
 report: lightgray
 user:   moccasin

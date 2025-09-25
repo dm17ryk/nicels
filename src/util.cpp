@@ -13,11 +13,11 @@
 #include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <system_error>
 #include <limits>
 
 #include <CLI/CLI.hpp>
-#include <rang.hpp>
 
 #ifndef _WIN32
 #include <pwd.h>
@@ -61,49 +61,39 @@ static std::optional<Options::QuotingStyle> parse_quoting_style_word(std::string
 namespace {
 
 static bool should_colorize_help() {
-    using rang::rang_implementation::controlMode;
-    using rang::rang_implementation::isTerminal;
+    static const bool colorize = [] {
+        if (std::getenv("NO_COLOR") != nullptr) {
+            return false;
+        }
 
-    if (controlMode().load() == rang::control::Off) {
-        return false;
-    }
-
-    return isTerminal(std::cout.rdbuf());
+#ifdef _WIN32
+        HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (handle == INVALID_HANDLE_VALUE) {
+            return false;
+        }
+        if (GetFileType(handle) != FILE_TYPE_CHAR) {
+            return false;
+        }
+        DWORD mode = 0;
+        return GetConsoleMode(handle, &mode) != 0;
+#else
+        return ::isatty(STDOUT_FILENO) != 0;
+#endif
+    }();
+    return colorize;
 }
 
-class RangControlGuard {
-public:
-    explicit RangControlGuard(rang::control mode)
-        : previous_(rang::rang_implementation::controlMode().load()),
-          changed_(previous_ != mode) {
-        if (changed_) {
-            rang::setControlMode(mode);
-        }
-    }
-
-    ~RangControlGuard() {
-        if (changed_) {
-            rang::setControlMode(previous_);
-        }
-    }
-
-    RangControlGuard(const RangControlGuard&) = delete;
-    RangControlGuard& operator=(const RangControlGuard&) = delete;
-
-private:
-    rang::control previous_;
-    bool changed_;
-};
-
-static std::string color_text(const std::string& text, rang::fg color) {
+static std::string color_text(std::string_view text,
+    std::string_view theme_key,
+    std::string_view fallback_color)
+{
     if (!should_colorize_help()) {
-        return text;
+        return std::string(text);
     }
 
-    RangControlGuard guard{rang::control::Force};
-    std::ostringstream oss;
-    oss << color << text << rang::style::reset;
-    return oss.str();
+    const ThemeColors& theme = active_theme();
+    const std::string color = theme.color_or(theme_key, fallback_color);
+    return apply_color(color, text, theme, false);
 }
 
 class ColorFormatter : public CLI::Formatter {
@@ -112,9 +102,9 @@ public:
         std::ostringstream out;
         out << '\n';
 
-        out << color_text(get_label("Usage"), rang::fg::yellow) << ':';
+        out << color_text(get_label("Usage"), "help_usage_label", "\x1b[33m") << ':';
         if (!name.empty()) {
-            out << ' ' << color_text(name, rang::fg::yellow);
+            out << ' ' << color_text(name, "help_usage_command", "\x1b[33m");
         }
 
         std::vector<const CLI::Option*> non_positional =
@@ -154,7 +144,7 @@ public:
         std::ostringstream out;
         out << "\n";
         if (!group.empty()) {
-            out << color_text(group, rang::fg::cyan);
+            out << color_text(group, "help_option_group", "\x1b[36m");
         }
         out << ":\n";
         for (const CLI::Option* opt : opts) {
@@ -164,15 +154,18 @@ public:
     }
 
     std::string make_option_name(const CLI::Option *opt, bool is_positional) const override {
-        return color_text(Formatter::make_option_name(opt, is_positional), rang::fg::yellow);
+        return color_text(Formatter::make_option_name(opt, is_positional),
+            "help_option_name", "\x1b[33m");
     }
 
     std::string make_option_opts(const CLI::Option* opt) const override {
-        return color_text(Formatter::make_option_opts(opt), rang::fg::blue);
+        return color_text(Formatter::make_option_opts(opt),
+            "help_option_opts", "\x1b[34m");
     }
 
     std::string make_option_desc(const CLI::Option *opt) const override {
-        return color_text(Formatter::make_option_desc(opt), rang::fg::green);
+        return color_text(Formatter::make_option_desc(opt),
+            "help_option_desc", "\x1b[32m");
     }
 
     std::string make_footer(const CLI::App *app) const override {
@@ -180,7 +173,7 @@ public:
         if (footer.empty()) {
             return footer;
         }
-        return color_text(footer, rang::fg::magenta);
+        return color_text(footer, "help_footer", "\x1b[35m");
     }
 
     std::string make_description(const CLI::App *app) const override {
@@ -188,7 +181,7 @@ public:
         if (desc.empty()) {
             return desc;
         }
-        return color_text(desc, rang::fg::magenta);
+        return color_text(desc, "help_description", "\x1b[35m");
     }
 };
 
@@ -300,9 +293,6 @@ static std::optional<SizeSpec> parse_size_spec(const std::string& text) {
 
 Options parse_args(int argc, char** argv) {
     Options opt;
-
-    rang::setControlMode(rang::control::Force);
-    rang::setWinTermMode(rang::winTerm::Ansi);
 
     if (const char* env = std::getenv("QUOTING_STYLE")) {
         if (auto style = parse_quoting_style_word(env)) {

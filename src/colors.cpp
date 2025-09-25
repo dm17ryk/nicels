@@ -230,6 +230,14 @@ ThemeColors make_fallback_theme() {
     theme.set("deletion", "\x1b[31m");
     theme.set("untracked", "\x1b[35m");
     theme.set("unchanged", "\x1b[32m");
+    theme.set("help_usage_label", "\x1b[33m");
+    theme.set("help_usage_command", "\x1b[33m");
+    theme.set("help_option_group", "\x1b[36m");
+    theme.set("help_option_name", "\x1b[33m");
+    theme.set("help_option_opts", "\x1b[34m");
+    theme.set("help_option_desc", "\x1b[32m");
+    theme.set("help_footer", "\x1b[35m");
+    theme.set("help_description", "\x1b[35m");
     return theme;
 }
 
