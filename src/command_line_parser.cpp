@@ -18,6 +18,7 @@
 
 #include "colors.h"
 #include "string_utils.h"
+#include "color_formatter.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -26,171 +27,8 @@
 #endif
 
 namespace nls {
-namespace {
 
-const std::map<std::string, Options::QuotingStyle>& QuotingStyleMap() {
-    static const std::map<std::string, Options::QuotingStyle> map{
-        {"literal", Options::QuotingStyle::Literal},
-        {"locale", Options::QuotingStyle::Locale},
-        {"shell", Options::QuotingStyle::Shell},
-        {"shell-always", Options::QuotingStyle::ShellAlways},
-        {"shell-escape", Options::QuotingStyle::ShellEscape},
-        {"shell-escape-always", Options::QuotingStyle::ShellEscapeAlways},
-        {"c", Options::QuotingStyle::C},
-        {"escape", Options::QuotingStyle::Escape},
-    };
-    return map;
-}
-
-std::optional<Options::QuotingStyle> ParseQuotingStyleWord(std::string word) {
-    word = StringUtils::ToLower(std::move(word));
-    const auto& mapping = QuotingStyleMap();
-    auto it = mapping.find(word);
-    if (it != mapping.end()) {
-        return it->second;
-    }
-    return std::nullopt;
-}
-
-bool ShouldColorizeHelp() {
-    static const bool colorize = [] {
-        if (std::getenv("NO_COLOR") != nullptr) {
-            return false;
-        }
-#ifdef _WIN32
-        HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-        if (handle == INVALID_HANDLE_VALUE) {
-            return false;
-        }
-        if (GetFileType(handle) != FILE_TYPE_CHAR) {
-            return false;
-        }
-        DWORD mode = 0;
-        return GetConsoleMode(handle, &mode) != 0;
-#else
-        return ::isatty(STDOUT_FILENO) != 0;
-#endif
-    }();
-    return colorize;
-}
-
-std::string ColorText(std::string_view text, std::string_view theme_key, std::string_view fallback_color) {
-    if (!ShouldColorizeHelp()) {
-        return std::string(text);
-    }
-
-    const ThemeColors& theme = active_theme();
-    const std::string color = theme.color_or(theme_key, fallback_color);
-    return apply_color(color, text, theme, false);
-}
-
-class ColorFormatter : public CLI::Formatter {
-public:
-    std::string make_usage(const CLI::App* app, std::string name) const override {
-        std::ostringstream out;
-        out << '\n';
-
-        out << ColorText(get_label("Usage"), "help_usage_label", "\x1b[33m") << ':';
-        if (!name.empty()) {
-            out << ' ' << ColorText(name, "help_usage_command", "\x1b[33m");
-        }
-
-        std::vector<const CLI::Option*> non_positional =
-            app->get_options([](const CLI::Option* opt) { return opt->nonpositional(); });
-        if (!non_positional.empty()) {
-            out << " [" << get_label("OPTIONS") << "]";
-        }
-
-        std::vector<const CLI::Option*> positionals =
-            app->get_options([](const CLI::Option* opt) { return opt->get_positional(); });
-        if (!positionals.empty()) {
-            std::vector<std::string> positional_names(positionals.size());
-            std::transform(positionals.begin(), positionals.end(), positional_names.begin(),
-                [this](const CLI::Option* opt) { return make_option_usage(opt); });
-            out << " " << CLI::detail::join(positional_names, " ");
-        }
-
-        if (!app->get_subcommands([](const CLI::App* subc) {
-                return (!subc->get_disabled()) && (!subc->get_name().empty());
-            }).empty()) {
-            out << ' ' << (app->get_require_subcommand_min() == 0 ? "[" : "")
-                << get_label(app->get_require_subcommand_max() == 1 ? "SUBCOMMAND" : "SUBCOMMANDS")
-                << (app->get_require_subcommand_min() == 0 ? "]" : "");
-        }
-
-        out << "\n\n";
-        return out.str();
-    }
-
-    std::string make_group(std::string group, bool is_positional, std::vector<const CLI::Option*> opts) const override {
-        if (opts.empty()) {
-            return {};
-        }
-
-        std::ostringstream out;
-        out << "\n";
-        if (!group.empty()) {
-            out << ColorText(group, "help_option_group", "\x1b[36m");
-        }
-        out << ":\n";
-        for (const CLI::Option* opt : opts) {
-            out << make_option(opt, is_positional);
-        }
-        return out.str();
-    }
-
-    std::string make_option_name(const CLI::Option* opt, bool is_positional) const override {
-        return ColorText(Formatter::make_option_name(opt, is_positional), "help_option_name", "\x1b[33m");
-    }
-
-    std::string make_option_opts(const CLI::Option* opt) const override {
-        return ColorText(Formatter::make_option_opts(opt), "help_option_opts", "\x1b[34m");
-    }
-
-    std::string make_option_desc(const CLI::Option* opt) const override {
-        return ColorText(Formatter::make_option_desc(opt), "help_option_desc", "\x1b[32m");
-    }
-
-    std::string make_footer(const CLI::App* app) const override {
-        std::string footer = Formatter::make_footer(app);
-        if (footer.empty()) {
-            return footer;
-        }
-        return ColorText(footer, "help_footer", "\x1b[35m");
-    }
-
-    std::string make_description(const CLI::App* app) const override {
-        std::string desc = Formatter::make_description(app);
-        if (desc.empty()) {
-            return desc;
-        }
-        return ColorText(desc, "help_description", "\x1b[35m");
-    }
-
-    std::string make_subcommand(const CLI::App* sub) const override {
-        std::string cmd = Formatter::make_subcommand(sub);
-        if (cmd.empty()) {
-            return cmd;
-        }
-        return ColorText(cmd, "help_option_group", "\x1b[33m");
-    }
-
-    std::string make_expanded(const CLI::App* sub, CLI::AppFormatMode mode) const override {
-        std::string cmd = Formatter::make_expanded(sub, mode);
-        if (cmd.empty()) {
-            return cmd;
-        }
-        return ColorText(cmd, "help_option_group", "\x1b[33m");
-    }
-};
-
-struct SizeSpec {
-    uintmax_t value = 0;
-    bool show_suffix = false;
-    std::string suffix;
-};
-
-bool MultiplyWithOverflow(uintmax_t a, uintmax_t b, uintmax_t& result) {
+bool CommandLineParser::MultiplyWithOverflow(uintmax_t a, uintmax_t b, uintmax_t& result) const {
     if (a == 0 || b == 0) {
         result = 0;
         return true;
@@ -202,7 +40,7 @@ bool MultiplyWithOverflow(uintmax_t a, uintmax_t b, uintmax_t& result) {
     return true;
 }
 
-bool PowWithOverflow(uintmax_t base, unsigned exponent, uintmax_t& result) {
+bool CommandLineParser::PowWithOverflow(uintmax_t base, unsigned exponent, uintmax_t& result) const {
     result = 1;
     for (unsigned i = 0; i < exponent; ++i) {
         if (!MultiplyWithOverflow(result, base, result)) {
@@ -212,7 +50,7 @@ bool PowWithOverflow(uintmax_t base, unsigned exponent, uintmax_t& result) {
     return true;
 }
 
-std::optional<SizeSpec> ParseSizeSpec(const std::string& text) {
+std::optional<CommandLineParser::SizeSpec> CommandLineParser::ParseSizeSpec(const std::string& text) const {
     if (text.empty()) {
         return std::nullopt;
     }
@@ -292,10 +130,31 @@ std::optional<SizeSpec> ParseSizeSpec(const std::string& text) {
     return spec;
 }
 
-} // namespace
+const std::map<std::string, Options::QuotingStyle>& CommandLineParser::QuotingStyleMap() const {
+    static const std::map<std::string, Options::QuotingStyle> map{
+        {"literal", Options::QuotingStyle::Literal},
+        {"locale", Options::QuotingStyle::Locale},
+        {"shell", Options::QuotingStyle::Shell},
+        {"shell-always", Options::QuotingStyle::ShellAlways},
+        {"shell-escape", Options::QuotingStyle::ShellEscape},
+        {"shell-escape-always", Options::QuotingStyle::ShellEscapeAlways},
+        {"c", Options::QuotingStyle::C},
+        {"escape", Options::QuotingStyle::Escape},
+    };
+    return map;
+}
 
-Options CommandLineParser::Parse(int argc, char** argv) const {
-    Options options;
+std::optional<Options::QuotingStyle> CommandLineParser::ParseQuotingStyleWord(std::string word) const {
+    word = StringUtils::ToLower(std::move(word));
+    const auto& mapping = QuotingStyleMap();
+    auto it = mapping.find(word);
+    if (it != mapping.end()) {
+        return it->second;
+    }
+    return std::nullopt;
+}
+
+Options CommandLineParser::Parse(int argc, char** argv) {
 
     if (const char* env = std::getenv("QUOTING_STYLE")) {
         if (auto style = ParseQuotingStyleWord(env)) {

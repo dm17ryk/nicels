@@ -7,16 +7,15 @@
 
 namespace nls {
 
-namespace {
-std::time_t ToTimeT(std::filesystem::file_time_type timestamp) {
+std::time_t TimeFormatter::ToTimeT(std::filesystem::file_time_type timestamp) const {
     using namespace std::chrono;
     const auto system_time = time_point_cast<system_clock::duration>(
         timestamp - std::filesystem::file_time_type::clock::now() + system_clock::now());
     return system_clock::to_time_t(system_time);
 }
-}
 
-std::string TimeFormatter::Format(const std::filesystem::file_time_type& timestamp,
+std::string TimeFormatter::Format(
+    const std::filesystem::file_time_type& timestamp,
     const Options& options) const
 {
     const std::time_t time_value = ToTimeT(timestamp);
@@ -38,7 +37,7 @@ std::string TimeFormatter::Format(const std::filesystem::file_time_type& timesta
     return buffer;
 }
 
-std::string TimeFormatter::ResolveFormat(const Options& options) {
+std::string TimeFormatter::ResolveFormat(const Options& options) const {
     if (options.time_style.empty() || options.time_style == "locale" || options.time_style == "default") {
         return "%a %b %d %H:%M:%S %Y";
     }

@@ -11,10 +11,11 @@
 #include "colors.h"
 
 namespace nls {
-namespace {
-char SymbolForPermissions(bool read, bool write, bool execute,
+
+char PermissionFormatter::SymbolForPermissions(
+    bool read, bool write, bool execute,
     std::filesystem::perms special, std::filesystem::perms mask,
-    char special_char_lower, char special_char_upper)
+    char special_char_lower, char special_char_upper) const
 {
     if ((special & mask) != std::filesystem::perms::none) {
         if (execute) {
@@ -25,7 +26,6 @@ char SymbolForPermissions(bool read, bool write, bool execute,
         }
     }
     return execute ? 'x' : '-';
-}
 }
 
 std::string PermissionFormatter::Format(const std::filesystem::directory_entry& entry,

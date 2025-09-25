@@ -9,11 +9,13 @@ namespace nls {
 
 class TimeFormatter {
 public:
-    std::string Format(const std::filesystem::file_time_type& timestamp,
+    std::string Format(
+        const std::filesystem::file_time_type& timestamp,
         const Options& options) const;
 
 private:
-    static std::string ResolveFormat(const Options& options);
+    std::time_t ToTimeT(std::filesystem::file_time_type timestamp) const;
+    std::string ResolveFormat(const Options& options) const;
 };
 
 } // namespace nls
