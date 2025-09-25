@@ -183,6 +183,22 @@ public:
         }
         return color_text(desc, "help_description", "\x1b[35m");
     }
+
+    std::string make_subcommand(const CLI::App *sub) const override {
+        std::string cmd = Formatter::make_subcommand(sub);
+        if (cmd.empty()) {
+            return cmd;
+        }
+        return color_text(cmd, "help_option_group", "\x1b[33m");
+    }
+
+    std::string make_expanded(const CLI::App *sub, CLI::AppFormatMode mode) const override {
+        std::string cmd = Formatter::make_expanded(sub, mode);
+        if (cmd.empty()) {
+            return cmd;
+        }
+        return color_text(cmd, "help_option_group", "\x1b[33m");
+    }
 };
 
 struct SizeSpec {
