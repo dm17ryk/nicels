@@ -1,7 +1,7 @@
 #include "icons.h"
 
 #include "resources.h"
-#include "util.h"
+#include "string_utils.h"
 #include "yaml_loader.h"
 
 #include <unordered_map>
@@ -55,8 +55,8 @@ void merge_map(std::unordered_map<std::string, std::string>& dest,
                bool lowercase_values = false) {
     for (const auto& kv : src) {
         std::string value = kv.second;
-        if (lowercase_values) value = to_lower(std::move(value));
-        dest[to_lower(kv.first)] = std::move(value);
+        if (lowercase_values) value = StringUtils::ToLower(std::move(value));
+        dest[StringUtils::ToLower(kv.first)] = std::move(value);
     }
 }
 
@@ -99,7 +99,7 @@ const IconTheme& icon_theme() {
 
 IconResult folder_icon(std::string_view name) {
     const IconTheme& theme = icon_theme();
-    std::string key = to_lower(std::string(name));
+    std::string key = StringUtils::ToLower(std::string(name));
     auto direct = theme.folders.find(key);
     if (direct != theme.folders.end()) {
         bool recognized = key != "folder";
@@ -128,7 +128,7 @@ IconResult folder_icon(std::string_view name) {
 
 IconResult file_icon(std::string_view name, bool is_exec) {
     const IconTheme& theme = icon_theme();
-    std::string key = to_lower(std::string(name));
+    std::string key = StringUtils::ToLower(std::string(name));
 
     auto direct = theme.files.find(key);
     if (direct != theme.files.end()) {

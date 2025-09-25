@@ -1,6 +1,6 @@
 #include "yaml_loader.h"
 
-#include "util.h"
+#include "string_utils.h"
 
 #include <algorithm>
 #include <cctype>
@@ -74,7 +74,7 @@ std::unordered_map<std::string, std::string> load_simple_yaml_map(const std::fil
         std::string value = trim_copy(line.substr(colon + 1));
         if (key.empty() || value.empty()) continue;
         value = unquote(value);
-        if (lowercase_keys) key = to_lower(std::move(key));
+        if (lowercase_keys) key = StringUtils::ToLower(std::move(key));
         result[std::move(key)] = std::move(value);
     }
     return result;

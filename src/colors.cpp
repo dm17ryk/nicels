@@ -1,7 +1,7 @@
 #include "colors.h"
 
 #include "resources.h"
-#include "util.h"
+#include "string_utils.h"
 #include "yaml_loader.h"
 
 #include <array>
@@ -61,7 +61,7 @@ std::optional<std::array<int, 3>> parse_color_triplet(const std::string& value) 
     std::string trimmed = trim_copy(value);
     if (trimmed.empty()) return std::nullopt;
 
-    std::string lower = to_lower(trimmed);
+    std::string lower = StringUtils::ToLower(trimmed);
     std::string_view view(lower);
     if (!view.empty() && view.front() == '#') {
         view.remove_prefix(1);
@@ -174,7 +174,7 @@ std::optional<std::string> parse_color_name(std::string_view name) {
         if (!std::isspace(static_cast<unsigned char>(ch))) trimmed.push_back(ch);
     }
     if (trimmed.empty()) return std::string{};
-    std::string lower = to_lower(trimmed);
+    std::string lower = StringUtils::ToLower(trimmed);
     if (lower == "none" || lower == "default") return std::string{};
     if (!lower.empty() && lower[0] == '#') {
         auto rgb = parse_hex_triplet(std::string_view(lower).substr(1));
