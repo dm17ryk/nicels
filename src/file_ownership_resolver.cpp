@@ -21,7 +21,7 @@
 namespace nls {
 
 #ifndef _WIN32
-bool FileOwnershipResolver::MultiplyWithOverflow(uintmax_t a, uintmax_t b, uintmax_t& result) {
+bool FileOwnershipResolver::MultiplyWithOverflow(uintmax_t a, uintmax_t b, uintmax_t& result) const {
     if (a == 0 || b == 0) {
         result = 0;
         return true;
