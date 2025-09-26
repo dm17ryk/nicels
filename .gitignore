@@ -1,4 +1,23 @@
-*.o
-*.dll
+# Build artifacts
+bin/
+obj/
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+*.vcxproj*
+*.user
+*.sln
+
+# Executables
 *.exe
-nls
+*.dll
+*.o
+*.obj
+
+# Packaging outputs
+_CPack_Packages/
+*.deb
+*.rpm
+*.msix*

@@ -1,162 +1,132 @@
-#include <system_error>
+#include "nicels/git_status.hpp"
 
-#include "git_status.h"
+#include "nicels/logger.hpp"
 
-namespace fs = std::filesystem;
+#include <algorithm>
+#include <array>
+#include <cstdio>
+#include <cstdlib>
+#include <sstream>
 
-#if defined(USE_LIBGIT2)
-#  if defined(__has_include)
-#    if __has_include(<git2.h>)
-#      include <git2.h>
-#      define NLS_USE_LIBGIT2 1
-#    endif
-#  else
-#    include <git2.h>
-#    define NLS_USE_LIBGIT2 1
-#  endif
+#ifdef _WIN32
+#    include <windows.h>
 #endif
 
-#ifndef NLS_USE_LIBGIT2
-#  define NLS_USE_LIBGIT2 0
-#endif
+namespace nicels {
 
-namespace nls {
+GitStatusCache::GitStatusCache(bool enabled) : enabled_{enabled} {}
 
-#if NLS_USE_LIBGIT2
-
-// Open a repository by searching upward from 'p'
-static bool repo_open_for_path(const fs::path& p, git_repository** out) {
-    git_libgit2_init();
-    fs::path dir = fs::is_directory(p) ? p : p.parent_path();
-    int rc = git_repository_open_ext(out, dir.string().c_str(),
-                                     GIT_REPOSITORY_OPEN_CROSS_FS | GIT_REPOSITORY_OPEN_FROM_ENV,
-                                     nullptr);
-    return rc == 0;
-}
-
-// Map libgit2 bitfield to two-char porcelain-style code (X=index, Y=worktree)
-static std::string to_porcelain_code(unsigned s) {
-    // Special cases first
-    if (s & GIT_STATUS_CONFLICTED) {
-        return "UU";
+std::string GitStatusCache::status_for(const std::filesystem::path& path) {
+    if (!enabled_) {
+        return {};
     }
-    if (s & GIT_STATUS_IGNORED) {
-        return "!!";
-    }
-
-    // X (index) column
-    char X = ' ';
-    if      (s & GIT_STATUS_INDEX_NEW)        X = 'A';
-    else if (s & GIT_STATUS_INDEX_MODIFIED)   X = 'M';
-    else if (s & GIT_STATUS_INDEX_DELETED)    X = 'D';
-    else if (s & GIT_STATUS_INDEX_RENAMED)    X = 'R';
-    else if (s & GIT_STATUS_INDEX_TYPECHANGE) X = 'T';
-
-    // Y (work tree) column
-    char Y = ' ';
-    if      (s & GIT_STATUS_WT_NEW)           Y = '?';
-    else if (s & GIT_STATUS_WT_MODIFIED)      Y = 'M';
-    else if (s & GIT_STATUS_WT_DELETED)       Y = 'D';
-    else if (s & GIT_STATUS_WT_RENAMED)       Y = 'R';
-    else if (s & GIT_STATUS_WT_TYPECHANGE)    Y = 'T';
-    else if (s & GIT_STATUS_WT_UNREADABLE)    Y = '!';
-
-    // Untracked files are rendered "??" (not " ?")
-    if (X == ' ' && Y == '?') return "??";
-
-    // Normal two-character code
-    return std::string() + X + Y;
-}
-
-GitStatusResult get_git_status_for_dir(const fs::path& dir) {
-    GitStatusResult result;
-
-    git_repository* repo = nullptr;
-    if (!repo_open_for_path(dir, &repo)) return result;
-    result.repository_found = true;
 
     std::error_code ec;
-    fs::path dir_abs = fs::is_directory(dir) ? dir : dir.parent_path();
-    dir_abs = fs::weakly_canonical(dir_abs, ec);
-    if (ec) dir_abs = fs::absolute(dir, ec);
-
-    const char* wd = git_repository_workdir(repo);
-    fs::path repo_root = wd ? fs::path(wd) : fs::current_path();
-    repo_root = fs::weakly_canonical(repo_root, ec);
-
-    git_status_options opts = GIT_STATUS_OPTIONS_INIT;
-    opts.show  = GIT_STATUS_SHOW_INDEX_AND_WORKDIR;
-    opts.flags =
-        GIT_STATUS_OPT_INCLUDE_UNTRACKED |
-        GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS |
-        GIT_STATUS_OPT_INCLUDE_IGNORED |
-        GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX |
-        GIT_STATUS_OPT_RENAMES_INDEX_TO_WORKDIR;
-
-    git_status_list* status = nullptr;
-    if (git_status_list_new(&status, repo, &opts) != 0) {
-        git_repository_free(repo);
-        return result;
+    const auto canonical = std::filesystem::weakly_canonical(path, ec);
+    if (ec) {
+        return {};
     }
 
-    const size_t count = git_status_list_entrycount(status);
-    for (size_t i = 0; i < count; ++i) {
-        const git_status_entry* e = git_status_byindex(status, i);
-        if (!e) continue;
-
-        const unsigned s = e->status;
-        const std::string code = to_porcelain_code(s);
-
-        if (code.empty()) continue;
-
-        // libgit2 paths are relative to repo root; prefer whichever delta is present
-        std::string rel_from_repo;
-        if (e->head_to_index && e->head_to_index->new_file.path)
-            rel_from_repo = e->head_to_index->new_file.path;
-        else if (e->index_to_workdir && e->index_to_workdir->new_file.path)
-            rel_from_repo = e->index_to_workdir->new_file.path;
-
-        if (rel_from_repo.empty()) continue;
-
-        // Absolute path for the changed entry
-        fs::path abs = repo_root / rel_from_repo;
-        abs = fs::weakly_canonical(abs, ec);
-        if (ec) continue;
-
-        // Only keep entries under the listed directory; map keys relative to 'dir'
-        const auto abs_str = abs.generic_string();
-        const auto dir_str = dir_abs.generic_string();
-        if (abs_str.size() >= dir_str.size() &&
-            abs_str.compare(0, dir_str.size(), dir_str) == 0) {
-            fs::path rel_to_dir = fs::relative(abs, dir_abs, ec);
-            if (!ec) {
-                std::string rel = rel_to_dir.generic_string();
-                if (rel.empty() || rel == ".") {
-                    result.default_modes.insert(code);
-                    continue;
-                }
-                if (!rel.empty() && rel.back() == '/') rel.pop_back();
-                auto slash = rel.find('/');
-                std::string key = (slash == std::string::npos) ? rel : rel.substr(0, slash);
-                if (!key.empty()) {
-                    result.entries[key].insert(code);
-                }
-            }
-        }
+    const auto repo_root = find_repo_root(canonical);
+    if (repo_root.empty()) {
+        return {};
     }
 
-    git_status_list_free(status);
-    git_repository_free(repo);
-    return result;
-}
+    const auto relative = std::filesystem::relative(canonical, repo_root, ec);
+    if (ec) {
+        return {};
+    }
 
-#else
+    std::scoped_lock lock(mutex_);
+    auto& repo_cache = cache_[repo_root];
+    if (repo_cache.empty()) {
+        populate_cache(repo_root, repo_cache);
+    }
 
-GitStatusResult get_git_status_for_dir(const fs::path& /*dir*/) {
-    // Stub: no git info.
+    const auto rel = relative.generic_string();
+    if (const auto it = repo_cache.find(rel); it != repo_cache.end()) {
+        std::string status = it->second;
+        status.erase(std::remove(status.begin(), status.end(), ' '), status.end());
+        return status;
+    }
     return {};
 }
 
-#endif
+void GitStatusCache::populate_cache(const std::filesystem::path& repo_root, std::unordered_map<std::string, std::string>& out_cache) {
+    const auto output = run_git(repo_root, "status --porcelain=1 -z");
+    if (output.empty()) {
+        return;
+    }
+    std::size_t pos = 0;
+    while (pos < output.size()) {
+        const auto next = output.find('\0', pos);
+        if (next == std::string::npos) {
+            break;
+        }
+        const auto token = output.substr(pos, next - pos);
+        if (token.size() >= 3) {
+            const auto status = token.substr(0, 2);
+            auto path = token.substr(3);
+            if (const auto arrow = path.find(" -> "); arrow != std::string::npos) {
+                path = path.substr(arrow + 4);
+            }
+            out_cache[path] = status;
+        }
+        pos = next + 1;
+    }
+}
 
-} // namespace nls
+std::filesystem::path GitStatusCache::find_repo_root(const std::filesystem::path& path) {
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+        return {};
+    }
+    auto current = std::filesystem::is_directory(path, ec) ? path : path.parent_path();
+    while (!current.empty()) {
+        if (std::filesystem::exists(current / ".git", ec)) {
+            return current;
+        }
+        if (auto parent = current.parent_path(); parent == current) {
+            break;
+        } else {
+            current = parent;
+        }
+    }
+    // fallback to git command
+    const auto command_cwd = std::filesystem::is_directory(path, ec) ? path : path.parent_path();
+    const auto output = run_git(command_cwd, "rev-parse --show-toplevel");
+    if (!output.empty()) {
+        return std::filesystem::path(output);
+    }
+    return {};
+}
+
+std::string GitStatusCache::run_git(const std::filesystem::path& cwd, const std::string& args) {
+    std::filesystem::path actual_cwd = cwd.empty() ? std::filesystem::current_path() : cwd;
+    std::string command = "git -C \"" + actual_cwd.string() + "\" " + args;
+#ifdef _WIN32
+    FILE* pipe = _popen(command.c_str(), "r");
+#else
+    FILE* pipe = popen(command.c_str(), "r");
+#endif
+    if (!pipe) {
+        return {};
+    }
+    std::string output;
+    std::array<char, 256> buffer{};
+    while (std::fgets(buffer.data(), static_cast<int>(buffer.size()), pipe)) {
+        output.append(buffer.data());
+    }
+#ifdef _WIN32
+    _pclose(pipe);
+#else
+    pclose(pipe);
+#endif
+    // trim trailing newlines
+    while (!output.empty() && (output.back() == '\n' || output.back() == '\r')) {
+        output.pop_back();
+    }
+    return output;
+}
+
+} // namespace nicels
