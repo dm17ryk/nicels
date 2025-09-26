@@ -1,45 +1,5 @@
 [
     {
-        "label": "ConanFile",
-        "importPath": "conans",
-        "description": "conans",
-        "isExtraImport": true,
-        "detail": "conans",
-        "documentation": {}
-    },
-    {
-        "label": "ConanFile",
-        "importPath": "conans",
-        "description": "conans",
-        "isExtraImport": true,
-        "detail": "conans",
-        "documentation": {}
-    },
-    {
-        "label": "Meson",
-        "importPath": "conans",
-        "description": "conans",
-        "isExtraImport": true,
-        "detail": "conans",
-        "documentation": {}
-    },
-    {
-        "label": "ConanFile",
-        "importPath": "conans",
-        "description": "conans",
-        "isExtraImport": true,
-        "detail": "conans",
-        "documentation": {}
-    },
-    {
-        "label": "Meson",
-        "importPath": "conans",
-        "description": "conans",
-        "isExtraImport": true,
-        "detail": "conans",
-        "documentation": {}
-    },
-    {
         "label": "os",
         "kind": 6,
         "isExtraImport": true,
@@ -105,15 +65,6 @@
         "importPath": "warnings",
         "description": "warnings",
         "detail": "warnings",
-        "documentation": {}
-    },
-    {
-        "label": "ArgparseConan",
-        "kind": 6,
-        "importPath": "third-party.argparse.conanfile",
-        "description": "third-party.argparse.conanfile",
-        "peekOfCode": "class ArgparseConan(ConanFile):\n    name = \"argparse\"\n    version = \"3.1\"\n    exports_sources = \"include/argparse.hpp\"\n    no_copy_source = True\n    def package(self):\n        self.copy(\"argparse.hpp\")",
-        "detail": "third-party.argparse.conanfile",
         "documentation": {}
     },
     {
@@ -186,24 +137,6 @@
         "description": "third-party.cli11.scripts.MakeSingleHeader",
         "peekOfCode": "DIR = os.path.dirname(os.path.abspath(__file__))\nclass HeaderGroups(dict):\n    def __init__(self, tag):\n        \"\"\"\n        A dictionary that also can read headers given a tag expression.\n        TODO: might have gone overboard on this one, could maybe be two functions.\n        \"\"\"\n        self.re_matcher = re.compile(\n            tag_str.format(tag=tag), re.MULTILINE | re.DOTALL | re.VERBOSE\n        )",
         "detail": "third-party.cli11.scripts.MakeSingleHeader",
-        "documentation": {}
-    },
-    {
-        "label": "RangConan",
-        "kind": 6,
-        "importPath": "third-party.rang.test_package.conanfile",
-        "description": "third-party.rang.test_package.conanfile",
-        "peekOfCode": "class RangConan(ConanFile):\n    generators = \"pkg_config\"\n    exports_sources = \"*\"\n    def build(self):\n        meson = Meson(self)\n        meson.configure()\n        meson.build()\n    def imports(self):\n        self.copy(\"*.hpp\")\n    def test(self):",
-        "detail": "third-party.rang.test_package.conanfile",
-        "documentation": {}
-    },
-    {
-        "label": "RangConan",
-        "kind": 6,
-        "importPath": "third-party.rang.conanfile",
-        "description": "third-party.rang.conanfile",
-        "peekOfCode": "class RangConan(ConanFile):\n    name = \"rang\"\n    version = \"3.2.0\"\n    license = \"The Unlicense\"\n    url = \"https://github.com/agauniyal/rang\"\n    description = \"A Minimal, Header only Modern c++ library for colors in your terminal\"\n    generators = \"pkg_config\"\n    build_requires = \"doctest/1.2.6@bincrafters/stable\"\n    exports_sources = \"*\"\n    settings = \"build_type\"",
-        "detail": "third-party.rang.conanfile",
         "documentation": {}
     }
 ]

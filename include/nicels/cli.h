@@ -26,7 +26,7 @@ private:
     };
 
     template <typename OptionPtr>
-    void document_option(const OptionPtr& option, std::string name, std::string description);
+    void document_option(const OptionPtr& option);
 
     void add_layout_options();
     void add_filter_options();

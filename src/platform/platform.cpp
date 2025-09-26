@@ -15,6 +15,9 @@ bool stdout_supports_color() {
     if (handle == INVALID_HANDLE_VALUE) {
         return false;
     }
+    // Ensure UTF-8 so Nerd Font icons render in Windows Terminal/PowerShell
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
     DWORD mode = 0;
     if (!::GetConsoleMode(handle, &mode)) {
         return false;

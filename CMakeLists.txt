@@ -6,6 +6,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(NICELS_SOURCES
     src/main.cpp
     src/core/app.cpp
+    src/core/cli_formatter.cpp
     src/core/cli.cpp
     src/core/config.cpp
     src/core/fs.cpp
