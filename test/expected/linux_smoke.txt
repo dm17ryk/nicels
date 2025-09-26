@@ -1,0 +1,17 @@
+folder1                      file.txt
+file -> folder/file          file.xml
+file.c                       folder3 -> folder1/folder3/
+file.cpp                     smoke.sh
+file.out                     
+lin
+├─ file -> folder/file
+├─ file.c
+├─ file.cpp
+├─ file.out
+├─ file.txt
+├─ file.xml
+├─ folder1
+│  ├─ file.c
+│  └─ file.out
+├─ folder3 -> folder1/folder3/
+└─ smoke.sh

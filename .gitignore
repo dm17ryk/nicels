@@ -1,4 +1,8 @@
+/build/
+/bin/
+/obj/
+/nicels
+/nicels.exe
 *.o
 *.dll
 *.exe
-nls

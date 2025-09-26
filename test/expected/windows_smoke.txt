@@ -1,0 +1,16 @@
+folder1       folder4       file.exe      file.txt      
+folder2       file.cpp      file.exe.lnk  smoke.ps1     
+win
+├─ file.cpp
+├─ file.exe
+├─ file.exe.lnk
+├─ file.txt
+├─ folder1
+│  ├─ file.exe
+│  ├─ file.xml
+│  └─ folder3
+├─ folder2
+│  └─ file.ps1
+├─ folder4
+│  └─ file.cmd
+└─ smoke.ps1
