@@ -5,16 +5,16 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/third-party/cli11/include",
-                "${workspaceFolder}/third-party/rang/include",
                 "C:/msys64/ucrt64/include/c++/15.2.0/x86_64-w64-mingw32",
                 "C:/msys64/ucrt64/include/c++/15.2.0",
                 "C:/msys64/ucrt64/include"
             ],
-            "cStandard": "c17",
-            "cppStandard": "c++17",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
             "customConfigurationVariables": {
                 "USE_LIBGIT2": "1",
-                "_HAS_CXX17": "1"
+                "_HAS_CXX23": "1",
+                "__HAS_CXX23": "1"
             },
             "defines": [
                 "_DEBUG=1",
@@ -22,17 +22,15 @@
                 "_UNICODE",
                 "USE_LIBGIT2=1",
                 "_WIN32=1",
-                "_HAS_CXX17=1",
-                "__HAS_CXX17=1"
+                "_HAS_CXX23=1",
+                "__HAS_CXX23=1"
             ],
             "intelliSenseMode": "windows-gcc-x64",
             "compilerPath": "C:/msys64/ucrt64/bin/g++.exe",
             "compilerArgs": [
-                "-std=c++17",
+                "-std=c++23",
                 "-I",
                 "${workspaceFolder}/third-party/cli11/include",
-                "-I",
-                "${workspaceFolder}/third-party/rang/include",
                 "-I",
                 "C:/msys64/ucrt64/include/c++/15.2.0/x86_64-w64-mingw32",
                 "-I",
@@ -48,7 +46,6 @@
             "browse": {
                 "path": [
                     "${workspaceFolder}/third-party/cli11/include",
-                    "${workspaceFolder}/third-party/rang/include",
                     "C:/msys64/ucrt64/include/c++/15.2.0/x86_64-w64-mingw32",
                     "C:/msys64/ucrt64/include/c++/15.2.0",
                     "C:/msys64/ucrt64/include"

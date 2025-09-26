@@ -1,64 +1,125 @@
-# nls — NextLS (C++ port of ColorLS)
+# nicels
 
-A fast, cross‑platform (`Linux` + `Windows`) C++ utility that emulates the Ruby **colorls** UX:
-icons, colors, long listing, and (optionally) Git status — but without shelling out to `git`.
+A modern, cross-platform reimagining of the classic `colorls`-style experience written in idiomatic C++23. The tool provides colorful, icon-rich directory listings, long-format metadata, optional tree views, and packaging recipes for Linux and Windows.
 
-This is a **bootstrap**. It already works as a colorful, iconified `ls` with `-l`, `-1`, `-a`, `-A`,
-sorting (`-t`, `-S`), grouping (`--group-directories-first`), and a **stub** for `--gs` (Git status).
-You can build it with **make** on Linux and Windows (MSYS2 / Git Bash / MinGW).
+## Project overview and goals
 
-> Roadmap: integrate libgit2 for real `--gs`; extend icon and color maps; add YAML config loader; tree view.
+- Pure C++23 implementation with zero global state (only minimal singletons for configuration/logging).
+- Modular architecture (`App`, `Cli`, `Config`, `FileSystemScanner`, `Renderer`, `Theme`, `GitStatusCache`, `Logger`, `Platform`, `Formatter`, `Perf`).
+- CLI compatibility with core GNU `ls` flags plus quality-of-life options from `colorls`.
+- Multi-config CMake build with presets for Linux (Debug/Release) and Windows (MSYS2 UCRT clang++).
+- Packaging via CPack into `.deb`, `.rpm`, and `.msix` bundles.
 
-## Build
+## Installation
 
 ### Linux
-```bash
-make
-./nls
-```
-
-### Windows (MSYS2 / Git Bash / MinGW)
-```bash
-make
-./nls.exe
-```
-
-> If you want `--gs` to use libgit2, install libgit2 and build with:
-> ```bash
-> make USE_LIBGIT2=1
-> ```
-> On Windows, libgit2 may additionally require: `-lws2_32 -lcrypt32 -lwinhttp -lbcrypt -lssh2` depending on how the library was built.
-
-## Usage
 
 ```bash
-nls [options] [path ...]
+cmake --preset linux-release
+cmake --build --preset linux-release --parallel
+./build/linux-release/bin/Release/nicels --help
 ```
 
-Common options (subset, more coming):
-- `-l` : long listing (permissions, owner/group, size, time)
-- `-1` : one entry per line
-- `-a` : include dotfiles
-- `-A` : almost all (exclude `.` and `..`)
-- `-d` : show only directories
-- `-f` : show only files
-- `-t` : sort by mtime
-- `-S` : sort by size
-- `-r` : reverse order
-- `--gs` : (stub) show git status prefix; compile with libgit2 for real status
-- `--report[=WORD]` : show summary report (`long` default, `short` for compact totals)
-- `--tree[=DEPTH]` : show a tree view of directories (limit depth with `DEPTH`)
-- `--group-directories-first` : list directories before files
-- `--no-icons` : disable icons
-- `--no-color` : disable ANSI colors
+### Windows (MSYS2 UCRT + clang++)
 
-## Notes
+```bash
+cmake --preset windows-ucrt-release
+cmake --build --preset windows-ucrt-release --parallel
+./build/windows-release/bin/Release/nicels.exe --help
+```
 
-- Windows: the app enables ANSI support in the console at startup. Use Windows Terminal or a modern console.
-- Icons require a Nerd Font (same as colorls). Set your terminal font accordingly or run with `--no-icons`.
-- Column layout currently uses a simple printable-width heuristic; we’ll add wcwidth-based width later.
-- Owner/group information is shown on both Linux (POSIX users/groups) and Windows (DOMAIN\\User format).
+Packaging examples:
 
-## License
+```bash
+# Debian / Ubuntu
+cpack -G DEB --config build/linux-release/CPackConfig.cmake
+sudo dpkg -i build/linux-release/nicels-*.deb
 
-MIT (same spirit as colorls).
+# Fedora / RHEL
+cpack -G RPM --config build/linux-release/CPackConfig.cmake
+sudo rpm -Uvh build/linux-release/nicels-*.rpm
+
+# Windows (run from MSYS2 PowerShell)
+cpack -G MSIX --config build/windows-release/CPackConfig.cmake
+```
+
+## Build, run, and test
+
+- Build Debug: `cmake --preset linux-debug && cmake --build --preset linux-debug`
+- Build Release: `cmake --preset linux-release && cmake --build --preset linux-release`
+- Run smoke tests: see [`test/lin`](test/lin) and [`test/win`](test/win) for sample invocations.
+- Generate README CLI section: `./nicels --help-markdown` (after building) and paste into the CLI section below.
+
+## CLI usage
+
+```
+nicels [options] [paths...]
+```
+
+| Option | Description |
+|--------|-------------|
+| -V, --version | Print version information and exit |
+| --help-markdown | Print CLI options in Markdown table format |
+| -l, --long | Use a long listing format |
+| -1 | List one entry per line |
+| -a, --all | Include directory entries whose names begin with a dot (.) |
+| -A, --almost-all | Include almost all entries, excluding '.' and '..' |
+| -d, --dirs | List directories themselves, not their contents |
+| -f, --files | List only files (omit directories) |
+| -t, --time | Sort by modification time, newest first |
+| -S, --size | Sort by file size, largest first |
+| -r, --reverse | Reverse the order while sorting |
+| --group-directories-first | Group directories before files |
+| --no-icons | Disable icons in output |
+| --no-color | Disable ANSI colors |
+| --classify | Append indicator (one of */=>@|) to entries |
+| --no-control-char-filter | Show control characters rather than replacing them |
+| --tree | Display directories as a tree |
+| --tree-depth | Limit tree depth (requires --tree) |
+| --git-status | Control git status retrieval (auto, always, never) |
+| --report | Emit a summary report (values: short, long) |
+| --time-style | Control timestamp formatting (default, iso, long-iso, full-iso) |
+| --size-style | Control size formatting (binary, si) |
+| --hyperlink | Emit hyperlinks for supported terminals |
+| --locale | Override locale (LANG style) |
+| -v, --log-level | Set log verbosity |
+
+## ASCII screenshots
+
+### Linux (dark theme)
+
+```
+📁 src          drwxr-xr-x user group  4.0K 2024-05-12 12:34
+📄 README.md    -rw-r--r-- user group  3.2K 2024-05-12 12:34
+📄 CMakeLists   -rw-r--r-- user group  1.8K 2024-05-12 12:34
+```
+
+### Windows (MSYS2 UCRT)
+
+```
+📁 src          drwxr-xr-x Domain\User 4.0K 2024-05-12 12:34
+📄 README.md    -rw-r--r-- Domain\User 3.2K 2024-05-12 12:34
+📄 CMakeLists   -rw-r--r-- Domain\User 1.8K 2024-05-12 12:34
+```
+
+## Performance notes and Git status tuning
+
+- `GitStatusCache` is designed for a future libgit2-backed implementation; currently it can be toggled with `--git-status`.
+- Use `--size-style=si` or `--size-style=binary` to control human-readable formatting.
+- `--tree-depth` limits recursion to keep directory traversal fast.
+- Build in Release (`cmake --preset linux-release`) for production workloads.
+
+## Packaging and artifacts
+
+- CPack generators: `.deb`, `.rpm`, `.msix`.
+- Install the MSIX by double-clicking on Windows 11 with developer mode enabled.
+- Linux packages declare dependencies on `git`, `libstdc++6`, and `libgcc-s1`.
+
+## Tests and samples
+
+Sample usage scripts live in:
+
+- [`test/lin`](test/lin)
+- [`test/win`](test/win)
+
+Each directory contains example invocations that exercise long listing, tree mode, color toggles, and summary reports.
