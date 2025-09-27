@@ -1,5 +1,15 @@
-*.o
-*.dll
-*.exe
+# Build artifacts
+build/
+obj/
+bin/
+
+# Executables
 nls
-build/**
+nicels
+
+# Compilers
+*.o
+*.obj
+*.exe
+*.dll
+*.pdb
