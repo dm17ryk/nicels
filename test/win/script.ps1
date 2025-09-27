@@ -1,0 +1,1 @@
+./folder1/folder3/script.ps1

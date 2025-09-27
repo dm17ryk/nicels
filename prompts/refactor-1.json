@@ -1,0 +1,891 @@
+{
+    "title": "Refactor 'nicels' to modern OOP C++23 with CLI11, CMake, and cross-platform packaging",
+    "role": "You are a senior C++ engineer and C++23/oop/build/packaging expert.",
+    "goals": [
+        "Analyze the entire 'nicels' repository and refactor all code to idiomatic, modern, object-oriented C++. with C++23 features.",
+        "Eliminate all C-like code: no global variables, no free/global functions that hold state.",
+        "Use Singletons only where a global lifetime is unavoidable (e.g., Logger/Config), otherwise prefer dependency injection.",
+        "Target C++23 (keep code compatible with C++20 if trivial).",
+        "Preserve all current behavior and CLI compatibility with current implementation (options inspired by GNU 'ls' and 'colorls').",
+        "Migrate the project to CMake and set up multi-config builds (Debug/Release) for Windows (MSYS2 UCRT) and Linux.",
+        "Add packaging recipes for .deb, .rpm (Linux) and .msixbundle (Windows).",
+        "Update README fully from code-only introspection of CLI options (using CLI11) and include ASCII screenshots for Linux and Windows.",
+        "Ensure performance remains excellent.",
+        "For Git status retrieval, use libgit2 (required) implement/migrate full git functionality.",
+        "Add smoke tests and golden outputs to verify correctness.",
+        "Provide comprehensive tests and sample invocations under ./test/win and ./test/lin."
+    ],
+    "context": {
+        "repo_state": "All changes committed. Work off the latest master branch.",
+        "vcs_commands": [
+            "git checkout master",
+            "git pull --rebase",
+            "git submodule update --init --recursive"
+        ],
+        "third_party": {
+            "cli11_submodule_path": "third-party/cli11"
+        },
+        "testing_dirs": {
+            "windows": "./test/win",
+            "linux": "./test/lin"
+        },
+        "platforms": [
+            "Windows (MSYS2 UCRT environment)",
+            "Linux (glibc)"
+        ],
+        "compilers": {
+            "windows_preferred": "clang 21.1.1 (ucrt64)",
+            "windows_current_gpp": "g++.exe (Rev8, MSYS2) 15.2.0",
+            "linux": "clang >= 16 and/or g++ >= 12"
+        }
+    },
+    "high_level_design": {
+        "modules": [
+            "App: orchestrates initialization, argument parsing, dispatch, and shutdown.",
+            "Config (Singleton): holds runtime config derived from CLI and environment.",
+            "Cli (CLI11-based): defines options, subcommands, help/usage, and validation.",
+            "FS: filesystem scanning, metadata retrieval, platform-conditional parts via #ifdef.",
+            "GitStatus: folder and file Git status retrieval; use libgit2 (required).",
+            "Renderer: formatting, column layout, color/theme, width detection, ASCII output.",
+            "Theme: color rules and symbols; configurable via CLI and yaml files 'yaml_config'.",
+            "Formatter: size/time/permission/inode formatting utilities (header-only).",
+            "Platform: small platform helpers (tty detection, ANSI support, locale) guarded by #ifdef.",
+            "Logger (Singleton): leveled logging; silenced by default unless verbose.",
+            "Perf: lightweight timers and counters for hot paths."
+        ],
+        "yaml_config": {
+            "folder": "yaml",
+            "color_definition": "colors.yaml",
+            "theme_files": [
+                "dark_colors.yaml",
+                "light_colors.yaml"
+            ],
+            "files_icons": [
+                "files.yaml",
+                "file_aliases.yaml"
+            ],
+            "folder_icons": [
+                "folders.yaml",
+                "folder_aliases.yaml"
+            ]
+        },
+        "design_patterns": [
+            "Singleton (Config, Logger; keep minimal).",
+            "Strategy (formatting/renderer variants).",
+            "Builder (complex option->config translation).",
+            "PImpl (for ABI stability and faster rebuilds where useful).",
+            "RAII (resources, handles, timers).",
+            "Command (optional, for subcommands if any).",
+            "Visitor (optional, for rendering tree entries)."
+        ],
+        "coding_guidelines": [
+            "C++23, <filesystem>, <format>, <chrono>, <expected> (if available) or tl::expected.",
+            "No raw new/delete; use smart pointers or stack objects.",
+            "No global variables; no free functions that mutate shared state.",
+            "Prefer constexpr, span, string_view, ranges where beneficial.",
+            "Thread-safe where applicable; avoid unnecessary dynamic allocation in hot paths.",
+            "Zero warnings with -Wall -Wextra -Wpedantic; enable -Werror in CI if feasible."
+        ]
+    },
+    "cli_requirements": {
+        "library": "CLI11 from third-party/cli11 submodule",
+        "compatibility": "Preserve all current GNU 'ls' compatible options and behaviors; Preserve all current 'colorls' options and keep current functionality.",
+        "help_generation": "Auto-generate README CLI section from the CLI11 option tree so README stays in sync.",
+        "behavioral_parity": "Output/semantics should match current tool behavior on both Windows and Linux (UID/GID, owner/group names, inodes displayed appropriately per-OS)."
+    },
+    "build_system": {
+        "migrate_to_cmake": true,
+        "cxx_standard": "23",
+        "targets": [
+            {
+                "name": "nicels",
+                "type": "executable",
+                "sources": "ALL refactored sources",
+                "include_dirs": [
+                    "include",
+                    "third-party/cli11/include"
+                ],
+                "definitions": [
+                    "NOMINMAX on Windows if needed"
+                ]
+            }
+        ],
+        "warnings": {
+            "clang": "-Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wimplicit-fallthrough",
+            "gcc": "-Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wimplicit-fallthrough"
+        },
+        "optimizations": {
+            "Debug": "-O0 -g",
+            "Release": "-O3 -DNDEBUG"
+        },
+        "toolchain_windows_msys2_ucrt": {
+            "preferred_compiler": "clang++",
+            "note": "Ensure linking against UCRT; detect ucrt64 environment"
+        },
+        "outputs": {
+            "bin_layout": {
+                "Debug": "bin/Debug",
+                "Release": "bin/Release"
+            },
+            "obj_layout": {
+                "Debug": "obj/Debug",
+                "Release": "obj/Release"
+            },
+            "copy_step": "After build, copy resulting executable to repo root, overwriting previous output."
+        }
+    },
+    "packaging": {
+        "cmake_presets": "Provide CMakePresets.json for common configs.",
+        "cpack": {
+            "enable": true,
+            "generators": [
+                "DEB",
+                "RPM",
+                "WIX or MSIX (prefer MSIX bundle)"
+            ],
+            "linux": {
+                "deb": {
+                    "maintainer": "Fill from project metadata",
+                    "dependencies": [
+                        "libstdc++",
+                        "libgcc",
+                        "libgit2"
+                    ]
+                },
+                "rpm": {
+                    "release": "1",
+                    "requires": [
+                        "libgit2"
+                    ]
+                }
+            },
+            "windows": {
+                "msixbundle": {
+                    "display_name": "nicels",
+                    "publisher": "CN=Dm17ryK",
+                    "install_dir": "Program Files/nicels",
+                    "capabilities": []
+                }
+            }
+        }
+    },
+    "performance": {
+        "hotspots": [
+            "Git status: use libgit2 (reqired).",
+            "Filesystem scanning: use std::filesystem directory_iterator with error_code; avoid repeated stat calls.",
+            "Formatting: cache widths, reuse buffers, avoid iostream sync; prefer fmt::format/std::format."
+        ],
+        "benchmarks": [
+            "List a large repo tree with Git status on/off and compare timings.",
+            "Measure cold vs warm runs."
+        ]
+    },
+    "tests_and_validation": {
+        "smoke_tests": [
+            "Run sample scripts from ./test/win and ./test/lin",
+            "Verify help output and exit codes",
+            "Compare a subset of outputs to GNU ls where meaningful"
+        ],
+        "golden_files": "Add minimal golden outputs for deterministic cases (no colors, fixed locale).",
+        "ci_notes": "If possible, add a minimal GitHub Actions workflow for Linux and MSYS2 (ucrt64)."
+    },
+    "deliverables": [
+        "Refactored C++23 source code implementing the architecture above.",
+        "CMakeLists.txt, CMakePresets.json, and any toolchain files for MSYS2 UCRT clang.",
+        "CPack config to produce .deb, .rpm, and .msixbundle.",
+        "Updated README.md with: overview, install/build, usage, full CLI reference auto-generated from code, performance tips, and ASCII screenshots for Linux and Windows.",
+        "Scripts or notes under ./test/win and ./test/lin to demonstrate usage.",
+        "A short MIGRATION_NOTES.md summarizing key refactors and design decisions."
+    ],
+    "acceptance_criteria": [
+        "Compiles cleanly on Linux and Windows (MSYS2 UCRT) with C++23 in Debug and Release.",
+        "All object files placed under obj/Debug or obj/Release; binaries under bin/Debug or bin/Release; final binary copied to repo root.",
+        "CLI options preserved and documented; README matches the code-defined CLI.",
+        "No global variables; any global-like state is an explicit, minimal Singleton.",
+        "No C-style code; modern, idiomatic C++ constructs used.",
+        "Performance equal or better than current, especially when Git status is enabled.",
+        "Packaging artifacts (.deb, .rpm, .msixbundle) build via CPack."
+    ],
+    "step_by_step_plan": [
+        "Sync repo and submodules.",
+        "Audit codebase; produce a short refactor map (files -> new modules).",
+        "Introduce CMake build with current code; establish bin/ and obj/ layout.",
+        "Refactor incrementally: Logger, Config, Cli, FS, Renderer, GitStatus.",
+        "Replace globals with injected dependencies or Singletons; remove C-like code.",
+        "Wire CLI11; ensure help, validation, and defaults are comprehensive.",
+        "Add tests/examples under ./test/win and ./test/lin; create golden outputs.",
+        "Add CPack packaging for deb/rpm/msixbundle.",
+        "Generate README sections from code; add ASCII screenshots for Linux/Windows.",
+        "Final polish: warnings-as-errors (optional), format, lint, and doc pass."
+    ],
+    "build_commands_examples": {
+        "common": [
+            "git submodule update --init --recursive",
+            "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release",
+            "cmake --build build --config Release --parallel"
+        ],
+        "windows_msys2_ucrt_clang": [
+            "Set MSYS2 shell to ucrt64",
+            "cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release",
+            "cmake --build build --config Release --parallel"
+        ],
+        "linux": [
+            "cmake -S . -B build -G Ninja -DCMAKE_CXX_STANDARD=23 -DCMAKE_BUILD_TYPE=Release",
+            "cmake --build build --config Release --parallel"
+        ],
+        "packaging": [
+            "cpack -G DEB --config build/CPackConfig.cmake",
+            "cpack -G RPM --config build/CPackConfig.cmake",
+            "cpack -G MSIX --config build/CPackConfig.cmake"
+        ]
+    },
+    "readme_requirements": {
+        "sections": [
+            "Project overview and goals",
+            "Installation (Linux, Windows MSYS2 UCRT)",
+            "Build (Debug/Release), run, and test",
+            "CLI usage with full options table (generated from CLI11)",
+            "Performance notes and Git status tuning",
+            "ASCII screenshots for Linux and Windows",
+            "Packaging and artifacts"
+        ],
+        "ascii_screenshots": {
+            "linux": "Show colored listing, permissions, owner/group, inodes",
+            "windows": "Show analogous output with Windows-specific owner/group display"
+        }
+    },
+    "constraints_and_notes": [
+        "Prefer conditional compilation (#ifdef _WIN32) over polymorphic platform classes to keep runtime fast.",
+        "Do not change current behavior unless explicitly required; ensure parity with current outputs."
+    ],
+    "questions_if_unclear": [
+        "Confirm that libgit2 should be used as a required dependency for faster Git status.",
+        "Publisher identity for MSIX (CN=Dm17ryK)?",
+        "Any required minimum OS versions?",
+        "Preferred license and metadata for packaging?"
+    ],
+    "final_output_instructions": [
+        "Return the full refactored source tree (paths + files), CMake configuration, packaging files, updated README.md, and any scripts under ./test/win and ./test/lin.",
+        "Ensure the repository builds out-of-the-box after: git submodule update --init --recursive && cmake ... && cmake --build ..."
+    ],
+    "important_instructions": [
+        "all current CLI options must be preserved exactly",
+        "all current behaviors must be preserved exactly",
+        "all current outputs must be preserved exactly",
+        "all current performance characteristics must be preserved or improved",
+        "all current functionality must be preserved exactly"
+    ],
+    "current_cli_options": [
+        "-a, --all: do not ignore entries starting with .",
+        "-A, --almost-all: do not list implied . and ..",
+    ],
+    "cli_deffinition": {
+        "name": "nls",
+        "description": "List information about the FILEs (the current directory by default). Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.",
+        "usage": "nls [OPTIONS] [paths...]",
+        "positionals": [
+            {
+                "name": "paths",
+                "type": "PATH",
+                "variadic": true,
+                "required": false,
+                "description": "paths to list"
+            }
+        ],
+        "options": [
+            {
+                "group": "General",
+                "items": [
+                    {
+                        "names": [
+                            "-h",
+                            "--help"
+                        ],
+                        "type": "flag",
+                        "description": "Print this help message and exit"
+                    },
+                    {
+                        "names": [
+                            "--version"
+                        ],
+                        "type": "flag",
+                        "description": "Display program version information and exit"
+                    }
+                ]
+            },
+            {
+                "group": "Layout options",
+                "items": [
+                    {
+                        "names": [
+                            "-l",
+                            "--long"
+                        ],
+                        "type": "flag",
+                        "description": "use a long listing format"
+                    },
+                    {
+                        "names": [
+                            "-1",
+                            "--one-per-line"
+                        ],
+                        "type": "flag",
+                        "description": "list one file per line"
+                    },
+                    {
+                        "names": [
+                            "-x"
+                        ],
+                        "type": "flag",
+                        "description": "list entries by lines instead of by columns"
+                    },
+                    {
+                        "names": [
+                            "-C"
+                        ],
+                        "type": "flag",
+                        "description": "list entries by columns instead of by lines"
+                    },
+                    {
+                        "names": [
+                            "--format"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "WORD",
+                            "required": false,
+                            "default": "vertical",
+                            "choices": [
+                                "across",
+                                "horizontal",
+                                "long",
+                                "single-column",
+                                "vertical",
+                                "comma"
+                            ],
+                            "notes": "across (-x), horizontal (-x), long (-l), single-column (-1), vertical (-C) or comma (-m)"
+                        },
+                        "description": "use format"
+                    },
+                    {
+                        "names": [
+                            "--header"
+                        ],
+                        "type": "flag",
+                        "description": "print directory header and column names in long listing"
+                    },
+                    {
+                        "names": [
+                            "-m"
+                        ],
+                        "type": "flag",
+                        "description": "fill width with a comma separated list of entries"
+                    },
+                    {
+                        "names": [
+                            "-T",
+                            "--tabsize"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "COLS",
+                            "required": true
+                        },
+                        "description": "assume tab stops at each COLS instead of 8"
+                    },
+                    {
+                        "names": [
+                            "-w",
+                            "--width"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "COLS",
+                            "required": true
+                        },
+                        "description": "set output width to COLS. 0 means no limit"
+                    },
+                    {
+                        "names": [
+                            "--tree"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "DEPTH",
+                            "required": false
+                        },
+                        "description": "show tree view of directories, optionally limited to DEPTH"
+                    },
+                    {
+                        "names": [
+                            "--report"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "WORD",
+                            "required": false,
+                            "default": "long",
+                            "choices": [
+                                "short",
+                                "long"
+                            ]
+                        },
+                        "description": "show summary report"
+                    },
+                    {
+                        "names": [
+                            "--zero"
+                        ],
+                        "type": "flag",
+                        "description": "end each output line with NUL, not newline"
+                    }
+                ]
+            },
+            {
+                "group": "Filtering options",
+                "items": [
+                    {
+                        "names": [
+                            "-a",
+                            "--all"
+                        ],
+                        "type": "flag",
+                        "description": "do not ignore entries starting with ."
+                    },
+                    {
+                        "names": [
+                            "-A",
+                            "--almost-all"
+                        ],
+                        "type": "flag",
+                        "description": "do not list . and .."
+                    },
+                    {
+                        "names": [
+                            "-d",
+                            "--dirs"
+                        ],
+                        "type": "flag",
+                        "description": "show only directories"
+                    },
+                    {
+                        "names": [
+                            "-f",
+                            "--files"
+                        ],
+                        "type": "flag",
+                        "description": "show only files"
+                    },
+                    {
+                        "names": [
+                            "-B",
+                            "--ignore-backups"
+                        ],
+                        "type": "flag",
+                        "description": "do not list implied entries ending with ~"
+                    },
+                    {
+                        "names": [
+                            "--hide"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "PATTERN",
+                            "variadic": true
+                        },
+                        "description": "do not list implied entries matching shell PATTERN (overridden by -a or -A)"
+                    },
+                    {
+                        "names": [
+                            "-I",
+                            "--ignore"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "PATTERN",
+                            "variadic": true
+                        },
+                        "description": "do not list implied entries matching shell PATTERN"
+                    }
+                ]
+            },
+            {
+                "group": "Sorting options",
+                "items": [
+                    {
+                        "names": [
+                            "-t"
+                        ],
+                        "type": "flag",
+                        "description": "sort by modification time, newest first"
+                    },
+                    {
+                        "names": [
+                            "-S"
+                        ],
+                        "type": "flag",
+                        "description": "sort by file size, largest first"
+                    },
+                    {
+                        "names": [
+                            "-X"
+                        ],
+                        "type": "flag",
+                        "description": "sort by file extension"
+                    },
+                    {
+                        "names": [
+                            "-U"
+                        ],
+                        "type": "flag",
+                        "description": "do not sort; list entries in directory order"
+                    },
+                    {
+                        "names": [
+                            "-r",
+                            "--reverse"
+                        ],
+                        "type": "flag",
+                        "description": "reverse order while sorting"
+                    },
+                    {
+                        "names": [
+                            "--sort"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "WORD",
+                            "required": false,
+                            "default": "name",
+                            "choices": [
+                                "none",
+                                "size",
+                                "time",
+                                "extension",
+                                "name"
+                            ]
+                        },
+                        "description": "sort by WORD instead of name"
+                    },
+                    {
+                        "names": [
+                            "--group-directories-first",
+                            "--sd",
+                            "--sort-dirs"
+                        ],
+                        "type": "flag",
+                        "description": "sort directories before files"
+                    },
+                    {
+                        "names": [
+                            "--sf",
+                            "--sort-files"
+                        ],
+                        "type": "flag",
+                        "description": "sort files first"
+                    },
+                    {
+                        "names": [
+                            "--df",
+                            "--dots-first"
+                        ],
+                        "type": "flag",
+                        "description": "sort dot-files and dot-folders first"
+                    }
+                ]
+            },
+            {
+                "group": "Appearance options",
+                "items": [
+                    {
+                        "names": [
+                            "-b",
+                            "--escape"
+                        ],
+                        "type": "flag",
+                        "description": "print C-style escapes for nongraphic characters"
+                    },
+                    {
+                        "names": [
+                            "-N",
+                            "--literal"
+                        ],
+                        "type": "flag",
+                        "description": "print entry names without quoting"
+                    },
+                    {
+                        "names": [
+                            "-Q",
+                            "--quote-name"
+                        ],
+                        "type": "flag",
+                        "description": "enclose entry names in double quotes"
+                    },
+                    {
+                        "names": [
+                            "--quoting-style"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "WORD",
+                            "required": false,
+                            "default": "literal",
+                            "choices": [
+                                "literal",
+                                "locale",
+                                "shell",
+                                "shell-always",
+                                "shell-escape",
+                                "shell-escape-always",
+                                "c",
+                                "escape"
+                            ]
+                        },
+                        "description": "use quoting style WORD for entry names"
+                    },
+                    {
+                        "names": [
+                            "-p"
+                        ],
+                        "type": "flag",
+                        "description": "append / indicator to directories"
+                    },
+                    {
+                        "names": [
+                            "--indicator-style"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "STYLE",
+                            "required": false,
+                            "default": "slash",
+                            "choices": [
+                                "none",
+                                "slash"
+                            ]
+                        },
+                        "description": "append indicator with style STYLE to entry names"
+                    },
+                    {
+                        "names": [
+                            "--no-icons",
+                            "--without-icons"
+                        ],
+                        "type": "flag",
+                        "description": "disable icons in output"
+                    },
+                    {
+                        "names": [
+                            "--no-color"
+                        ],
+                        "type": "flag",
+                        "description": "disable ANSI colors"
+                    },
+                    {
+                        "names": [
+                            "--color"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "WHEN",
+                            "required": false,
+                            "default": "auto",
+                            "choices": [
+                                "auto",
+                                "always",
+                                "never"
+                            ]
+                        },
+                        "description": "colorize the output"
+                    },
+                    {
+                        "names": [
+                            "--light"
+                        ],
+                        "type": "flag",
+                        "description": "use light color scheme"
+                    },
+                    {
+                        "names": [
+                            "--dark"
+                        ],
+                        "type": "flag",
+                        "description": "use dark color scheme"
+                    },
+                    {
+                        "names": [
+                            "-q",
+                            "--hide-control-chars"
+                        ],
+                        "type": "flag",
+                        "description": "print ? instead of nongraphic characters"
+                    },
+                    {
+                        "names": [
+                            "--show-control-chars"
+                        ],
+                        "type": "flag",
+                        "description": "show nongraphic characters as-is"
+                    },
+                    {
+                        "names": [
+                            "--time-style"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "FORMAT",
+                            "required": false,
+                            "choices": [
+                                "default",
+                                "locale",
+                                "long-iso",
+                                "full-iso",
+                                "iso",
+                                "iso8601",
+                                "+FORMAT"
+                            ],
+                            "notes": "like date(1); +FORMAT enables custom formats"
+                        },
+                        "description": "use time display format"
+                    },
+                    {
+                        "names": [
+                            "--full-time"
+                        ],
+                        "type": "flag",
+                        "description": "like -l --time-style=full-iso"
+                    },
+                    {
+                        "names": [
+                            "--hyperlink"
+                        ],
+                        "type": "flag",
+                        "description": "emit hyperlinks for entries"
+                    }
+                ]
+            },
+            {
+                "group": "Information options",
+                "items": [
+                    {
+                        "names": [
+                            "-i",
+                            "--inode"
+                        ],
+                        "type": "flag",
+                        "description": "show inode number"
+                    },
+                    {
+                        "names": [
+                            "-o"
+                        ],
+                        "type": "flag",
+                        "description": "use a long listing format without group information"
+                    },
+                    {
+                        "names": [
+                            "-g"
+                        ],
+                        "type": "flag",
+                        "description": "use a long listing format without owner information"
+                    },
+                    {
+                        "names": [
+                            "-G",
+                            "--no-group"
+                        ],
+                        "type": "flag",
+                        "description": "show no group information in a long listing"
+                    },
+                    {
+                        "names": [
+                            "-n",
+                            "--numeric-uid-gid"
+                        ],
+                        "type": "flag",
+                        "description": "like -l, but list numeric user and group IDs"
+                    },
+                    {
+                        "names": [
+                            "--bytes",
+                            "--non-human-readable"
+                        ],
+                        "type": "flag",
+                        "description": "show file sizes in bytes"
+                    },
+                    {
+                        "names": [
+                            "-s",
+                            "--size"
+                        ],
+                        "type": "flag",
+                        "description": "print the allocated size of each file, in blocks"
+                    },
+                    {
+                        "names": [
+                            "--block-size"
+                        ],
+                        "type": "value",
+                        "arg": {
+                            "name": "SIZE",
+                            "required": true
+                        },
+                        "description": "with -l, scale sizes by SIZE when printing them"
+                    },
+                    {
+                        "names": [
+                            "-L",
+                            "--dereference"
+                        ],
+                        "type": "flag",
+                        "description": "when showing file information for a symbolic link, show information for the file the link references"
+                    },
+                    {
+                        "names": [
+                            "--gs",
+                            "--git-status"
+                        ],
+                        "type": "flag",
+                        "description": "show git status for each file"
+                    }
+                ]
+            }
+        ],
+        "footnotes": {
+            "arguments": {
+                "SIZE": "The SIZE argument is an integer and optional unit (example: 10K is 10*1024). Units are K,M,G,T,P,E,Z,Y,R,Q (powers of 1024) or KB,MB,... (powers of 1000). Binary prefixes can be used, too: KiB=K, MiB=M, and so on.",
+                "TIME_STYLE": "The TIME_STYLE argument can be full-iso, long-iso, iso, locale, or +FORMAT. FORMAT is interpreted like in date(1). If FORMAT is FORMAT1\nFORMAT2, then FORMAT1 applies to non-recent files and FORMAT2 to recent files. TIME_STYLE prefixed with 'posix-' takes effect only outside the POSIX locale. Also the TIME_STYLE environment variable sets the default style to use.",
+                "WHEN": "The WHEN argument defaults to 'always' and can also be 'auto' or 'never'."
+            },
+            "color": "Using color to distinguish file types is disabled both by default and with --color=never. With --color=auto, ls emits color codes only when standard output is connected to a terminal. The LS_COLORS environment variable can change the settings. Use the dircolors(1) command to set it."
+        },
+        "environment": [
+            {
+                "name": "TIME_STYLE",
+                "description": "Sets the default time display style if provided"
+            },
+            {
+                "name": "LS_COLORS",
+                "description": "Controls colorization; used when --color=auto"
+            }
+        ],
+        "exit_status": [
+            {
+                "code": 0,
+                "meaning": "OK"
+            },
+            {
+                "code": 1,
+                "meaning": "minor problems (e.g., cannot access subdirectory)"
+            },
+            {
+                "code": 2,
+                "meaning": "serious trouble (e.g., cannot access command-line argument)"
+            }
+        ],
+        "related_commands": [
+            "date(1)",
+            "dircolors(1)"
+        ]
+    }
+}
