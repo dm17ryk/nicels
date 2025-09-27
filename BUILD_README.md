@@ -9,7 +9,7 @@ trees and cross-compilation scenarios are supported via CMake presets.
 
 1. **Clone the repository with submodules**
    ```sh
-   git clone https://github.com/<your-org>/nicels.git
+   git clone https://github.com/dm17ryk/nicels.git
    cd nicels
    git submodule update --init --recursive
    ```
@@ -42,10 +42,17 @@ prepares both `Debug` and `Release` configurations.
 
 Select the configuration you want at build time.  For example:
 
-```sh
-cmake --build --preset linux-clang-debug
-cmake --build --preset linux-clang-release
-```
+* **Linux**
+  ```sh
+  cmake --build --preset linux-clang-release
+  cmake --build --preset linux-clang-debug
+  ```
+
+* **Windows / MSYS2**
+  ```sh
+  cmake --build --preset msys-clang-release
+  cmake --build --preset msys-clang-debug
+  ```
 
 The resulting executable is written to `build/<preset>/<config>/nls`.
 
@@ -53,9 +60,15 @@ The resulting executable is written to `build/<preset>/<config>/nls`.
 
 You can stage an install tree beneath the build directory:
 
-```sh
-cmake --build --preset linux-clang-release --target install
-```
+* **Linux**
+  ```sh
+  cmake --build --preset linux-clang-release --target install
+  ```
+
+* **Windows / MSYS2**
+  ```sh
+  cmake --build --preset msys-clang-release --target install
+  ```
 
 The files land in `build/<preset>/install/`.
 
@@ -63,18 +76,31 @@ The files land in `build/<preset>/install/`.
 
 From within the build tree you can run the tool directly:
 
-```sh
-build/linux-clang/Debug/nls --help
-```
+* **Linux**
+  ```sh
+  ./build/linux-clang/Debug/nls --help
+  ```
+
+* **Windows / MSYS2**
+  ```sh
+  ./build/msys-clang/Release/nls.exe --help
+  ```
 
 ## Tests
 
 The project does not yet have automated tests, but the `linux-clang-test`
 preset keeps the workflow ready:
 
-```sh
-ctest --preset linux-clang-test
-```
+* **Linux**
+  ```sh
+  ctest --preset linux-clang-test
+  ```
+
+* **Windows / MSYS2**
+  ```sh
+  ctest --preset msys-clang-test
+  ```
+
 
 ## Cross compilation
 
