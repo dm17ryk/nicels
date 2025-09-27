@@ -1,0 +1,93 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base-clang",
+      "hidden": true,
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install"
+      }
+    },
+    {
+      "name": "linux-clang",
+      "displayName": "Linux Clang (Debug/Release)",
+      "description": "Configures a multi-config Ninja build on Linux using clang/clang++.",
+      "inherits": "base-clang",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "msys-clang",
+      "displayName": "MSYS2 Clang (Debug/Release)",
+      "description": "Configures a multi-config Ninja build for MSYS2 environments.",
+      "inherits": "base-clang",
+      "environment": {
+        "CC": "clang",
+        "CXX": "clang++"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "linux-arm64-cross",
+      "displayName": "Linux ARM64 cross-compilation",
+      "description": "Cross-compiles nicels for Linux ARM64 targets using clang.",
+      "inherits": "base-clang",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/linux-clang-aarch64.cmake",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install",
+        "NLS_ENABLE_IPO": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-clang-debug",
+      "configurePreset": "linux-clang",
+      "configuration": "Debug"
+    },
+    {
+      "name": "linux-clang-release",
+      "configurePreset": "linux-clang",
+      "configuration": "Release"
+    },
+    {
+      "name": "msys-clang-debug",
+      "configurePreset": "msys-clang",
+      "configuration": "Debug"
+    },
+    {
+      "name": "msys-clang-release",
+      "configurePreset": "msys-clang",
+      "configuration": "Release"
+    },
+    {
+      "name": "linux-arm64-cross-release",
+      "configurePreset": "linux-arm64-cross",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-clang-test",
+      "configurePreset": "linux-clang",
+      "configuration": "Debug"
+    }
+  ]
+}

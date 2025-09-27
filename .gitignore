@@ -2,4 +2,6 @@
 *.dll
 *.exe
 nls
-build/**
+build/
+CMakeUserPresets.json
+compile_commands.json
