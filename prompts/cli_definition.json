@@ -1,0 +1,141 @@
+{
+  "cli_definition": {
+    "name": "nls",
+    "description": "List information about the FILEs (the current directory by default). Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.",
+    "usage": "nls [OPTIONS] [paths...]",
+    "positionals": [
+      { "name": "paths", "type": "PATH", "variadic": true, "required": false, "description": "paths to list" }
+    ],
+    "options": [
+      {
+        "group": "General",
+        "items": [
+          { "names": ["-h","--help"], "type": "flag", "description": "Print this help message and exit" },
+          { "names": ["--version"], "type": "flag", "description": "Display program version information and exit" }
+        ]
+      },
+      {
+        "group": "Layout options",
+        "items": [
+          { "names": ["-l","--long"], "type": "flag", "description": "use a long listing format" },
+          { "names": ["-1","--one-per-line"], "type": "flag", "description": "list one file per line" },
+          { "names": ["-x"], "type": "flag", "description": "list entries by lines instead of by columns" },
+          { "names": ["-C"], "type": "flag", "description": "list entries by columns instead of by lines" },
+          {
+            "names": ["--format"],
+            "type": "value",
+            "arg": { "name": "WORD", "required": false, "default": "vertical", "choices": ["across","horizontal","long","single-column","vertical","comma"], "notes": "across (-x), horizontal (-x), long (-l), single-column (-1), vertical (-C) or comma (-m)" },
+            "description": "use format"
+          },
+          { "names": ["--header"], "type": "flag", "description": "print directory header and column names in long listing" },
+          { "names": ["-m"], "type": "flag", "description": "fill width with a comma separated list of entries" },
+          { "names": ["-T","--tabsize"], "type": "value", "arg": { "name": "COLS", "required": true }, "description": "assume tab stops at each COLS instead of 8" },
+          { "names": ["-w","--width"], "type": "value", "arg": { "name": "COLS", "required": true }, "description": "set output width to COLS. 0 means no limit" },
+          { "names": ["--tree"], "type": "value", "arg": { "name": "DEPTH", "required": false }, "description": "show tree view of directories, optionally limited to DEPTH" },
+          { "names": ["--report"], "type": "value", "arg": { "name": "WORD", "required": false, "default": "long", "choices": ["short","long"] }, "description": "show summary report" },
+          { "names": ["--zero"], "type": "flag", "description": "end each output line with NUL, not newline" }
+        ]
+      },
+      {
+        "group": "Filtering options",
+        "items": [
+          { "names": ["-a","--all"], "type": "flag", "description": "do not ignore entries starting with ." },
+          { "names": ["-A","--almost-all"], "type": "flag", "description": "do not list . and .." },
+          { "names": ["-d","--dirs"], "type": "flag", "description": "show only directories" },
+          { "names": ["-f","--files"], "type": "flag", "description": "show only files" },
+          { "names": ["-B","--ignore-backups"], "type": "flag", "description": "do not list implied entries ending with ~" },
+          { "names": ["--hide"], "type": "value", "arg": { "name": "PATTERN", "variadic": true }, "description": "do not list implied entries matching shell PATTERN (overridden by -a or -A)" },
+          { "names": ["-I","--ignore"], "type": "value", "arg": { "name": "PATTERN", "variadic": true }, "description": "do not list implied entries matching shell PATTERN" }
+        ]
+      },
+      {
+        "group": "Sorting options",
+        "items": [
+          { "names": ["-t"], "type": "flag", "description": "sort by modification time, newest first" },
+          { "names": ["-S"], "type": "flag", "description": "sort by file size, largest first" },
+          { "names": ["-X"], "type": "flag", "description": "sort by file extension" },
+          { "names": ["-U"], "type": "flag", "description": "do not sort; list entries in directory order" },
+          { "names": ["-r","--reverse"], "type": "flag", "description": "reverse order while sorting" },
+          { "names": ["--sort"], "type": "value", "arg": { "name": "WORD", "required": false, "default": "name", "choices": ["none","size","time","extension","name"] }, "description": "sort by WORD instead of name" },
+          { "names": ["--group-directories-first","--sd","--sort-dirs"], "type": "flag", "description": "sort directories before files" },
+          { "names": ["--sf","--sort-files"], "type": "flag", "description": "sort files first" },
+          { "names": ["--df","--dots-first"], "type": "flag", "description": "sort dot-files and dot-folders first" }
+        ]
+      },
+      {
+        "group": "Appearance options",
+        "items": [
+          { "names": ["-b","--escape"], "type": "flag", "description": "print C-style escapes for nongraphic characters" },
+          { "names": ["-N","--literal"], "type": "flag", "description": "print entry names without quoting" },
+          { "names": ["-Q","--quote-name"], "type": "flag", "description": "enclose entry names in double quotes" },
+          {
+            "names": ["--quoting-style"],
+            "type": "value",
+            "arg": { "name": "WORD", "required": false, "default": "literal", "choices": ["literal","locale","shell","shell-always","shell-escape","shell-escape-always","c","escape"] },
+            "description": "use quoting style WORD for entry names"
+          },
+          { "names": ["-p"], "type": "flag", "description": "append / indicator to directories" },
+          {
+            "names": ["--indicator-style"],
+            "type": "value",
+            "arg": { "name": "STYLE", "required": false, "default": "slash", "choices": ["none","slash"] },
+            "description": "append indicator with style STYLE to entry names"
+          },
+          { "names": ["--no-icons","--without-icons"], "type": "flag", "description": "disable icons in output" },
+          { "names": ["--no-color"], "type": "flag", "description": "disable ANSI colors" },
+          {
+            "names": ["--color"],
+            "type": "value",
+            "arg": { "name": "WHEN", "required": false, "default": "auto", "choices": ["auto","always","never"] },
+            "description": "colorize the output"
+          },
+          { "names": ["--light"], "type": "flag", "description": "use light color scheme" },
+          { "names": ["--dark"], "type": "flag", "description": "use dark color scheme" },
+          { "names": ["-q","--hide-control-chars"], "type": "flag", "description": "print ? instead of nongraphic characters" },
+          { "names": ["--show-control-chars"], "type": "flag", "description": "show nongraphic characters as-is" },
+          {
+            "names": ["--time-style"],
+            "type": "value",
+            "arg": { "name": "FORMAT", "required": false, "choices": ["default","locale","long-iso","full-iso","iso","iso8601","+FORMAT"], "notes": "like date(1); +FORMAT enables custom formats" },
+            "description": "use time display format"
+          },
+          { "names": ["--full-time"], "type": "flag", "description": "like -l --time-style=full-iso" },
+          { "names": ["--hyperlink"], "type": "flag", "description": "emit hyperlinks for entries" }
+        ]
+      },
+      {
+        "group": "Information options",
+        "items": [
+          { "names": ["-i","--inode"], "type": "flag", "description": "show inode number" },
+          { "names": ["-o"], "type": "flag", "description": "use a long listing format without group information" },
+          { "names": ["-g"], "type": "flag", "description": "use a long listing format without owner information" },
+          { "names": ["-G","--no-group"], "type": "flag", "description": "show no group information in a long listing" },
+          { "names": ["-n","--numeric-uid-gid"], "type": "flag", "description": "like -l, but list numeric user and group IDs" },
+          { "names": ["--bytes","--non-human-readable"], "type": "flag", "description": "show file sizes in bytes" },
+          { "names": ["-s","--size"], "type": "flag", "description": "print the allocated size of each file, in blocks" },
+          { "names": ["--block-size"], "type": "value", "arg": { "name": "SIZE", "required": true }, "description": "with -l, scale sizes by SIZE when printing them" },
+          { "names": ["-L","--dereference"], "type": "flag", "description": "for symlinks, show information for the referenced file" },
+          { "names": ["--gs","--git-status"], "type": "flag", "description": "show git status for each file" }
+        ]
+      }
+    ],
+    "footnotes": {
+      "arguments": {
+        "SIZE": "Integer with optional unit (e.g., 10K is 10*1024). K,M,G,T,P,E,Z,Y,R,Q (1024^n) or KB,MB,... (1000^n). Binary prefixes: KiB=K, MiB=M, etc.",
+        "TIME_STYLE": "full-iso, long-iso, iso, locale, or +FORMAT (like date(1)). If FORMAT is FORMAT1\\nFORMAT2, FORMAT1 applies to non-recent and FORMAT2 to recent files.",
+        "WHEN": "Defaults to 'always'; can be 'auto' or 'never'."
+      },
+      "color": "With --color=auto, color is used only when stdout is a terminal. LS_COLORS affects settings; see dircolors(1)."
+    },
+    "environment": [
+      { "name": "TIME_STYLE", "description": "Sets the default time display style if provided" },
+      { "name": "LS_COLORS", "description": "Controls colorization; used when --color=auto" }
+    ],
+    "exit_status": [
+      { "code": 0, "meaning": "OK" },
+      { "code": 1, "meaning": "minor problems (e.g., cannot access subdirectory)" },
+      { "code": 2, "meaning": "serious trouble (e.g., cannot access command-line argument)" }
+    ],
+    "related_commands": ["date(1)", "dircolors(1)"]
+  }
+}

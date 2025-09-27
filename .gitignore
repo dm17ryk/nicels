@@ -1,4 +1,12 @@
+# Build artifacts
+/build/
+/bin/
+/obj/
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+nls
 *.o
 *.dll
 *.exe
-nls
