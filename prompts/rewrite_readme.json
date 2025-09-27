@@ -1,6 +1,12 @@
 {
   "title": "Rewrite README.md for 'nicels' from CLI11 and project introspection",
   "role": "You are a technical writer and developer advocate specialized in C++ tools.",
+  "repo_state": "All changes committed. Work off the latest master branch.",
+  "vcs_commands": [
+      "git checkout master",
+      "git pull --rebase",
+      "git submodule update --init --recursive"
+  ],
   "goals": [
     "Generate a comprehensive README.md derived from the code-defined CLI (CLI11) and current project layout.",
     "Keep README sections in sync with the CLI by auto-extracting or reflecting the CLI11 option tree.",
@@ -12,6 +18,7 @@
   "context": {
     "repo_state": "All changes committed. Use latest master.",
     "cli_library": "CLI11 (third-party/cli11)",
+    "libgit2": "libgit2 (third-party/libgit2)",
     "executable_name": "nls",
     "source_of_truth": "CLI11 option tree and the CLI definition below"
   },
@@ -28,6 +35,19 @@
     "ascii_screenshots": {
       "linux": "Show colored listing, permissions, owner/group, inodes",
       "windows": "Show analogous output with Windows-specific owner/group display"
+    },
+    "screenshots": {
+      "format": "png",
+      "files": {
+        "file1": {
+          "command": "nls.exe -laA --sd --gs --header --report=long",
+          "url": "https://github.com/dm17ryk/nicels/blob/master/images/alA_2025-09-27.png?raw=true"
+        },
+        "file2": {
+          "command": "nls.exe -laAL --sd --gs --header --report=long",
+          "url": "hhttps://github.com/dm17ryk/nicels/blob/master/images/alAL_2025-09-27.png?raw=true"
+        }
+      }
     }
   },
   "deliverables": [

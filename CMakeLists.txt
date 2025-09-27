@@ -73,41 +73,14 @@ if(NLS_ENABLE_LIBGIT2)
   find_package(libgit2 REQUIRED)
 endif()
 
-set(_nls_sources
-  src/color_formatter.cpp
-  src/colors.cpp
-  src/command_line_parser.cpp
-  src/console.cpp
-  src/file_ownership_resolver.cpp
-  src/git_status.cpp
-  src/icons.cpp
-  src/main.cpp
-  src/permission_formatter.cpp
-  src/resources.cpp
-  src/size_formatter.cpp
-  src/string_utils.cpp
-  src/symlink_resolver.cpp
-  src/time_formatter.cpp
-  src/yaml_loader.cpp
+file(GLOB _nls_sources
+  CONFIGURE_DEPENDS
+  src/*.cpp
 )
 
-set(_nls_headers
-  src/color_formatter.h
-  src/colors.h
-  src/command_line_parser.h
-  src/console.h
-  src/file_info.h
-  src/file_ownership_resolver.h
-  src/git_status.h
-  src/icons.h
-  src/options.h
-  src/permission_formatter.h
-  src/resources.h
-  src/size_formatter.h
-  src/string_utils.h
-  src/symlink_resolver.h
-  src/time_formatter.h
-  src/yaml_loader.h
+file(GLOB _nls_headers
+  CONFIGURE_DEPENDS
+  src/*.h
 )
 
 add_executable(nls)
