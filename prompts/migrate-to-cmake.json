@@ -1,0 +1,75 @@
+{
+    "title": "Migrate 'nicels' to CMake",
+    "role": "You are a genius, senior C++ engineer and C++23/OOP/CMake expert.",
+    "description": "This task involves migrating the 'nicels' project from its current build system (make) to CMake.",
+    "repo_state": "All changes committed. Work off the latest master branch.",
+    "vcs_commands": [
+        "git checkout master",
+        "git pull --rebase",
+        "git submodule update --init --recursive"
+    ],
+    "requirements": [
+        "Familiarity with CMake syntax and commands.",
+        "Understanding of the existing build system used in 'nicels'.",
+        "Ability to test and validate the new CMake build system.",
+        "Knowledge of the project's dependencies and how to manage them in CMake.",
+        "Experience with version control systems to track changes.",
+        "use most recent cmake version 4.1.1",
+        "use most advanced cmake features",
+        "use cmake best practices",
+        "use cmake modern practices",
+        "use cmake idiomatic practices",
+        "use cmake presets",
+        "use cmake targets",
+        "build should support multiple configurations (Debug, Release, etc.)",
+        "automatically detect build host system Linux, Windows (MSYS2 UCRT)",
+        "automatically detect build host architecture x86, x64, ARM, ARM64",
+        "support cross-compilation",
+        "support out-of-source builds",
+        "include comments and documentation in the CMake files for clarity",
+        "ensure the new CMake build system is compatible with existing development workflows",
+        "automatically detect and configure dependencies",
+        "optimize the build process for speed and efficiency",
+        "ensure the CMake configuration is maintainable and scalable for future project growth",
+        "use cmake find_package to locate dependencies",
+        "use cmake targets to manage dependencies",
+        "use clang and clang++ as the primary compilers",
+        "use CMake's FetchContent module to manage external dependencies",
+        "include and configure the following external dependencies using CMake's FetchContent module: libgit2 (version 1.9.1) and CLI11 (version 2.5.0)",
+        "create compilation BUILD_README.md file with instructions on how to build the project using CMake"
+    ],
+    "dependencies": {
+        "tools": ["cmake", "make", "clang", "clang++"],
+        "platforms": ["Linux", "Windows (MSYS2 UCRT)"],
+        "architectures": ["x86", "x64", "ARM", "ARM64"],
+        "compilers": ["clang", "clang++"],
+        "vcs": ["git"],
+        "cmake_version": "4.1.1",
+        "cmake_features": ["presets", "targets", "FetchContent"],
+        "build_types": ["Debug", "Release"],
+        "build_strategies": ["out-of-source", "cross-compilation"],
+        "dependency_management": ["find_package", "targets"],
+        "optimization": ["speed", "efficiency"],
+        "documentation": ["comments", "documentation"],
+        "external_dependencies": {
+            "libgit2": {
+                "name": "libgit2",
+                "url": "https://github.com/libgit2/libgit2",
+                "version": "1.9.1",
+                "project_path": "third-party/libgit2"
+            },
+            "CLI11": {
+                "name": "CLI11",
+                "url": "https://github.com/CLIUtils/CLI11",
+                "version": "2.5.0",
+                "project_path": "third-party/cli11"
+            }
+        }
+    },
+    "steps": [
+        "Analyze the current build system (make) and identify all build targets.",
+        "Create a CMakeLists.txt and CMakePresets.json files in the root of the project.",
+        "Define the project, its dependencies and its requirements in the CMakeLists.txt file.",
+        "Test the CMake build system to ensure all targets are built correctly."
+    ]
+}
