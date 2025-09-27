@@ -22,7 +22,7 @@
         "use cmake presets",
         "use cmake targets",
         "build should support multiple configurations (Debug, Release, etc.)",
-        "automatically detect build host system Linux, Windows (MSYS2 UCRT)",
+        "automatically detect build host system Linux, Windows (host: MSYS)",
         "automatically detect build host architecture x86, x64, ARM, ARM64",
         "support cross-compilation",
         "support out-of-source builds",
@@ -40,7 +40,7 @@
     ],
     "dependencies": {
         "tools": ["cmake", "make", "clang", "clang++"],
-        "platforms": ["Linux", "Windows (MSYS2 UCRT)"],
+        "platforms": ["Linux", "Windows (host: MSYS)"],
         "architectures": ["x86", "x64", "ARM", "ARM64"],
         "compilers": ["clang", "clang++"],
         "vcs": ["git"],
@@ -54,14 +54,10 @@
         "external_dependencies": {
             "libgit2": {
                 "name": "libgit2",
-                "url": "https://github.com/libgit2/libgit2",
-                "version": "1.9.1",
                 "project_path": "third-party/libgit2"
             },
             "CLI11": {
                 "name": "CLI11",
-                "url": "https://github.com/CLIUtils/CLI11",
-                "version": "2.5.0",
                 "project_path": "third-party/cli11"
             }
         }
