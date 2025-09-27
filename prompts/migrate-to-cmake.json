@@ -34,8 +34,7 @@
         "use cmake find_package to locate dependencies",
         "use cmake targets to manage dependencies",
         "use clang and clang++ as the primary compilers",
-        "use CMake's FetchContent module to manage external dependencies",
-        "include and configure the following external dependencies using CMake's FetchContent module: libgit2 (version 1.9.1) and CLI11 (version 2.5.0)",
+        "include and configure external dependencies using CMake",
         "create compilation BUILD_README.md file with instructions on how to build the project using CMake"
     ],
     "dependencies": {
@@ -51,14 +50,21 @@
         "dependency_management": ["find_package", "targets"],
         "optimization": ["speed", "efficiency"],
         "documentation": ["comments", "documentation"],
+        "external_dependencies_init_commands": ["git submodule update --init --recursive"],
         "external_dependencies": {
             "libgit2": {
                 "name": "libgit2",
-                "project_path": "third-party/libgit2"
+                "project_path": "third-party/libgit2",
+                "type": "git submodule",
+                "url": "https://github.com/libgit2/libgit2",
+                "status": "added as git submodule"
             },
             "CLI11": {
                 "name": "CLI11",
-                "project_path": "third-party/cli11"
+                "project_path": "third-party/cli11",
+                "type": "git submodule",
+                "url": "https://github.com/CLIUtils/CLI11",
+                "status": "added as git submodule"
             }
         }
     },
