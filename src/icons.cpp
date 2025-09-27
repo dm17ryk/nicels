@@ -4,6 +4,7 @@
 #include "string_utils.h"
 #include "yaml_loader.h"
 
+#include <string_view>
 #include <unordered_map>
 
 namespace nls {
@@ -19,34 +20,38 @@ struct IconTheme {
 IconTheme g_icons;
 bool g_loaded = false;
 
+std::string to_utf8(std::u8string_view text) {
+    return {reinterpret_cast<const char*>(text.data()), text.size()};
+}
+
 IconTheme make_fallback_icons() {
     IconTheme theme;
-    theme.files["file"] = u8"\uf15b"; // generic file
-    theme.files["exe"] = u8"\uf144";
-    theme.files["sh"] = u8"\uf489";
-    theme.files["txt"] = u8"\uf15c";
-    theme.files["png"] = u8"\uf1c5";
-    theme.files["jpg"] = u8"\uf1c5";
-    theme.files["jpeg"] = u8"\uf1c5";
-    theme.files["gif"] = u8"\uf1c5";
-    theme.files["svg"] = u8"\uf1c5";
-    theme.files["zip"] = u8"\uf1c6";
-    theme.files["gz"] = u8"\uf1c6";
-    theme.files["7z"] = u8"\uf1c6";
-    theme.files["pdf"] = u8"\uf1c1";
-    theme.files["cpp"] = u8"\ue61d";
-    theme.files["cc"] = u8"\ue61d";
-    theme.files["c"] = u8"\uf0fd";
-    theme.files["h"] = u8"\uf0fd";
-    theme.files["hpp"] = u8"\uf0fd";
-    theme.files["py"] = u8"\ue235";
-    theme.files["rb"] = u8"\ue21e";
-    theme.files["js"] = u8"\ue74e";
-    theme.files["ts"] = u8"\ue628";
-    theme.files["json"] = u8"\ue60b";
-    theme.files["md"] = u8"\uf48a";
-    theme.folders["folder"] = u8"\uf07b";
-    theme.folders["hidden"] = u8"\uf19fc";
+    theme.files["file"] = to_utf8(u8"\uf15b"); // generic file
+    theme.files["exe"] = to_utf8(u8"\uf144");
+    theme.files["sh"] = to_utf8(u8"\uf489");
+    theme.files["txt"] = to_utf8(u8"\uf15c");
+    theme.files["png"] = to_utf8(u8"\uf1c5");
+    theme.files["jpg"] = to_utf8(u8"\uf1c5");
+    theme.files["jpeg"] = to_utf8(u8"\uf1c5");
+    theme.files["gif"] = to_utf8(u8"\uf1c5");
+    theme.files["svg"] = to_utf8(u8"\uf1c5");
+    theme.files["zip"] = to_utf8(u8"\uf1c6");
+    theme.files["gz"] = to_utf8(u8"\uf1c6");
+    theme.files["7z"] = to_utf8(u8"\uf1c6");
+    theme.files["pdf"] = to_utf8(u8"\uf1c1");
+    theme.files["cpp"] = to_utf8(u8"\ue61d");
+    theme.files["cc"] = to_utf8(u8"\ue61d");
+    theme.files["c"] = to_utf8(u8"\uf0fd");
+    theme.files["h"] = to_utf8(u8"\uf0fd");
+    theme.files["hpp"] = to_utf8(u8"\uf0fd");
+    theme.files["py"] = to_utf8(u8"\ue235");
+    theme.files["rb"] = to_utf8(u8"\ue21e");
+    theme.files["js"] = to_utf8(u8"\ue74e");
+    theme.files["ts"] = to_utf8(u8"\ue628");
+    theme.files["json"] = to_utf8(u8"\ue60b");
+    theme.files["md"] = to_utf8(u8"\uf48a");
+    theme.folders["folder"] = to_utf8(u8"\uf07b");
+    theme.folders["hidden"] = to_utf8(u8"\uf19fc");
     return theme;
 }
 
@@ -85,10 +90,10 @@ void ensure_loaded() {
 
     // Ensure defaults exist
     if (g_icons.files.find("file") == g_icons.files.end()) {
-        g_icons.files["file"] = u8"\uf15b";
+        g_icons.files["file"] = to_utf8(u8"\uf15b");
     }
     if (g_icons.folders.find("folder") == g_icons.folders.end()) {
-        g_icons.folders["folder"] = u8"\uf07b";
+        g_icons.folders["folder"] = to_utf8(u8"\uf07b");
     }
 }
 
@@ -123,7 +128,7 @@ IconResult folder_icon(std::string_view name) {
     if (fallback != theme.folders.end()) {
         return {fallback->second, false};
     }
-    return {u8"\uf07b", false};
+    return {to_utf8(u8"\uf07b"), false};
 }
 
 IconResult file_icon(std::string_view name, bool is_exec) {
@@ -173,7 +178,7 @@ IconResult file_icon(std::string_view name, bool is_exec) {
     if (fallback != theme.files.end()) {
         return {fallback->second, false};
     }
-    return {u8"\uf15b", false};
+    return {to_utf8(u8"\uf15b"), false};
 }
 
 } // namespace

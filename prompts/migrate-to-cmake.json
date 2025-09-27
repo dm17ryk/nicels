@@ -1,5 +1,5 @@
 {
-    "title": "Migrate 'nicels' to CMake",
+    "title": "Migrate 'nicels' to CMake (libgit2 as git submodule)",
     "role": "You are a genius, senior C++ engineer and C++23/OOP/CMake expert.",
     "description": "This task involves migrating the 'nicels' project from its current build system (make) to CMake.",
     "repo_state": "All changes committed. Work off the latest master branch.",
@@ -14,6 +14,7 @@
         "Ability to test and validate the new CMake build system.",
         "Knowledge of the project's dependencies and how to manage them in CMake.",
         "Experience with version control systems to track changes.",
+        "not use system libgit2, use git submodule as statically linked dependency",
         "use most recent cmake version 4.1.1",
         "use most advanced cmake features",
         "use cmake best practices",
@@ -57,7 +58,25 @@
                 "project_path": "third-party/libgit2",
                 "type": "git submodule",
                 "url": "https://github.com/libgit2/libgit2",
-                "status": "added as git submodule"
+                "status": "added as git submodule",
+                "compilation_options": {
+                    "BUILD_SHARED_LIBS": "OFF",
+                    "CMAKE_POSITION_INDEPENDENT_CODE": "ON",
+                    "BUILD_CLAR": "OFF",
+                    "USE_HTTPS": "ON",
+                    "USE_SSH": "ON",
+                    "USE_SSH_AGENT": "ON",
+                    "USE_BUNDLED_ZLIB": "ON",
+                    "USE_BUNDLED_OPENSSL": "ON",
+                    "USE_BUNDLED_CURL": "ON",
+                    "USE_BUNDLED_NTLM": "ON",
+                    "USE_BUNDLED_LIBSSH2": "ON",
+                    "USE_BUNDLED_HTTPPARSER": "ON",
+                    "REGEX_BACKEND": "builtin",
+                    "HTTPS_BACKEND": "WinHTTP"
+                },
+                "linked_as": "static library",
+                "use_system_lib": false
             },
             "CLI11": {
                 "name": "CLI11",
