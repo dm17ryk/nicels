@@ -5,14 +5,18 @@
 #include <cctype>
 #include <chrono>
 #include <cstdlib>
+#include <functional>
 #include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
+#include <vector>
 
 #include <CLI/CLI.hpp>
 
@@ -27,6 +31,232 @@
 #endif
 
 namespace nls {
+
+namespace {
+
+class ConfigBuilder {
+public:
+    std::vector<std::string>& paths() { return paths_; }
+    std::vector<std::string>& hide_patterns() { return hide_patterns_; }
+    std::vector<std::string>& ignore_patterns() { return ignore_patterns_; }
+
+    void SetFormat(Config::Format format)
+    {
+        actions_.emplace_back([format](Config& cfg) { cfg.set_format(format); });
+    }
+
+    void SetHeader(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_header(value); });
+    }
+
+    void SetTabSize(int value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_tab_size(value); });
+    }
+
+    void SetOutputWidth(int value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_output_width(value); });
+    }
+
+    void EnableTree(std::optional<std::size_t> depth)
+    {
+        actions_.emplace_back([depth](Config& cfg) {
+            cfg.set_tree(true);
+            cfg.set_tree_depth(depth);
+        });
+    }
+
+    void SetReport(Config::Report report)
+    {
+        actions_.emplace_back([report](Config& cfg) { cfg.set_report(report); });
+    }
+
+    void SetZeroTerminate(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_zero_terminate(value); });
+    }
+
+    void SetAll(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_all(value); });
+    }
+
+    void SetAlmostAll(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_almost_all(value); });
+    }
+
+    void SetDirsOnly()
+    {
+        actions_.emplace_back([](Config& cfg) {
+            cfg.set_dirs_only(true);
+            cfg.set_files_only(false);
+        });
+    }
+
+    void SetFilesOnly()
+    {
+        actions_.emplace_back([](Config& cfg) {
+            cfg.set_files_only(true);
+            cfg.set_dirs_only(false);
+        });
+    }
+
+    void SetIgnoreBackups(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_ignore_backups(value); });
+    }
+
+    void SetSort(Config::Sort sort)
+    {
+        actions_.emplace_back([sort](Config& cfg) { cfg.set_sort(sort); });
+    }
+
+    void SetReverse(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_reverse(value); });
+    }
+
+    void SetGroupDirsFirst()
+    {
+        actions_.emplace_back([](Config& cfg) {
+            cfg.set_group_dirs_first(true);
+            cfg.set_sort_files_first(false);
+        });
+    }
+
+    void SetSortFilesFirst()
+    {
+        actions_.emplace_back([](Config& cfg) {
+            cfg.set_sort_files_first(true);
+            cfg.set_group_dirs_first(false);
+        });
+    }
+
+    void SetDotsFirst(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_dots_first(value); });
+    }
+
+    void SetQuotingStyle(Config::QuotingStyle style)
+    {
+        actions_.emplace_back([style](Config& cfg) { cfg.set_quoting_style(style); });
+    }
+
+    void SetIndicator(Config::IndicatorStyle style)
+    {
+        actions_.emplace_back([style](Config& cfg) { cfg.set_indicator(style); });
+    }
+
+    void SetNoIcons(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_no_icons(value); });
+    }
+
+    void SetNoColor(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_no_color(value); });
+    }
+
+    void SetColorTheme(Config::ColorTheme theme)
+    {
+        actions_.emplace_back([theme](Config& cfg) { cfg.set_color_theme(theme); });
+    }
+
+    void SetHideControlChars(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_hide_control_chars(value); });
+    }
+
+    void SetTimeStyle(std::string style)
+    {
+        actions_.emplace_back([style = std::move(style)](Config& cfg) { cfg.set_time_style(style); });
+    }
+
+    void SetHyperlink(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_hyperlink(value); });
+    }
+
+    void SetShowInode(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_show_inode(value); });
+    }
+
+    void SetShowGroup(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_show_group(value); });
+    }
+
+    void SetShowOwner(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_show_owner(value); });
+    }
+
+    void SetNumericUidGid(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_numeric_uid_gid(value); });
+    }
+
+    void SetBytes(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_bytes(value); });
+    }
+
+    void SetShowBlockSize(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_show_block_size(value); });
+    }
+
+    void SetBlockSize(uintmax_t value, bool specified, bool show_suffix, std::string suffix)
+    {
+        actions_.emplace_back([value, specified, show_suffix, suffix = std::move(suffix)](Config& cfg) {
+            cfg.set_block_size(value);
+            cfg.set_block_size_specified(specified);
+            cfg.set_block_size_show_suffix(show_suffix);
+            cfg.set_block_size_suffix(suffix);
+        });
+    }
+
+    void SetDereference(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_dereference(value); });
+    }
+
+    void SetGitStatus(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_git_status(value); });
+    }
+
+    Config& Build()
+    {
+        Config& cfg = Config::Instance();
+        cfg.Reset();
+        cfg.set_paths(paths_);
+        cfg.set_hide_patterns(hide_patterns_);
+        cfg.set_ignore_patterns(ignore_patterns_);
+        for (const auto& action : actions_) {
+            action(cfg);
+        }
+        if (cfg.paths().empty()) {
+            cfg.mutable_paths().push_back(".");
+        }
+        if (cfg.all()) {
+            cfg.set_almost_all(false);
+        }
+        return cfg;
+    }
+
+private:
+    std::vector<std::function<void(Config&)>> actions_{};
+    std::vector<std::string> paths_{};
+    std::vector<std::string> hide_patterns_{};
+    std::vector<std::string> ignore_patterns_{};
+};
+
+} // namespace
 
 bool CommandLineParser::MultiplyWithOverflow(uintmax_t a, uintmax_t b, uintmax_t& result) const {
     if (a == 0 || b == 0) {
@@ -156,12 +386,11 @@ std::optional<Config::QuotingStyle> CommandLineParser::ParseQuotingStyleWord(std
 
 Config& CommandLineParser::Parse(int argc, char** argv) {
 
-    Config& options = Config::Instance();
-    options.Reset();
+    ConfigBuilder builder;
 
     if (const char* env = std::getenv("QUOTING_STYLE")) {
         if (auto style = ParseQuotingStyleWord(env)) {
-            options.set_quoting_style(*style);
+            builder.SetQuotingStyle(*style);
         }
     }
 
@@ -192,7 +421,7 @@ Exit status:
  2  if serious trouble (e.g., cannot access command-line argument).)"
     );
 
-    program.add_option("paths", options.mutable_paths(), "paths to list")->type_name("PATH");
+    program.add_option("paths", builder.paths(), "paths to list")->type_name("PATH");
 
     const std::map<std::string, Config::Format> format_map{
         {"long", Config::Format::Long},
@@ -244,17 +473,17 @@ Exit status:
     };
 
     auto layout = program.add_option_group("Layout options");
-    layout->add_flag_callback("-l,--long", [&]() { options.set_format(Config::Format::Long); },
+    layout->add_flag_callback("-l,--long", [&]() { builder.SetFormat(Config::Format::Long); },
         "use a long listing format");
-    layout->add_flag_callback("-1,--one-per-line", [&]() { options.set_format(Config::Format::SingleColumn); },
+    layout->add_flag_callback("-1,--one-per-line", [&]() { builder.SetFormat(Config::Format::SingleColumn); },
         "list one file per line");
-    layout->add_flag_callback("-x", [&]() { options.set_format(Config::Format::ColumnsHorizontal); },
+    layout->add_flag_callback("-x", [&]() { builder.SetFormat(Config::Format::ColumnsHorizontal); },
         "list entries by lines instead of by columns");
-    layout->add_flag_callback("-C", [&]() { options.set_format(Config::Format::ColumnsVertical); },
+    layout->add_flag_callback("-C", [&]() { builder.SetFormat(Config::Format::ColumnsVertical); },
         "list entries by columns instead of by lines");
 
     auto format_option = layout->add_option_function<Config::Format>("--format",
-        [&](const Config::Format& format) { options.set_format(format); },
+        [&](const Config::Format& format) { builder.SetFormat(format); },
         R"(use format: across (-x), horizontal (-x),
 long (-l), single-column (-1), vertical (-C)
 or comma (-m) (default: vertical))");
@@ -262,9 +491,9 @@ or comma (-m) (default: vertical))");
     format_option->transform(CLI::CheckedTransformer(format_map, CLI::ignore_case).description(""));
     format_option->default_str("vertical");
 
-    layout->add_flag_callback("--header", [&]() { options.set_header(true); },
+    layout->add_flag_callback("--header", [&]() { builder.SetHeader(true); },
         "print directory header and column names in long listing");
-    layout->add_flag_callback("-m", [&]() { options.set_format(Config::Format::CommaSeparated); },
+    layout->add_flag_callback("-m", [&]() { builder.SetFormat(Config::Format::CommaSeparated); },
         "fill width with a comma separated list of entries");
 
     auto tab_option = layout->add_option_function<int>("-T,--tabsize",
@@ -272,7 +501,7 @@ or comma (-m) (default: vertical))");
             if (cols < 0) {
                 throw CLI::ValidationError("--tabsize", "COLS must be non-negative");
             }
-            options.set_tab_size(cols);
+            builder.SetTabSize(cols);
         },
         "assume tab stops at each COLS instead of 8");
     tab_option->type_name("COLS");
@@ -283,7 +512,7 @@ or comma (-m) (default: vertical))");
             if (cols < 0) {
                 throw CLI::ValidationError("--width", "COLS must be non-negative");
             }
-            options.set_output_width(cols);
+            builder.SetOutputWidth(cols);
         },
         "set output width to COLS.  0 means no limit");
     width_option->type_name("COLS");
@@ -294,8 +523,7 @@ or comma (-m) (default: vertical))");
             if (depth == 0) {
                 throw CLI::ValidationError("--tree", "DEPTH must be greater than zero");
             }
-            options.set_tree(true);
-            options.set_tree_depth(depth);
+            builder.EnableTree(depth);
         },
         "show tree view of directories, optionally limited to DEPTH");
     tree_option->type_name("DEPTH");
@@ -303,57 +531,55 @@ or comma (-m) (default: vertical))");
 
     auto report_option = layout->add_option_function<Config::Report>("--report",
         [&](const Config::Report& report) {
-            options.set_report(report);
+            builder.SetReport(report);
         },
         R"(show summary report: short, long (default: long)
- )");
+)");
     report_option->type_name("WORD");
     report_option->expected(1);
     report_option->transform(CLI::CheckedTransformer(report_map, CLI::ignore_case).description(""));
     report_option->default_str("long");
 
-    layout->add_flag_callback("--zero", [&]() { options.set_zero_terminate(true); },
+    layout->add_flag_callback("--zero", [&]() { builder.SetZeroTerminate(true); },
         "end each output line with NUL, not newline");
 
     auto filtering = program.add_option_group("Filtering options");
-    filtering->add_flag_callback("-a,--all", [&]() { options.set_all(true); },
+    filtering->add_flag_callback("-a,--all", [&]() { builder.SetAll(true); },
         "do not ignore entries starting with .");
-    filtering->add_flag_callback("-A,--almost-all", [&]() { options.set_almost_all(true); },
+    filtering->add_flag_callback("-A,--almost-all", [&]() { builder.SetAlmostAll(true); },
         "do not list . and ..");
     filtering->add_flag_callback("-d,--dirs", [&]() {
-        options.set_dirs_only(true);
-        options.set_files_only(false);
+        builder.SetDirsOnly();
     }, "show only directories");
     filtering->add_flag_callback("-f,--files", [&]() {
-        options.set_files_only(true);
-        options.set_dirs_only(false);
+        builder.SetFilesOnly();
     }, "show only files");
-    filtering->add_flag_callback("-B,--ignore-backups", [&]() { options.set_ignore_backups(true); },
+    filtering->add_flag_callback("-B,--ignore-backups", [&]() { builder.SetIgnoreBackups(true); },
         "do not list implied entries ending with ~");
 
-    auto hide_option = filtering->add_option("--hide", options.mutable_hide_patterns(),
+    auto hide_option = filtering->add_option("--hide", builder.hide_patterns(),
         R"(do not list implied entries matching shell
 PATTERN (overridden by -a or -A))");
     hide_option->type_name("PATTERN");
 
-    auto ignore_option = filtering->add_option("-I,--ignore", options.mutable_ignore_patterns(),
+    auto ignore_option = filtering->add_option("-I,--ignore", builder.ignore_patterns(),
         "do not list implied entries matching shell PATTERN");
     ignore_option->type_name("PATTERN");
 
     auto sorting = program.add_option_group("Sorting options");
-    sorting->add_flag_callback("-t", [&]() { options.set_sort(Config::Sort::Time); },
+    sorting->add_flag_callback("-t", [&]() { builder.SetSort(Config::Sort::Time); },
         "sort by modification time, newest first");
-    sorting->add_flag_callback("-S", [&]() { options.set_sort(Config::Sort::Size); },
+    sorting->add_flag_callback("-S", [&]() { builder.SetSort(Config::Sort::Size); },
         "sort by file size, largest first");
-    sorting->add_flag_callback("-X", [&]() { options.set_sort(Config::Sort::Extension); },
+    sorting->add_flag_callback("-X", [&]() { builder.SetSort(Config::Sort::Extension); },
         "sort by file extension");
-    sorting->add_flag_callback("-U", [&]() { options.set_sort(Config::Sort::None); },
+    sorting->add_flag_callback("-U", [&]() { builder.SetSort(Config::Sort::None); },
         "do not sort; list entries in directory order");
-    sorting->add_flag_callback("-r,--reverse", [&]() { options.set_reverse(true); },
+    sorting->add_flag_callback("-r,--reverse", [&]() { builder.SetReverse(true); },
         "reverse order while sorting");
 
     auto sort_option = sorting->add_option_function<Config::Sort>("--sort",
-        [&](const Config::Sort& sort) { options.set_sort(sort); },
+        [&](const Config::Sort& sort) { builder.SetSort(sort); },
         R"(sort by WORD instead of name: none, size,
 time, extension (default: name))");
     sort_option->type_name("WORD");
@@ -361,26 +587,24 @@ time, extension (default: name))");
     sort_option->default_str("name");
 
     sorting->add_flag_callback("--group-directories-first,--sd,--sort-dirs", [&]() {
-        options.set_group_dirs_first(true);
-        options.set_sort_files_first(false);
+        builder.SetGroupDirsFirst();
     }, "sort directories before files");
     sorting->add_flag_callback("--sf,--sort-files", [&]() {
-        options.set_sort_files_first(true);
-        options.set_group_dirs_first(false);
+        builder.SetSortFilesFirst();
     }, "sort files first");
-    sorting->add_flag_callback("--df,--dots-first", [&]() { options.set_dots_first(true); },
+    sorting->add_flag_callback("--df,--dots-first", [&]() { builder.SetDotsFirst(true); },
         "sort dot-files and dot-folders first");
 
     auto appearance = program.add_option_group("Appearance options");
-    appearance->add_flag_callback("-b,--escape", [&]() { options.set_quoting_style(Config::QuotingStyle::Escape); },
+    appearance->add_flag_callback("-b,--escape", [&]() { builder.SetQuotingStyle(Config::QuotingStyle::Escape); },
         "print C-style escapes for nongraphic characters");
-    appearance->add_flag_callback("-N,--literal", [&]() { options.set_quoting_style(Config::QuotingStyle::Literal); },
+    appearance->add_flag_callback("-N,--literal", [&]() { builder.SetQuotingStyle(Config::QuotingStyle::Literal); },
         "print entry names without quoting");
-    appearance->add_flag_callback("-Q,--quote-name", [&]() { options.set_quoting_style(Config::QuotingStyle::C); },
+    appearance->add_flag_callback("-Q,--quote-name", [&]() { builder.SetQuotingStyle(Config::QuotingStyle::C); },
         "enclose entry names in double quotes");
 
     auto quoting_option = appearance->add_option_function<Config::QuotingStyle>("--quoting-style",
-        [&](const Config::QuotingStyle& quoting) { options.set_quoting_style(quoting); },
+        [&](const Config::QuotingStyle& quoting) { builder.SetQuotingStyle(quoting); },
         R"(use quoting style WORD for entry names:
 literal, locale, shell, shell-always, shell-escape,
 shell-escape-always, c, escape (default: literal))");
@@ -388,25 +612,25 @@ shell-escape-always, c, escape (default: literal))");
     quoting_option->transform(CLI::CheckedTransformer(quoting_map, CLI::ignore_case).description(""));
     quoting_option->default_str("literal");
 
-    appearance->add_flag_callback("-p", [&]() { options.set_indicator(Config::IndicatorStyle::Slash); },
+    appearance->add_flag_callback("-p", [&]() { builder.SetIndicator(Config::IndicatorStyle::Slash); },
         "append / indicator to directories");
 
     auto indicator_option = appearance->add_option_function<Config::IndicatorStyle>("--indicator-style",
-        [&](const Config::IndicatorStyle& indicator) { options.set_indicator(indicator); },
+        [&](const Config::IndicatorStyle& indicator) { builder.SetIndicator(indicator); },
         R"(append indicator with style STYLE to entry names:
 none, slash (-p) (default: slash))");
     indicator_option->type_name("STYLE");
     indicator_option->transform(CLI::CheckedTransformer(indicator_map, CLI::ignore_case).description(""));
     indicator_option->default_str("slash");
 
-    appearance->add_flag_callback("--no-icons,--without-icons", [&]() { options.set_no_icons(true); },
+    appearance->add_flag_callback("--no-icons,--without-icons", [&]() { builder.SetNoIcons(true); },
         "disable icons in output");
-    appearance->add_flag_callback("--no-color", [&]() { options.set_no_color(true); },
+    appearance->add_flag_callback("--no-color", [&]() { builder.SetNoColor(true); },
         "disable ANSI colors");
 
     auto color_option = appearance->add_option_function<ColorMode>("--color",
         [&](const ColorMode& color) {
-            options.set_no_color(color == ColorMode::Never);
+            builder.SetNoColor(color == ColorMode::Never);
         },
         R"(colorize the output: auto, always,
 never (default: auto))");
@@ -414,47 +638,47 @@ never (default: auto))");
     color_option->transform(CLI::CheckedTransformer(color_map, CLI::ignore_case).description(""));
     color_option->default_str("auto");
 
-    appearance->add_flag_callback("--light", [&]() { options.set_color_theme(Config::ColorTheme::Light); },
+    appearance->add_flag_callback("--light", [&]() { builder.SetColorTheme(Config::ColorTheme::Light); },
         "use light color scheme");
-    appearance->add_flag_callback("--dark", [&]() { options.set_color_theme(Config::ColorTheme::Dark); },
+    appearance->add_flag_callback("--dark", [&]() { builder.SetColorTheme(Config::ColorTheme::Dark); },
         "use dark color scheme");
-    appearance->add_flag_callback("-q,--hide-control-chars", [&]() { options.set_hide_control_chars(true); },
+    appearance->add_flag_callback("-q,--hide-control-chars", [&]() { builder.SetHideControlChars(true); },
         "print ? instead of nongraphic characters");
-    appearance->add_flag_callback("--show-control-chars", [&]() { options.set_hide_control_chars(false); },
+    appearance->add_flag_callback("--show-control-chars", [&]() { builder.SetHideControlChars(false); },
         "show nongraphic characters as-is");
     auto time_style_option = appearance->add_option_function<std::string>("--time-style",
-        [&](const std::string& style) { options.set_time_style(style); },
+        [&](const std::string& style) { builder.SetTimeStyle(style); },
         R"(use time display format: default, locale,
 long-iso, full-iso, iso, iso8601,
 FORMAT (default: locale))");
     time_style_option->type_name("FORMAT");
     appearance->add_flag_callback("--full-time", [&]() {
-        options.set_format(Config::Format::Long);
-        options.set_time_style("full-iso");
+        builder.SetFormat(Config::Format::Long);
+        builder.SetTimeStyle("full-iso");
     }, "like -l --time-style=full-iso");
-    appearance->add_flag_callback("--hyperlink", [&]() { options.set_hyperlink(true); },
+    appearance->add_flag_callback("--hyperlink", [&]() { builder.SetHyperlink(true); },
         "emit hyperlinks for entries");
 
     auto information = program.add_option_group("Information options");
-    information->add_flag_callback("-i,--inode", [&]() { options.set_show_inode(true); },
+    information->add_flag_callback("-i,--inode", [&]() { builder.SetShowInode(true); },
         "show inode number");
     information->add_flag_callback("-o", [&]() {
-        options.set_format(Config::Format::Long);
-        options.set_show_group(false);
+        builder.SetFormat(Config::Format::Long);
+        builder.SetShowGroup(false);
     }, "use a long listing format without group information");
     information->add_flag_callback("-g", [&]() {
-        options.set_format(Config::Format::Long);
-        options.set_show_owner(false);
+        builder.SetFormat(Config::Format::Long);
+        builder.SetShowOwner(false);
     }, "use a long listing format without owner information");
-    information->add_flag_callback("-G,--no-group", [&]() { options.set_show_group(false); },
+    information->add_flag_callback("-G,--no-group", [&]() { builder.SetShowGroup(false); },
         "show no group information in a long listing");
     information->add_flag_callback("-n,--numeric-uid-gid", [&]() {
-        options.set_format(Config::Format::Long);
-        options.set_numeric_uid_gid(true);
+        builder.SetFormat(Config::Format::Long);
+        builder.SetNumericUidGid(true);
     }, "like -l, but list numeric user and group IDs");
-    information->add_flag_callback("--bytes,--non-human-readable", [&]() { options.set_bytes(true); },
+    information->add_flag_callback("--bytes,--non-human-readable", [&]() { builder.SetBytes(true); },
         "show file sizes in bytes");
-    information->add_flag_callback("-s,--size", [&]() { options.set_show_block_size(true); },
+    information->add_flag_callback("-s,--size", [&]() { builder.SetShowBlockSize(true); },
         "print the allocated size of each file, in blocks");
 
     auto block_option = information->add_option_function<std::string>("--block-size",
@@ -463,18 +687,15 @@ FORMAT (default: locale))");
             if (!spec) {
                 throw CLI::ValidationError("--block-size", "invalid value '" + text + "'");
             }
-            options.set_block_size(spec->value);
-            options.set_block_size_specified(true);
-            options.set_block_size_show_suffix(spec->show_suffix);
-            options.set_block_size_suffix(spec->suffix);
+            builder.SetBlockSize(spec->value, true, spec->show_suffix, spec->suffix);
         },
         "with -l, scale sizes by SIZE when printing them");
     block_option->type_name("SIZE");
 
-    information->add_flag_callback("-L,--dereference", [&]() { options.set_dereference(true); },
+    information->add_flag_callback("-L,--dereference", [&]() { builder.SetDereference(true); },
         R"(when showing file information for a symbolic link,
 show information for the file the link references)");
-    information->add_flag_callback("--gs,--git-status", [&]() { options.set_git_status(true); },
+    information->add_flag_callback("--gs,--git-status", [&]() { builder.SetGitStatus(true); },
         "show git status for each file");
 
     try {
@@ -483,12 +704,7 @@ show information for the file the link references)");
         std::exit(program.exit(e));
     }
 
-    if (options.paths().empty()) {
-        options.mutable_paths().push_back(".");
-    }
-    if (options.all()) {
-        options.set_almost_all(false);
-    }
+    Config& options = builder.Build();
     return options;
 }
 
