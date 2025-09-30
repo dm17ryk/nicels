@@ -150,7 +150,7 @@ std::unordered_map<std::string, std::array<int, 3>> make_default_color_map()
 std::unordered_map<std::string, std::array<int, 3>> load_color_map_from_yaml()
 {
     std::unordered_map<std::string, std::array<int, 3>> result;
-    auto path = find_resource("colors.yaml");
+    auto path = ResourceManager::find("colors.yaml");
     if (path.empty()) {
         return result;
     }
@@ -401,7 +401,7 @@ void Theme::ensure_loaded()
 ThemeColors Theme::load_theme_file(const std::string& filename)
 {
     ThemeColors theme = fallback_;
-    auto path = find_resource(filename);
+    auto path = ResourceManager::find(filename);
     if (path.empty()) {
         return theme;
     }
@@ -419,20 +419,20 @@ void Theme::load_icons()
 {
     icons_ = make_fallback_icons();
 
-    auto files_path = find_resource("files.yaml");
+    auto files_path = ResourceManager::find("files.yaml");
     if (!files_path.empty()) {
         merge_map(icons_.files, load_simple_yaml_map(files_path, true));
     }
-    auto file_alias_path = find_resource("file_aliases.yaml");
+    auto file_alias_path = ResourceManager::find("file_aliases.yaml");
     if (!file_alias_path.empty()) {
         merge_map(icons_.file_aliases, load_simple_yaml_map(file_alias_path, true), true);
     }
 
-    auto folders_path = find_resource("folders.yaml");
+    auto folders_path = ResourceManager::find("folders.yaml");
     if (!folders_path.empty()) {
         merge_map(icons_.folders, load_simple_yaml_map(folders_path, true));
     }
-    auto folder_alias_path = find_resource("folder_aliases.yaml");
+    auto folder_alias_path = ResourceManager::find("folder_aliases.yaml");
     if (!folder_alias_path.empty()) {
         merge_map(icons_.folder_aliases, load_simple_yaml_map(folder_alias_path, true), true);
     }

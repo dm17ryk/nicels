@@ -23,7 +23,7 @@ namespace nls {
 
 int App::run(int argc, char** argv) {
     const bool virtual_terminal_enabled = Platform::enableVirtualTerminal();
-    init_resource_paths(argc > 0 ? argv[0] : nullptr);
+    ResourceManager::initPaths(argc > 0 ? argv[0] : nullptr);
 
     config_ = &parser_.Parse(argc, argv);
     perf::Manager& perf_manager = perf::Manager::Instance();
