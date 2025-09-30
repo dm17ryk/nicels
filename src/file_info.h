@@ -38,6 +38,10 @@ public:
     bool has_link_size = false;
     uintmax_t allocated_size = 0;
     bool has_allocated_size = false;
+    std::filesystem::file_status symlink_status{};
+    bool has_symlink_status = false;
+    std::filesystem::file_status target_status{};
+    bool has_target_status = false;
 #ifdef _WIN32
     unsigned long nlink = 1;
     std::string owner = "";

@@ -317,6 +317,8 @@ void FileScanner::populate_entry(const fs::directory_entry& de, Entry& entry) co
         entry.info.is_block_device = fs::is_block_file(status);
         entry.info.is_char_device = fs::is_character_file(status);
         entry.info.is_symlink = fs::is_symlink(status);
+        entry.info.symlink_status = status;
+        entry.info.has_symlink_status = true;
     }
     info_ec.clear();
     if (!entry.info.is_symlink) {
@@ -386,6 +388,8 @@ void FileScanner::apply_symlink_metadata(Entry& entry) const {
             entry.info.is_socket = fs::is_socket(follow_status);
             entry.info.is_block_device = fs::is_block_file(follow_status);
             entry.info.is_char_device = fs::is_character_file(follow_status);
+            entry.info.target_status = follow_status;
+            entry.info.has_target_status = true;
 
             bool follow_is_reg = fs::is_regular_file(follow_status);
             std::error_code size_ec;

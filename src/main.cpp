@@ -10,6 +10,7 @@
 #include <chrono>
 #include <sstream>
 #include <limits>
+#include <optional>
 #include <system_error>
 
 #include "platform.h"
@@ -34,21 +35,6 @@ using std::vector;
 namespace nls {
 
 namespace {
-SizeFormatter& GetSizeFormatter() {
-    static SizeFormatter formatter;
-    return formatter;
-}
-
-TimeFormatter& GetTimeFormatter() {
-    static TimeFormatter formatter;
-    return formatter;
-}
-
-PermissionFormatter& GetPermissionFormatter() {
-    static PermissionFormatter formatter;
-    return formatter;
-}
-
 SymlinkResolver& GetSymlinkResolver() {
     static SymlinkResolver resolver;
     return resolver;
@@ -117,7 +103,8 @@ static ReportStats compute_report_stats(const std::vector<Entry>& items) {
 }
 
 static std::string format_report_size(uintmax_t bytes, const Config& opt) {
-    return opt.bytes() ? std::to_string(bytes) : GetSizeFormatter().FormatHumanReadable(bytes);
+    return opt.bytes() ? std::to_string(bytes)
+                       : SizeFormatter::FormatHumanReadable(bytes);
 }
 
 static void print_report_short(const ReportStats& stats, const Config& opt) {
@@ -560,48 +547,28 @@ static std::string styled_name(const Entry& e, const Config& opt) {
     return out;
 }
 
-static uintmax_t effective_block_unit(const Config& opt) {
-    if (opt.block_size_specified()) {
-        return opt.block_size() == 0 ? 1 : opt.block_size();
+static std::string block_display(const Entry& e, const SizeFormatter& formatter) {
+    std::optional<uintmax_t> allocated;
+    if (e.info.has_allocated_size) {
+        allocated = e.info.allocated_size;
     }
-    return 1024;
+    return formatter.FormatBlocks(e.info.size, allocated);
 }
 
-static std::string block_display(const Entry& e, const Config& opt) {
-    if (!opt.show_block_size()) return {};
-    uintmax_t block_bytes = effective_block_unit(opt);
-    if (block_bytes == 0) block_bytes = 1;
-    uintmax_t allocated = e.info.has_allocated_size ? e.info.allocated_size : e.info.size;
-    uintmax_t blocks = block_bytes == 0 ? 0 : (allocated + block_bytes - 1) / block_bytes;
-    std::string result = std::to_string(blocks);
-    if (opt.block_size_specified() && opt.block_size_show_suffix() && !opt.block_size_suffix().empty()) {
-        result += opt.block_size_suffix();
-    }
-    return result;
-}
-
-static size_t compute_block_width(const std::vector<Entry>& v, const Config& opt) {
+static size_t compute_block_width(const std::vector<Entry>& v,
+                                  const Config& opt,
+                                  const SizeFormatter& formatter) {
     if (!opt.show_block_size()) return 0;
     size_t width = 0;
     for (const auto& e : v) {
-        std::string block = block_display(e, opt);
+        std::string block = block_display(e, formatter);
         width = std::max(width, block.size());
     }
     return width;
 }
 
-static std::string format_size_value(uintmax_t size, const Config& opt) {
-    if (opt.block_size_specified()) {
-        uintmax_t unit = opt.block_size() == 0 ? 1 : opt.block_size();
-        uintmax_t scaled = unit == 0 ? size : (size + unit - 1) / unit;
-        std::string result = std::to_string(scaled);
-        if (opt.block_size_show_suffix() && !opt.block_size_suffix().empty()) {
-            result += opt.block_size_suffix();
-        }
-        return result;
-    }
-    if (opt.bytes()) return std::to_string(size);
-    return GetSizeFormatter().FormatHumanReadable(size);
+static std::string format_size_value(uintmax_t size, const SizeFormatter& formatter) {
+    return formatter.FormatSize(size);
 }
 
 static void write_line_terminator(const Config& opt) {
@@ -686,7 +653,8 @@ static std::string format_entry_cell(const Entry& e,
                                      const Config& opt,
                                      size_t inode_width,
                                      size_t block_width,
-                                     bool include_git_prefix) {
+                                     bool include_git_prefix,
+                                     const SizeFormatter& formatter) {
     std::string out;
     const ThemeColors* theme = nullptr;
     if (!opt.no_color()) {
@@ -710,7 +678,7 @@ static std::string format_entry_cell(const Entry& e,
         out.push_back(' ');
     }
     if (opt.show_block_size()) {
-        std::string block = block_display(e, opt);
+        std::string block = block_display(e, formatter);
         if (block_width > block.size()) out.append(block_width - block.size(), ' ');
         out += block;
         out.push_back(' ');
@@ -738,17 +706,19 @@ static void print_tree_nodes(const std::vector<TreeItem>& nodes,
                              size_t inode_width,
                              size_t block_width,
                              std::vector<bool>& branch_stack,
-                             const ThemeColors& theme) {
+                             const ThemeColors& theme,
+                             const SizeFormatter& formatter) {
     for (size_t i = 0; i < nodes.size(); ++i) {
         const TreeItem& node = nodes[i];
         bool is_last = (i + 1 == nodes.size());
         std::string prefix = tree_prefix(branch_stack, is_last);
         std::cout << apply_color(theme.get("tree"), prefix, theme, opt.no_color());
-        std::cout << format_entry_cell(node.entry, opt, inode_width, block_width, true);
+        std::cout << format_entry_cell(node.entry, opt, inode_width, block_width, true, formatter);
         write_line_terminator(opt);
         if (!node.children.empty()) {
             branch_stack.push_back(!is_last);
-            print_tree_nodes(node.children, opt, inode_width, block_width, branch_stack, theme);
+            print_tree_nodes(node.children, opt, inode_width, block_width, branch_stack, theme,
+                             formatter);
             branch_stack.pop_back();
         }
     }
@@ -757,16 +727,20 @@ static void print_tree_nodes(const std::vector<TreeItem>& nodes,
 static void print_tree_view(const std::vector<TreeItem>& nodes,
                             const Config& opt,
                             size_t inode_width,
-                            size_t block_width) {
+                            size_t block_width,
+                            const SizeFormatter& formatter) {
     std::vector<bool> branch_stack;
     const ThemeColors& theme = Theme::instance().colors();
-    print_tree_nodes(nodes, opt, inode_width, block_width, branch_stack, theme);
+    print_tree_nodes(nodes, opt, inode_width, block_width, branch_stack, theme, formatter);
 }
 
 static void print_long(const std::vector<Entry>& v,
                        const Config& opt,
                        size_t inode_width,
-                       size_t block_width) {
+                       size_t block_width,
+                       const SizeFormatter& size_formatter,
+                       const TimeFormatter& time_formatter,
+                       const PermissionFormatter& permission_formatter) {
     constexpr size_t perm_width = 10;
     const ThemeColors& theme = Theme::instance().colors();
 
@@ -818,15 +792,15 @@ static void print_long(const std::vector<Entry>& v,
         if (opt.show_owner()) w_owner = std::max(w_owner, owner_display(e).size());
         if (opt.show_group()) w_group = std::max(w_group, group_display(e).size());
         w_nlink = std::max(w_nlink, std::to_string(e.info.nlink).size());
-        std::string size_str = format_size_value(e.info.size, opt);
+        std::string size_str = format_size_value(e.info.size, size_formatter);
         w_size = std::max(w_size, size_str.size());
-        std::string time_str = GetTimeFormatter().Format(e.info.mtime, opt);
+        std::string time_str = time_formatter.Format(e.info.mtime);
         w_time = std::max(w_time, time_str.size());
         if (opt.git_status()) {
             w_git = std::max(w_git, printable_width(e.info.git_prefix, opt));
         }
         if (opt.show_block_size()) {
-            std::string block = block_display(e, opt);
+            std::string block = block_display(e, size_formatter);
             w_blocks = std::max(w_blocks, block.size());
         }
     }
@@ -923,12 +897,12 @@ static void print_long(const std::vector<Entry>& v,
             std::cout << ' ';
         }
         if (opt.show_block_size()) {
-            std::string block = block_display(e, opt);
+            std::string block = block_display(e, size_formatter);
             std::cout << std::right << std::setw(static_cast<int>(w_blocks)) << block << ' ';
         }
 
-        std::string perm = GetPermissionFormatter().Format(fs::directory_entry(e.info.path), e.info.is_symlink, opt.dereference());
-        std::cout << GetPermissionFormatter().Colorize(perm, opt.no_color()) << ' ';
+        std::string perm = permission_formatter.Format(e.info);
+        std::cout << permission_formatter.Colorize(perm, opt.no_color()) << ' ';
 
         std::cout << std::right;
         if (!links_color.empty()) std::cout << links_color;
@@ -951,14 +925,14 @@ static void print_long(const std::vector<Entry>& v,
             std::cout << ' ';
         }
 
-        std::string size_str = format_size_value(e.info.size, opt);
+        std::string size_str = format_size_value(e.info.size, size_formatter);
         std::string size_col = opt.no_color() ? std::string() : size_color(e.info.size, theme);
         if (!size_col.empty()) std::cout << size_col;
         std::cout << std::right << std::setw(static_cast<int>(w_size)) << size_str;
         if (!size_col.empty()) std::cout << theme.reset;
         std::cout << ' ';
 
-        std::string time_str = GetTimeFormatter().Format(e.info.mtime, opt);
+        std::string time_str = time_formatter.Format(e.info.mtime);
         std::string time_col = opt.no_color() ? std::string() : age_color(e.info.mtime, theme);
         if (!time_col.empty()) std::cout << time_col;
         if (opt.header()) {
@@ -1023,14 +997,15 @@ static void print_long(const std::vector<Entry>& v,
 static void print_columns(const std::vector<Entry>& v,
                           const Config& opt,
                           size_t inode_width,
-                          size_t block_width) {
+                          size_t block_width,
+                          const SizeFormatter& formatter) {
     struct Cell { std::string text; size_t width; };
     std::vector<Cell> cells;
     cells.reserve(v.size());
 
     size_t maxw = 0;
     for (const auto& e : v) {
-        std::string cell = format_entry_cell(e, opt, inode_width, block_width, true);
+        std::string cell = format_entry_cell(e, opt, inode_width, block_width, true, formatter);
         size_t w = printable_width(cell, opt);
         maxw = std::max(maxw, w);
         cells.push_back({std::move(cell), w});
@@ -1080,7 +1055,8 @@ static void print_columns(const std::vector<Entry>& v,
 static void print_comma_separated(const std::vector<Entry>& v,
                                   const Config& opt,
                                   size_t inode_width,
-                                  size_t block_width) {
+                                  size_t block_width,
+                                  const SizeFormatter& formatter) {
     if (v.empty()) {
         write_line_terminator(opt);
         return;
@@ -1095,7 +1071,7 @@ static void print_comma_separated(const std::vector<Entry>& v,
     size_t current = 0;
     bool first = true;
     for (const auto& e : v) {
-        std::string text = format_entry_cell(e, opt, inode_width, block_width, true);
+        std::string text = format_entry_cell(e, opt, inode_width, block_width, true, formatter);
         size_t width = printable_width(text, opt);
         size_t separator_width = first ? 0 : 2; // ", "
 
@@ -1125,6 +1101,9 @@ static VisitResult list_path(FileScanner& scanner, const fs::path& p, const Conf
     bool is_directory = fs::is_directory(p, dir_ec);
     (void)dir_ec;
     const ThemeColors& theme = Theme::instance().colors();
+    SizeFormatter size_formatter(opt);
+    TimeFormatter time_formatter(opt);
+    PermissionFormatter permission_formatter(opt);
     VisitResult status = VisitResult::Ok;
 
     if (opt.tree()) {
@@ -1141,8 +1120,8 @@ static VisitResult list_path(FileScanner& scanner, const fs::path& p, const Conf
                 return status;
             }
             size_t inode_width = compute_inode_width(flat, opt);
-            size_t block_width = compute_block_width(flat, opt);
-            print_tree_view(nodes, opt, inode_width, block_width);
+            size_t block_width = compute_block_width(flat, opt, size_formatter);
+            print_tree_view(nodes, opt, inode_width, block_width, size_formatter);
         } else {
             std::vector<Entry> single;
             VisitResult collect_status = scanner.collect_entries(p, single, true);
@@ -1154,9 +1133,9 @@ static VisitResult list_path(FileScanner& scanner, const fs::path& p, const Conf
             sort_entries(single, opt);
             flat = single;
             size_t inode_width = compute_inode_width(flat, opt);
-            size_t block_width = compute_block_width(flat, opt);
+            size_t block_width = compute_block_width(flat, opt, size_formatter);
             for (const auto& e : single) {
-                std::cout << format_entry_cell(e, opt, inode_width, block_width, true);
+                std::cout << format_entry_cell(e, opt, inode_width, block_width, true, size_formatter);
                 write_line_terminator(opt);
             }
         }
@@ -1217,24 +1196,25 @@ static VisitResult list_path(FileScanner& scanner, const fs::path& p, const Conf
     }
 
     size_t inode_width = compute_inode_width(items, opt);
-    size_t block_width = compute_block_width(items, opt);
+    size_t block_width = compute_block_width(items, opt, size_formatter);
     switch (opt.format()) {
         case Config::Format::Long:
-            print_long(items, opt, inode_width, block_width);
+            print_long(items, opt, inode_width, block_width, size_formatter, time_formatter,
+                       permission_formatter);
             break;
         case Config::Format::SingleColumn:
             for (const auto& e : items) {
-                std::cout << format_entry_cell(e, opt, inode_width, block_width, true);
+                std::cout << format_entry_cell(e, opt, inode_width, block_width, true, size_formatter);
                 write_line_terminator(opt);
             }
             break;
         case Config::Format::CommaSeparated:
-            print_comma_separated(items, opt, inode_width, block_width);
+            print_comma_separated(items, opt, inode_width, block_width, size_formatter);
             break;
         case Config::Format::ColumnsHorizontal:
         case Config::Format::ColumnsVertical:
         default:
-            print_columns(items, opt, inode_width, block_width);
+            print_columns(items, opt, inode_width, block_width, size_formatter);
             break;
     }
 

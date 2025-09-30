@@ -8,15 +8,24 @@
 #include <windows.h>
 #endif
 
+#include "config.h"
 #include "theme.h"
 
 namespace nls {
 
-char PermissionFormatter::SymbolForPermissions(
-    bool read, bool write, bool execute,
-    std::filesystem::perms special, std::filesystem::perms mask,
-    char special_char_lower, char special_char_upper) const
-{
+PermissionFormatter::PermissionFormatter(Options options)
+    : options_(options) {}
+
+PermissionFormatter::PermissionFormatter(const Config& config)
+    : PermissionFormatter(Options{.dereference = config.dereference()}) {}
+
+char PermissionFormatter::SymbolForPermissions(bool read,
+                                               bool write,
+                                               bool execute,
+                                               std::filesystem::perms special,
+                                               std::filesystem::perms mask,
+                                               char special_char_lower,
+                                               char special_char_upper) {
     if ((special & mask) != std::filesystem::perms::none) {
         if (execute) {
             return special_char_lower;
@@ -28,47 +37,56 @@ char PermissionFormatter::SymbolForPermissions(
     return execute ? 'x' : '-';
 }
 
-std::string PermissionFormatter::Format(const std::filesystem::directory_entry& entry,
-    bool is_symlink_hint,
-    bool dereference) const
-{
-    std::error_code status_error;
-    auto symlink_status = entry.symlink_status(status_error);
-    if (status_error) {
+const std::filesystem::file_status* PermissionFormatter::StatusFor(const FileInfo& info) const {
+    if (options_.dereference && info.has_target_status) {
+        return &info.target_status;
+    }
+    if (info.has_symlink_status) {
+        return &info.symlink_status;
+    }
+    return nullptr;
+}
+
+char PermissionFormatter::TypeSymbol(const FileInfo& info,
+                                     const std::filesystem::file_status& status) const {
+    using std::filesystem::file_type;
+    switch (status.type()) {
+        case file_type::directory:
+            return 'd';
+        case file_type::character:
+            return 'c';
+        case file_type::block:
+            return 'b';
+        case file_type::fifo:
+            return 'p';
+        case file_type::socket:
+            return 's';
+        case file_type::symlink:
+            return 'l';
+        case file_type::regular:
+            return '-';
+        default:
+            break;
+    }
+    if (info.is_symlink && !options_.dereference) return 'l';
+    if (info.is_dir) return 'd';
+    if (info.is_socket) return 's';
+    if (info.is_block_device) return 'b';
+    if (info.is_char_device) return 'c';
+    return '-';
+}
+
+std::string PermissionFormatter::Format(const FileInfo& info) const {
+    const std::filesystem::file_status* status = StatusFor(info);
+    if (!status) {
         return "???????????";
     }
 
-    const bool is_link = std::filesystem::is_symlink(symlink_status) || is_symlink_hint;
-    std::filesystem::file_status status_to_use = symlink_status;
-    bool followed = false;
-    if (dereference) {
-        std::error_code follow_error;
-        auto resolved_status = entry.status(follow_error);
-        if (!follow_error) {
-            status_to_use = resolved_status;
-            followed = true;
-        }
-    }
-
-    char type_symbol = '-';
-    if (!followed && is_link) {
-        type_symbol = 'l';
-    } else if (std::filesystem::is_directory(status_to_use)) {
-        type_symbol = 'd';
-    } else if (std::filesystem::is_character_file(status_to_use)) {
-        type_symbol = 'c';
-    } else if (std::filesystem::is_block_file(status_to_use)) {
-        type_symbol = 'b';
-    } else if (std::filesystem::is_fifo(status_to_use)) {
-        type_symbol = 'p';
-    } else if (std::filesystem::is_socket(status_to_use)) {
-        type_symbol = 's';
-    }
-
-    const auto permissions = status_to_use.permissions();
     std::string result;
     result.reserve(10);
-    result.push_back(type_symbol);
+    result.push_back(TypeSymbol(info, *status));
+
+    auto permissions = status->permissions();
     if (permissions == std::filesystem::perms::unknown) {
         result.append(9, '?');
         return result;
@@ -94,8 +112,7 @@ std::string PermissionFormatter::Format(const std::filesystem::directory_entry& 
         has(std::filesystem::perms::others_exec)};
 
 #ifdef _WIN32
-    const auto native_path = entry.path();
-    DWORD attrs = GetFileAttributesW(native_path.c_str());
+    DWORD attrs = GetFileAttributesW(info.path.c_str());
     if (attrs != INVALID_FILE_ATTRIBUTES) {
         if ((attrs & FILE_ATTRIBUTE_READONLY) != 0) {
             can_write.fill(false);
@@ -113,16 +130,20 @@ std::string PermissionFormatter::Format(const std::filesystem::directory_entry& 
         char exec_symbol = can_exec[i] ? 'x' : '-';
         if (i == 0) {
             exec_symbol = SymbolForPermissions(can_read[i], can_write[i], can_exec[i],
-                permissions, std::filesystem::perms::set_uid, 's', 'S');
+                                               permissions, std::filesystem::perms::set_uid,
+                                               's', 'S');
         } else if (i == 1) {
             exec_symbol = SymbolForPermissions(can_read[i], can_write[i], can_exec[i],
-                permissions, std::filesystem::perms::set_gid, 's', 'S');
+                                               permissions, std::filesystem::perms::set_gid,
+                                               's', 'S');
         } else if (i == 2) {
             exec_symbol = SymbolForPermissions(can_read[i], can_write[i], can_exec[i],
-                permissions, std::filesystem::perms::sticky_bit, 't', 'T');
+                                               permissions, std::filesystem::perms::sticky_bit,
+                                               't', 'T');
         }
         result.push_back(exec_symbol);
     }
+
     return result;
 }
 
@@ -156,7 +177,8 @@ std::string PermissionFormatter::Colorize(const std::string& permissions, bool d
             stream << color_read << 'r' << theme.reset;
         } else if (symbol == 'w' && !color_write.empty()) {
             stream << color_write << 'w' << theme.reset;
-        } else if ((symbol == 'x' || symbol == 's' || symbol == 'S' || symbol == 't' || symbol == 'T') && !color_exec.empty()) {
+        } else if ((symbol == 'x' || symbol == 's' || symbol == 'S' || symbol == 't' || symbol == 'T') &&
+                   !color_exec.empty()) {
             stream << color_exec << symbol << theme.reset;
         } else {
             stream << symbol;
@@ -166,4 +188,4 @@ std::string PermissionFormatter::Colorize(const std::string& permissions, bool d
     return stream.str();
 }
 
-} // namespace nls
+}  // namespace nls

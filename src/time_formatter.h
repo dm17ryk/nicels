@@ -1,21 +1,41 @@
 #pragma once
 
+#include <chrono>
 #include <filesystem>
+#include <locale>
 #include <string>
-
-#include "config.h"
 
 namespace nls {
 
+class Config;
+
 class TimeFormatter {
 public:
-    std::string Format(
-        const std::filesystem::file_time_type& timestamp,
-        const Config& options) const;
+    struct Options {
+        std::string style;
+    };
+
+    TimeFormatter();
+    explicit TimeFormatter(Options options);
+    explicit TimeFormatter(const Config& config);
+
+    std::string Format(const std::filesystem::file_time_type& timestamp) const;
 
 private:
-    std::time_t ToTimeT(std::filesystem::file_time_type timestamp) const;
-    std::string ResolveFormat(const Config& options) const;
+    enum class Mode { ChronoFormat, Strftime };
+
+    std::string format_spec_;
+    std::string fallback_spec_;
+    Mode mode_ = Mode::ChronoFormat;
+    bool use_locale_names_ = false;
+    mutable bool locale_initialized_ = false;
+    mutable std::locale locale_{};
+
+    static std::chrono::system_clock::time_point ToSystemTime(
+        const std::filesystem::file_time_type& timestamp);
+    static std::tm ToLocalTime(std::chrono::system_clock::time_point time);
+    std::string FormatChrono(std::chrono::system_clock::time_point time) const;
+    std::string FormatStrftime(const std::tm& time) const;
 };
 
-} // namespace nls
+}  // namespace nls
