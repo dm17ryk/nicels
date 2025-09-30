@@ -1,0 +1,34 @@
+{
+  "title": "Refactor Perf Module (Lightweight performance timers and counters)",
+  "description": "Introduce a Perf module to measure execution time and count performance-critical operations. This optional component provides tools to help ensure the refactored code meets performance goals (especially in hotspots like file scanning and git status):contentReference[oaicite:116]{index=116}. It should be used for debugging or verbose mode diagnostics without impacting release performance.",
+  "goals": [
+    "Implement a simple Timer class (or function) to time code blocks. For example, a scope-based timer that logs duration on destruction, useful for measuring how long a function or loop takes.",
+    "Implement a mechanism to enable/disable performance logging easily (e.g., tied to a verbose or debug flag in Config). By default, in normal mode, these measurements should not output anything or incur significant overhead.",
+    "If needed, implement counters for certain events (like number of files processed, number of directories scanned) that can be reported for debugging or statistics after execution.",
+    "Ensure that using these tools in hot paths (like per directory or per file) has minimal overhead when disabled (preferably compiled out or just a couple of conditionals) so as not to slow down the tool."
+  ],
+  "scope": [
+    "Design a `Perf::Timer` class that records a start time upon construction (using std::chrono high_resolution_clock) and can either explicitly be stopped or automatically report elapsed time in its destructor. The reporting can be a `std::cerr` log or stored in a variable that the App can output at program end.",
+    "Add usage of `Perf::Timer` in key sections: e.g., wrap the FS directory scan in a timer (to measure file scanning time), wrap the GitStatus fetch, and perhaps the entire render process. Only do this when performance logging is enabled (guarded by a flag).",
+    "Optionally, create a `Perf::Counter` or use simple static counters for things like total files listed, total directories listed, etc., which can be incremented in FS module. These could be printed at the end if verbose mode is on, or used for internal verification.",
+    "Integrate with Config: perhaps use an existing verbose flag or define a new hidden option (e.g., `--perf-debug`) that turns on performance metrics output. If no such flag exists in CLI, we might repurpose `-v` if available or just always compile it but only log if an env var is set."
+  ],
+  "exclusions": [
+    "Do not make the Perf module mandatory in output – i.e., do not always print performance info. It should be opt-in for developers or power users diagnosing speed. The normal user experience (especially for scripts) should remain unchanged unless explicitly requested.",
+    "Avoid heavy dependencies or complex profiling frameworks; this should be a lightweight, internal tool. No need for thread profiling or memory profiling in this context.",
+    "Do not leave performance logs in release builds unless a flag is provided. Possibly compile out or disable by default any debug prints to not clutter output or degrade performance.",
+    "We are not altering the actual performance characteristics as part of features here (that would be done via code optimization elsewhere), just adding measurement tools."
+  ],
+  "architectural_recommendations": [
+    "Use RAII for Timer: the start time recorded in constructor and measure in destructor ensures timing even if function returns early. Provide a label for each Timer to identify which section was measured when logging.",
+    "Use `std::chrono::steady_clock` for timing to avoid issues with system clock changes. Format durations in a human-readable way (ms or μs for fine-grained, depending on operation speed).",
+    "Wrap logging behind a debug macro or runtime check (e.g., `if (Config.verbose)` to output). This ensures zero-cost (or close to it) when not enabled. In critical loops, avoid even string construction unless needed; e.g., accumulate counters and only format/print at the end.",
+    "Document or comment these tools clearly, since they are primarily for maintainers. It should be obvious that they are for performance insight and how to toggle them."
+  ],
+  "cli_considerations": [
+    "If a verbose flag (`-v`) or debug mode exists, tie the Perf outputs to it. For instance, only print timing info if verbose is on. If no such user-facing flag, we might not expose it and instead enable via compile-time or an environment variable for development builds.",
+    "Ensure that any output from Perf goes to stderr or is clearly delineated, so it doesn't interfere with the formatted listing on stdout. For example, printing \"[Perf] Scanning took 5.2 ms\" to stderr would allow a user to separate it from normal output.",
+    "The presence of Perf logs should not break tests expecting certain output. Thus, by default (with no flags), there should be no difference in output from the non-instrumented version (aside from perhaps negligible timing differences).",
+    "If in the future we add a mode to output a performance summary or statistics (not currently requested, but just in case), ensure it is only done when explicitly asked (like `nls --report=long` currently gives file stats, but not performance stats – we wouldn't mix these unless specified)."
+  ]
+}

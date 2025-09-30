@@ -6,11 +6,11 @@
     "Eliminate all C-like code: no global variables; no free/global functions that hold shared state.",
     "Use Singletons only where a global lifetime is unavoidable (e.g., Config); otherwise prefer dependency injection.",
     "Target C++23.",
-    "Preserve all current behavior and CLI compatibility (options inspired by GNU 'ls' and 'colorls').",
-    "Integrate CLI11-based argument parsing.",
-    "Migrate/build with CMake; produce multi-config builds (Debug/Release) for Windows (MSYS2 UCRT) and Linux.",
-    "Implement/migrate Git status via libgit2 with excellent performance.",
-    "Show FS soft links, junctions, and hard links correctly on Windows and Linux."
+    "Preserve all current behavior and CLI compatibility.",
+    "Currently cli implemented with CLI11 library from third-party submodule. Maintain this dependency.",
+    "Currently Git status handled via libgit2 with excellent performance. Maintain this dependency, statically linked as before",
+    "libgit2 is git submodule, system libgit2 not used, should remain this way.",
+    "Currently build implemented with CMake, supporting at least Linux (GCC/Clang) and Windows (MSYS2 UCRT with Clang), should remain this way."
   ],
   "context": {
     "repo_state": "All changes committed. Work off the latest master branch.",
@@ -20,7 +20,8 @@
       "git submodule update --init --recursive"
     ],
     "third_party": {
-      "cli11_submodule_path": "third-party/cli11"
+      "cli11_submodule_path": "third-party/cli11",
+      "libgit2_submodule_path": "third-party/libgit2"
     },
     "testing_dirs": {
       "windows": "./test/win",
@@ -31,12 +32,15 @@
       "Linux (glibc)"
     ],
     "compilers": {
+      "cmake_minimum_version": "4.1.1",
+      "cpp_standard": "23",
       "windows_preferred": "clang 21.1.1 (ucrt64)",
       "windows_current_gpp": "g++.exe (Rev8, MSYS2) 15.2.0",
       "linux": "clang >= 16 and/or g++ >= 12"
     },
     "dependencies": {
-      "libgit2": "for Git status; ensure it's available on both Windows and Linux"
+      "libgit2": "for Git status; used as git submodule, statically linked",
+      "CLI11": "for CLI parsing; used from third-party/cli11 submodule"
     },
     "attachment_pictures": {
       "first_picture": "./nls.exe -alA --sd --gs --header --report=long ./test/win",
@@ -83,38 +87,8 @@
   },
   "cli_requirements": {
     "library": "CLI11 from third-party/cli11 submodule",
-    "compatibility": "Preserve all current GNU 'ls' compatible options and behaviors; keep current 'colorls' functionality. deffinition: see 'cli_definition'.",
+    "compatibility": "Preserve all current CLI options and functionality. deffinition: see 'cli_definition'.",
     "behavioral_parity": "Output/semantics should match current tool behavior on both Windows and Linux."
-  },
-  "build_system": {
-    "migrate_to_cmake": true,
-    "cxx_standard": "23",
-    "targets": [
-      {
-        "name": "nicels",
-        "type": "executable",
-        "sources": "ALL refactored sources",
-        "include_dirs": ["include", "third-party/cli11/include"],
-        "definitions": ["NOMINMAX"]
-      }
-    ],
-    "warnings": {
-      "clang": "-Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wimplicit-fallthrough",
-      "gcc": "-Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wimplicit-fallthrough"
-    },
-    "optimizations": {
-      "Debug": "-O0 -g",
-      "Release": "-O3 -DNDEBUG"
-    },
-    "toolchain_windows_msys2_ucrt": {
-      "preferred_compiler": "clang++",
-      "note": "Ensure linking against UCRT; detect ucrt64 environment."
-    },
-    "outputs": {
-      "bin_layout": { "Debug": "bin/Debug", "Release": "bin/Release" },
-      "obj_layout": { "Debug": "obj/Debug", "Release": "obj/Release" },
-      "copy_step": "After build, copy resulting executable to repo root, overwriting previous output."
-    }
   },
   "performance": {
     "hotspots": [
@@ -129,7 +103,6 @@
   ],
   "acceptance_criteria": [
     "Compiles cleanly on Linux and Windows (MSYS2 UCRT) with C++23 in Debug and Release.",
-    "Object files under obj/{Config}; binaries under bin/{Config}; final binary copied to repo root.",
     "CLI options and behavior preserved; output parity validated manually. deffinition: see 'cli_definition'.",
     "No global variables; Singletons are explicit and minimal.",
     "No C-style code; modern, idiomatic C++ constructs used.",
@@ -138,36 +111,14 @@
   "step_by_step_plan": [
     "Sync repo and submodules.",
     "Audit codebase; produce a short refactor map (files -> new modules).",
-    "Introduce CMake build with current code; establish bin/ and obj/ layout.",
     "Refactor incrementally: Config, Cli, FS, Renderer, GitStatus.",
     "Replace globals with injected dependencies or Singletons; remove C-like code.",
     "Wire CLI11; ensure help, validation, and defaults are comprehensive. deffinition: see 'cli_definition'.",
     "Final polish: warnings-as-errors (optional), format, lint."
   ],
-  "build_commands_examples": {
-    "common": [
-      "git submodule update --init --recursive",
-      "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release",
-      "cmake --build build --config Release --parallel"
-    ],
-    "windows_msys2_ucrt_clang": [
-      "Set MSYS2 shell to ucrt64",
-      "cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release",
-      "cmake --build build --config Release --parallel"
-    ],
-    "linux": [
-      "cmake -S . -B build -G Ninja -DCMAKE_CXX_STANDARD=23 -DCMAKE_BUILD_TYPE=Release",
-      "cmake --build build --config Release --parallel"
-    ]
-  },
   "constraints_and_notes": [
     "Prefer #ifdef _WIN32 for platform specifics to keep runtime fast.",
     "Do not change current behavior; ensure parity with current outputs."
-  ],
-  "questions_if_unclear": [
-    "Confirm libgit2 as a required dependency for Git status.",
-    "Any required minimum OS versions?",
-    "Preferred license/metadata (affects future packaging docs)."
   ],
     "cli_definition": {
     "name": "nls",

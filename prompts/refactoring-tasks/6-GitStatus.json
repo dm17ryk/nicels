@@ -1,0 +1,34 @@
+{
+  "title": "Refactor GitStatus Module (Git repository status check)",
+  "description": "Encapsulate Git status functionality in a GitStatus module that uses libgit2 to obtain repository status for directories and files. This refactoring moves the responsibility of checking and mapping git status codes out of main into a focused component:contentReference[oaicite:70]{index=70}, improving clarity and allowing easier updates or reuse of VCS logic.",
+  "goals": [
+    "Use libgit2 (already a submodule dependency) to open repositories and fetch status information for a given directory path efficiently (initializing libgit2 once, reusing repository objects if possible).",
+    "Represent git status results in a structured way (e.g., a `GitStatusResult` containing flags like repository_found and maps of file->status codes) so it can be used to annotate file listings.",
+    "Map libgit2 status flags to user-friendly two-character codes identical to Git porcelain output (e.g., `\"??\"` for untracked, `\" M\"` for modified in worktree, etc.):contentReference[oaicite:71]{index=71}:contentReference[oaicite:72]{index=72}. Ensure all relevant status combinations are handled (including conflicts \"UU\" and ignored \"!!\").",
+    "Return or apply the git status info in a way that the Renderer can easily incorporate, e.g., by adding a `git_prefix` string to each Entry/FileInfo that Renderer will print if not empty."
+  ],
+  "scope": [
+    "Create a `GitStatus` class with a method like `GitStatus::getStatus(const std::filesystem::path& dir, GitStatusResult& out)` that populates `out` with status info for that directory’s contents. This wraps existing logic in `get_git_status_for_dir`:contentReference[oaicite:73]{index=73}:contentReference[oaicite:74]{index=74}.",
+    "Define a `GitStatusResult` structure (or reuse the existing one from git_status.h) with fields: `repository_found` (bool), `default_modes` (set<string> for status of the directory itself if it's a repo root), and `entries` (map<string, set<string>> mapping each direct child name to a set of status codes). This mirrors current usage where `entries[key]` holds codes for that item:contentReference[oaicite:75]{index=75}:contentReference[oaicite:76]{index=76}.",
+    "Move the static helper functions from git_status.cpp (like `repo_open_for_path`, `to_porcelain_code`) into the GitStatus implementation. Use RAII for libgit2 objects: e.g., wrap `git_repository*` and `git_status_list*` in unique_ptr with custom deleters or ensure `git_repository_free` and `git_status_list_free` are called via scoped guard even if exceptions occur.",
+    "Integrate the GitStatus module with the flow: the App/FS, after scanning a directory, will call GitStatus if `Config.git_status` is true. Then, either GitStatus itself can augment the list of FileInfo (by attaching git code strings to each entry) or return a data structure that Renderer will use to prepend codes. The existing approach uses `apply_git_status` to add `info.git_prefix` for each Entry:contentReference[oaicite:77]{index=77}:contentReference[oaicite:78]{index=78}; that logic can be part of GitStatus module or a small adapter function."
+  ],
+  "exclusions": [
+    "Do not change how libgit2 is linked or initialized globally (should still call `git_libgit2_init()` as needed, and rely on libgit2 from submodule as configured).",
+    "No new user-facing features: e.g., do not add showing branch names or commit info; stick strictly to status flags as currently implemented.",
+    "Avoid performing git operations when not requested. If `Config.git_status` is false, GitStatus module should not be invoked at all (no libgit2 overhead).",
+    "No output formatting in GitStatus: it provides raw data or annotations (the coloring of codes and their placement in output is handled by Renderer/Theme)."
+  ],
+  "architectural_recommendations": [
+    "Use efficient searching for the repository: current code uses `git_repository_open_ext` with upward search:contentReference[oaicite:79]{index=79}. Continue this approach; it finds the git repository root containing the path. Cache the repository handle if multiple queries occur in the same repo (e.g., listing multiple subdirs of one repo) to avoid reopening it repeatedly.",
+    "Apply RAII: for example, use a local object to call `git_status_list_free` automatically at end of scope, and similarly for `git_repository_free`. This will prevent resource leaks even if function returns early due to an error.",
+    "Utilize `std::expected` (or a similar error-handling mechanism) for returning errors from GitStatus operations, if applicable. The current design uses a VisitResult for overall success; GitStatus could return an `expected<GitStatusResult, GitError>` or simply indicate failure via `repository_found=false` and leave entries empty.",
+    "Keep the interface of GitStatus decoupled from other modules: it should take basic inputs (path, perhaps Config if needed for flags like include_ignored) and produce outputs without side effects. This will allow testing Git status logic independently by simulating a repo."
+  ],
+  "cli_considerations": [
+    "`--git-status` is the flag that enables this module:contentReference[oaicite:80]{index=80}. Ensure that this is the only trigger: if the flag is not set, GitStatus is not invoked. If set, users expect a slight slowdown due to git queries; ensure the implementation is optimized to minimize that (e.g., don't call it for each file individually, only once per directory listing).",
+    "The presence of Git status modifies output by adding a 2-character code (or 4 characters including a space/padding) before filenames in long listing or as a column in column mode. Ensure Renderer knows to allocate space for these prefixes when git is on. For example, current code computes a `w_git` width to align git columns:contentReference[oaicite:81]{index=81}:contentReference[oaicite:82]{index=82}; maintain that by informing Renderer how many characters the prefix will use (likely 2 plus a space).",
+    "Make sure ignored files (`!!`) and untracked (`??`) are handled as they are in the current output. For instance, currently, if a directory is a git repo but no changes, they show a clean indicator for an empty dir (a check mark):contentReference[oaicite:83]{index=83}. Preserve such details: that logic is in format_git_prefix – possibly keep it or improve it within Renderer using Theme (they use a checkmark ✓ for clean dir).",
+    "If libgit2 is not available or fails (e.g., no repository found, or an error reading status), the tool should continue normally without crashing. The GitStatus module should handle those scenarios by returning a result indicating no repo or simply leaving entries map empty. The rest of the program will then just print nothing in the git prefix column (which matches current behavior for non-git directories)."
+  ]
+}
