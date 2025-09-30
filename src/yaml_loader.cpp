@@ -2,21 +2,13 @@
 
 #include "string_utils.h"
 
-#include <algorithm>
 #include <cctype>
 #include <fstream>
 #include <sstream>
+#include <string_view>
 
 namespace nls {
 namespace {
-
-std::string trim_copy(const std::string& s) {
-    size_t start = 0;
-    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) ++start;
-    size_t end = s.size();
-    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) --end;
-    return s.substr(start, end - start);
-}
 
 std::string strip_comments(const std::string& line) {
     std::string out;
@@ -66,15 +58,15 @@ std::unordered_map<std::string, std::string> load_simple_yaml_map(const std::fil
     std::string raw;
     while (std::getline(file, raw)) {
         std::string line = strip_comments(raw);
-        line = trim_copy(line);
-        if (line.empty()) continue;
-        auto colon = line.find(':');
+        std::string trimmed_line = StringUtils::Trim(line);
+        if (trimmed_line.empty()) continue;
+        auto colon = trimmed_line.find(':');
         if (colon == std::string::npos) continue;
-        std::string key = trim_copy(line.substr(0, colon));
-        std::string value = trim_copy(line.substr(colon + 1));
+        std::string key = StringUtils::Trim(std::string_view(trimmed_line).substr(0, colon));
+        std::string value = StringUtils::Trim(std::string_view(trimmed_line).substr(colon + 1));
         if (key.empty() || value.empty()) continue;
         value = unquote(value);
-        if (lowercase_keys) key = StringUtils::ToLower(std::move(key));
+        if (lowercase_keys) key = StringUtils::ToLower(key);
         result[std::move(key)] = std::move(value);
     }
     return result;

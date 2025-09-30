@@ -4,9 +4,10 @@
 #include "string_utils.h"
 #include "yaml_loader.h"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
-#include <cstdio>
+#include <format>
 #include <optional>
 #include <sstream>
 #include <string_view>
@@ -17,12 +18,10 @@ namespace {
 
 std::string make_ansi(int r, int g, int b)
 {
-    char buf[32];
-    std::snprintf(buf, sizeof(buf), "\x1b[38;2;%d;%d;%dm", r, g, b);
-    return buf;
+    return std::format("\x1b[38;2;{};{};{}m", r, g, b);
 }
 
-int hex_value(char ch)
+constexpr int hex_value(char ch) noexcept
 {
     if (ch >= '0' && ch <= '9') return ch - '0';
     if (ch >= 'a' && ch <= 'f') return 10 + (ch - 'a');
@@ -30,7 +29,7 @@ int hex_value(char ch)
     return -1;
 }
 
-std::optional<std::array<int, 3>> parse_hex_triplet(std::string_view hex)
+constexpr std::optional<std::array<int, 3>> parse_hex_triplet(std::string_view hex)
 {
     if (hex.size() == 3) {
         int r = hex_value(hex[0]);
@@ -53,18 +52,9 @@ std::optional<std::array<int, 3>> parse_hex_triplet(std::string_view hex)
     return std::nullopt;
 }
 
-std::string trim_copy(std::string s)
-{
-    size_t start = 0;
-    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) ++start;
-    size_t end = s.size();
-    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) --end;
-    return s.substr(start, end - start);
-}
-
 std::optional<std::array<int, 3>> parse_color_triplet(const std::string& value)
 {
-    std::string trimmed = trim_copy(value);
+    std::string trimmed = StringUtils::Trim(value);
     if (trimmed.empty()) return std::nullopt;
 
     std::string lower = StringUtils::ToLower(trimmed);
@@ -80,9 +70,9 @@ std::optional<std::array<int, 3>> parse_color_triplet(const std::string& value)
     }
 
     std::string normalized = trimmed;
-    for (char& ch : normalized) {
-        if (ch == ',' || ch == ';') ch = ' ';
-    }
+    std::replace_if(normalized.begin(), normalized.end(), [](char ch) {
+        return ch == ',' || ch == ';';
+    }, ' ');
 
     std::istringstream iss(normalized);
     int r = 0;
@@ -99,7 +89,7 @@ std::optional<std::array<int, 3>> parse_color_triplet(const std::string& value)
 
 std::unordered_map<std::string, std::array<int, 3>> make_default_color_map()
 {
-    return {
+    static constexpr std::array<std::pair<std::string_view, std::array<int, 3>>, 44> kDefaults{{
         {"black", {0, 0, 0}},
         {"white", {255, 255, 255}},
         {"red", {255, 0, 0}},
@@ -144,7 +134,14 @@ std::unordered_map<std::string, std::array<int, 3>> make_default_color_map()
         {"magenta", {255, 0, 255}},
         {"purple", {128, 0, 128}},
         {"pink", {255, 192, 203}}
-    };
+    }};
+
+    std::unordered_map<std::string, std::array<int, 3>> map;
+    map.reserve(kDefaults.size());
+    for (const auto& [name, rgb] : kDefaults) {
+        map.emplace(name, rgb);
+    }
+    return map;
 }
 
 std::unordered_map<std::string, std::array<int, 3>> load_color_map_from_yaml()
@@ -178,11 +175,8 @@ const std::unordered_map<std::string, std::array<int, 3>>& color_map()
 
 std::optional<std::string> parse_color_name(std::string_view name)
 {
-    std::string trimmed;
-    trimmed.reserve(name.size());
-    for (char ch : name) {
-        if (!std::isspace(static_cast<unsigned char>(ch))) trimmed.push_back(ch);
-    }
+    std::string trimmed = StringUtils::Trim(name);
+    std::erase_if(trimmed, [](unsigned char ch) { return std::isspace(ch) != 0; });
     if (trimmed.empty()) return std::string{};
     std::string lower = StringUtils::ToLower(trimmed);
     if (lower == "none" || lower == "default") return std::string{};
@@ -295,7 +289,7 @@ void merge_map(std::unordered_map<std::string, std::string>& dest,
 {
     for (const auto& kv : src) {
         std::string value = kv.second;
-        if (lowercase_values) value = StringUtils::ToLower(std::move(value));
+        if (lowercase_values) value = StringUtils::ToLower(value);
         dest[StringUtils::ToLower(kv.first)] = std::move(value);
     }
 }
@@ -447,7 +441,7 @@ void Theme::load_icons()
 
 IconResult Theme::folder_icon(std::string_view name)
 {
-    std::string key = StringUtils::ToLower(std::string(name));
+    std::string key = StringUtils::ToLower(name);
     auto direct = icons_.folders.find(key);
     if (direct != icons_.folders.end()) {
         bool recognized = key != "folder";
@@ -476,7 +470,7 @@ IconResult Theme::folder_icon(std::string_view name)
 
 IconResult Theme::file_icon(std::string_view name, bool is_exec)
 {
-    std::string key = StringUtils::ToLower(std::string(name));
+    std::string key = StringUtils::ToLower(name);
 
     auto direct = icons_.files.find(key);
     if (direct != icons_.files.end()) {

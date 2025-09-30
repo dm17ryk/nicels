@@ -4,12 +4,15 @@
 #include <chrono>
 #include <cctype>
 #include <cstdint>
+#include <format>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -37,7 +40,7 @@ bool IsShellSafeChar(unsigned char ch) {
     }
 }
 
-std::string CStyleEscape(const std::string& input, bool include_quotes, bool escape_single_quote) {
+std::string CStyleEscape(std::string_view input, bool include_quotes, bool escape_single_quote) {
     const char* hex = "0123456789ABCDEF";
     std::string out;
     if (include_quotes) out.push_back('"');
@@ -94,7 +97,7 @@ std::string CStyleEscape(const std::string& input, bool include_quotes, bool esc
     return out;
 }
 
-bool NeedsShellQuotes(const std::string& text) {
+bool NeedsShellQuotes(std::string_view text) {
     if (text.empty()) return true;
     for (unsigned char ch : text) {
         if (!IsShellSafeChar(ch)) return true;
@@ -102,9 +105,9 @@ bool NeedsShellQuotes(const std::string& text) {
     return false;
 }
 
-std::string ShellQuote(const std::string& text, bool always) {
+std::string ShellQuote(std::string_view text, bool always) {
     bool needs = always || NeedsShellQuotes(text);
-    if (!needs) return text;
+    if (!needs) return std::string(text);
     std::string out;
     out.reserve(text.size() + 2);
     out.push_back('\'');
@@ -119,23 +122,20 @@ std::string ShellQuote(const std::string& text, bool always) {
     return out;
 }
 
-std::string ShellEscape(const std::string& text, bool always) {
+std::string ShellEscape(std::string_view text, bool always) {
     bool needs = always || NeedsShellQuotes(text);
-    if (!needs) return text;
-    return std::string("$") + "'" + CStyleEscape(text, false, true) + "'";
+    if (!needs) return std::string(text);
+    return std::format("$'{}'", CStyleEscape(text, false, true));
 }
 
-std::string PercentEncode(const std::string& input) {
+std::string PercentEncode(std::string_view input) {
     std::string out;
     out.reserve(input.size());
-    const char* hex = "0123456789ABCDEF";
     for (unsigned char ch : input) {
         if (std::isalnum(ch) || ch == '-' || ch == '_' || ch == '.' || ch == '~' || ch == '/') {
             out.push_back(static_cast<char>(ch));
         } else {
-            out.push_back('%');
-            out.push_back(hex[(ch >> 4) & 0x0F]);
-            out.push_back(hex[ch & 0x0F]);
+            std::format_to(std::back_inserter(out), "%{:02X}", static_cast<int>(ch));
         }
     }
     return out;
@@ -338,7 +338,7 @@ std::string Renderer::FileUri(const fs::path& path) const {
         generic.insert(generic.begin(), '/');
     }
 #endif
-    return std::string("file://") + PercentEncode(generic);
+    return std::format("file://{}", PercentEncode(generic));
 }
 
 std::string Renderer::StyledName(const Entry& entry) const {

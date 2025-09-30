@@ -386,7 +386,7 @@ const std::map<std::string, Config::QuotingStyle>& CommandLineParser::QuotingSty
 }
 
 std::optional<Config::QuotingStyle> CommandLineParser::ParseQuotingStyleWord(std::string word) const {
-    word = StringUtils::ToLower(std::move(word));
+    word = StringUtils::ToLower(word);
     const auto& mapping = QuotingStyleMap();
     auto it = mapping.find(word);
     if (it != mapping.end()) {

@@ -16,7 +16,7 @@ constexpr std::string_view kDefaultStrftime = "%a %b %d %H:%M:%S %Y";
 constexpr std::string_view kDefaultChrono = "{:%a %b %d %H:%M:%S %Y}";
 
 std::string normalize_style(std::string style) {
-    return StringUtils::ToLower(std::move(style));
+    return StringUtils::ToLower(style);
 }
 
 }  // namespace
