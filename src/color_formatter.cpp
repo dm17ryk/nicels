@@ -1,5 +1,9 @@
 #include "color_formatter.h"
+
+#include <cstdlib>
+
 #include "colors.h"
+#include "platform.h"
 
 namespace nls {
 
@@ -8,19 +12,7 @@ bool ColorFormatter::ShouldColorizeHelp() const {
         if (std::getenv("NO_COLOR") != nullptr) {
             return false;
         }
-#ifdef _WIN32
-        HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-        if (handle == INVALID_HANDLE_VALUE) {
-            return false;
-        }
-        if (GetFileType(handle) != FILE_TYPE_CHAR) {
-            return false;
-        }
-        DWORD mode = 0;
-        return GetConsoleMode(handle, &mode) != 0;
-#else
-        return ::isatty(STDOUT_FILENO) != 0;
-#endif
+        return Platform::isOutputTerminal();
     }();
     return colorize;
 }

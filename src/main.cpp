@@ -51,7 +51,7 @@ typedef struct _REPARSE_DATA_BUFFER {
 #endif
 #endif
 
-#include "console.h"
+#include "platform.h"
 #include "command_line_parser.h"
 #include "file_info.h"
 #include "file_ownership_resolver.h"
@@ -1103,7 +1103,7 @@ static int effective_terminal_width(const Config& opt) {
         }
         return value;
     }
-    return terminal_width();
+    return Platform::terminalWidth();
 }
 
 static size_t printable_width(const std::string& s, const Config& opt) {
@@ -1740,11 +1740,14 @@ static VisitResult list_path(const fs::path& p, const Config& opt) {
 
 int main(int argc, char** argv) {
     using namespace nls;
-    enable_virtual_terminal();
+    const bool virtual_terminal_enabled = Platform::enableVirtualTerminal();
     init_resource_paths(argc > 0 ? argv[0] : nullptr);
     load_color_themes();
     CommandLineParser parser;
     Config& config = parser.Parse(argc, argv);
+    if (!virtual_terminal_enabled) {
+        config.set_no_color(true);
+    }
     const Config& opt = config;
     ColorScheme scheme = ColorScheme::Dark;
     switch (opt.color_theme()) {

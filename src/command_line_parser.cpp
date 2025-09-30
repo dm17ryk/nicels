@@ -23,16 +23,13 @@
 #include "colors.h"
 #include "string_utils.h"
 #include "color_formatter.h"
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <unistd.h>
-#endif
+#include "platform.h"
 
 namespace nls {
 
 namespace {
+
+enum class ColorMode { Auto, Always, Never };
 
 class ConfigBuilder {
 public:
@@ -155,9 +152,9 @@ public:
         actions_.emplace_back([value](Config& cfg) { cfg.set_no_icons(value); });
     }
 
-    void SetNoColor(bool value)
+    void SetColorMode(ColorMode mode)
     {
-        actions_.emplace_back([value](Config& cfg) { cfg.set_no_color(value); });
+        color_mode_ = mode;
     }
 
     void SetColorTheme(Config::ColorTheme theme)
@@ -246,6 +243,15 @@ public:
         if (cfg.all()) {
             cfg.set_almost_all(false);
         }
+        const ColorMode mode = color_mode_.value_or(ColorMode::Auto);
+        if (mode == ColorMode::Auto) {
+            const bool disable_from_env = std::getenv("NO_COLOR") != nullptr;
+            cfg.set_no_color(disable_from_env || !Platform::isOutputTerminal());
+        } else if (mode == ColorMode::Never) {
+            cfg.set_no_color(true);
+        } else {
+            cfg.set_no_color(false);
+        }
         return cfg;
     }
 
@@ -254,6 +260,7 @@ private:
     std::vector<std::string> paths_{};
     std::vector<std::string> hide_patterns_{};
     std::vector<std::string> ignore_patterns_{};
+    std::optional<ColorMode> color_mode_{};
 };
 
 } // namespace
@@ -465,7 +472,6 @@ Exit status:
         {"short", Config::Report::Short},
     };
 
-    enum class ColorMode { Auto, Always, Never };
     const std::map<std::string, ColorMode> color_map{
         {"auto", ColorMode::Auto},
         {"always", ColorMode::Always},
@@ -625,12 +631,12 @@ none, slash (-p) (default: slash))");
 
     appearance->add_flag_callback("--no-icons,--without-icons", [&]() { builder.SetNoIcons(true); },
         "disable icons in output");
-    appearance->add_flag_callback("--no-color", [&]() { builder.SetNoColor(true); },
+    appearance->add_flag_callback("--no-color", [&]() { builder.SetColorMode(ColorMode::Never); },
         "disable ANSI colors");
 
     auto color_option = appearance->add_option_function<ColorMode>("--color",
         [&](const ColorMode& color) {
-            builder.SetNoColor(color == ColorMode::Never);
+            builder.SetColorMode(color);
         },
         R"(colorize the output: auto, always,
 never (default: auto))");
