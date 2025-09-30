@@ -8,53 +8,15 @@
 #include <utility>
 #include <cctype>
 #include <chrono>
-#include <array>
 #include <sstream>
 #include <limits>
 #include <system_error>
-
-#ifdef _WIN32
-#   ifndef NOMINMAX
-#       define NOMINMAX 1
-#   endif
-#include <windows.h>
-#include <winioctl.h>
-
-#ifndef REPARSE_DATA_BUFFER_HEADER_SIZE
-typedef struct _REPARSE_DATA_BUFFER {
-    DWORD ReparseTag;
-    WORD ReparseDataLength;
-    WORD Reserved;
-    union {
-        struct {
-            WORD SubstituteNameOffset;
-            WORD SubstituteNameLength;
-            WORD PrintNameOffset;
-            WORD PrintNameLength;
-            ULONG Flags;
-            WCHAR PathBuffer[1];
-        } SymbolicLinkReparseBuffer;
-        struct {
-            WORD SubstituteNameOffset;
-            WORD SubstituteNameLength;
-            WORD PrintNameOffset;
-            WORD PrintNameLength;
-            WCHAR PathBuffer[1];
-        } MountPointReparseBuffer;
-        struct {
-            BYTE DataBuffer[1];
-        } GenericReparseBuffer;
-    };
-} REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
-
-#define REPARSE_DATA_BUFFER_HEADER_SIZE FIELD_OFFSET(REPARSE_DATA_BUFFER, GenericReparseBuffer)
-#endif
-#endif
 
 #include "platform.h"
 #include "command_line_parser.h"
 #include "file_info.h"
 #include "file_ownership_resolver.h"
+#include "fs_scanner.h"
 #include "git_status.h"
 #include "theme.h"
 #include "resources.h"
@@ -70,21 +32,6 @@ using std::string;
 using std::vector;
 
 namespace nls {
-
-struct Entry {
-    FileInfo info;
-};
-
-struct TreeItem {
-    Entry entry;
-    std::vector<TreeItem> children;
-};
-
-enum class VisitResult {
-    Ok = 0,
-    Minor = 1,
-    Serious = 2
-};
 
 namespace {
 SizeFormatter& GetSizeFormatter() {
@@ -118,22 +65,6 @@ GitStatus& GetGitStatus() {
 }
 } // namespace
 
-static VisitResult combine_visit_result(VisitResult a, VisitResult b) {
-    return static_cast<VisitResult>(std::max(static_cast<int>(a), static_cast<int>(b)));
-}
-
-static void report_path_error(const fs::path& path, const std::error_code& ec, const char* fallback) {
-    std::cerr << "nls: " << path.string() << ": ";
-    if (ec) {
-        std::cerr << ec.message();
-    } else if (fallback) {
-        std::cerr << fallback;
-    } else {
-        std::cerr << "Unknown error";
-    }
-    std::cerr << '\n';
-}
-
 static bool is_nongraphic(unsigned char ch) {
     return !std::isprint(ch);
 }
@@ -147,197 +78,6 @@ static std::string apply_control_char_handling(const std::string& name, const Co
     }
     return out;
 }
-
-static bool match_char_class(const std::string& pattern, size_t& idx, char ch) {
-    size_t start = idx;
-    if (idx >= pattern.size()) return false;
-    bool negated = false;
-    if (pattern[idx] == '!' || pattern[idx] == '^') {
-        negated = true;
-        ++idx;
-    }
-    bool matched = false;
-    while (idx < pattern.size() && pattern[idx] != ']') {
-        char start_char = pattern[idx];
-        if (start_char == '\\' && idx + 1 < pattern.size()) {
-            ++idx;
-            start_char = pattern[idx];
-        }
-        ++idx;
-        if (idx < pattern.size() && pattern[idx] == '-' && idx + 1 < pattern.size() && pattern[idx + 1] != ']') {
-            ++idx;
-            char end_char = pattern[idx];
-            if (end_char == '\\' && idx + 1 < pattern.size()) {
-                ++idx;
-                end_char = pattern[idx];
-            }
-            if (start_char <= ch && ch <= end_char) {
-                matched = true;
-            }
-            ++idx;
-        } else {
-            if (ch == start_char) matched = true;
-        }
-    }
-    if (idx < pattern.size() && pattern[idx] == ']') {
-        ++idx;
-        return negated ? !matched : matched;
-    }
-    idx = start;
-    return false;
-}
-
-static bool wildcard_match(const std::string& pattern, const std::string& text) {
-    size_t p = 0;
-    size_t t = 0;
-    size_t star = std::string::npos;
-    size_t match = 0;
-    while (t < text.size()) {
-        if (p < pattern.size()) {
-            char pc = pattern[p];
-            if (pc == '?') {
-                ++p;
-                ++t;
-                continue;
-            }
-            if (pc == '*') {
-                star = ++p;
-                match = t;
-                continue;
-            }
-            if (pc == '[') {
-                size_t idx = p + 1;
-                if (match_char_class(pattern, idx, text[t])) {
-                    p = idx;
-                    ++t;
-                    continue;
-                }
-            } else {
-                if (pc == '\\' && p + 1 < pattern.size()) {
-                    ++p;
-                    pc = pattern[p];
-                }
-                if (pc == text[t]) {
-                    ++p;
-                    ++t;
-                    continue;
-                }
-            }
-        }
-        if (star != std::string::npos) {
-            p = star;
-            ++match;
-            t = match;
-            continue;
-        }
-        return false;
-    }
-    while (p < pattern.size() && pattern[p] == '*') ++p;
-    return p == pattern.size();
-}
-
-static bool matches_any_pattern(const std::string& name, const std::vector<std::string>& patterns) {
-    for (const auto& pat : patterns) {
-        if (wildcard_match(pat, name)) return true;
-    }
-    return false;
-}
-
-#ifdef _WIN32
-struct WindowsLinkInfo {
-    bool is_link = false;
-    bool has_target = false;
-    fs::path target;
-};
-
-static std::wstring read_reparse_string(const WCHAR* path_buffer, USHORT offset, USHORT length) {
-    if (length == 0) return {};
-    const unsigned char* bytes = reinterpret_cast<const unsigned char*>(path_buffer);
-    const WCHAR* start = reinterpret_cast<const WCHAR*>(bytes + offset);
-    size_t count = length / sizeof(WCHAR);
-    return std::wstring(start, start + count);
-}
-
-static std::wstring clean_windows_reparse_target(std::wstring target) {
-    const std::wstring prefix = L"\\??\\";
-    if (target.rfind(prefix, 0) == 0) {
-        target.erase(0, prefix.size());
-        const std::wstring unc_prefix = L"UNC\\";
-        if (target.rfind(unc_prefix, 0) == 0) {
-            target.erase(0, unc_prefix.size());
-            target.insert(0, L"\\\\");
-        }
-    }
-    return target;
-}
-
-static WindowsLinkInfo query_windows_link(const fs::path& path) {
-    WindowsLinkInfo info;
-    DWORD attrs = GetFileAttributesW(path.c_str());
-    if (attrs == INVALID_FILE_ATTRIBUTES) {
-        return info;
-    }
-    if ((attrs & FILE_ATTRIBUTE_REPARSE_POINT) == 0) {
-        return info;
-    }
-
-    HANDLE handle = CreateFileW(path.c_str(), 0,
-                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                nullptr, OPEN_EXISTING,
-                                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
-                                nullptr);
-    if (handle == INVALID_HANDLE_VALUE) {
-        info.is_link = true;
-        return info;
-    }
-
-    std::array<unsigned char, MAXIMUM_REPARSE_DATA_BUFFER_SIZE> buffer{};
-    DWORD bytes_returned = 0;
-    BOOL ok = DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
-                              buffer.data(), static_cast<DWORD>(buffer.size()),
-                              &bytes_returned, nullptr);
-    CloseHandle(handle);
-    if (!ok) {
-        info.is_link = true;
-        return info;
-    }
-
-    auto* header = reinterpret_cast<REPARSE_DATA_BUFFER*>(buffer.data());
-    switch (header->ReparseTag) {
-        case IO_REPARSE_TAG_SYMLINK: {
-            info.is_link = true;
-            const auto& data = header->SymbolicLinkReparseBuffer;
-            std::wstring target = read_reparse_string(data.PathBuffer, data.PrintNameOffset, data.PrintNameLength);
-            if (target.empty()) {
-                target = read_reparse_string(data.PathBuffer, data.SubstituteNameOffset, data.SubstituteNameLength);
-            }
-            target = clean_windows_reparse_target(std::move(target));
-            if (!target.empty()) {
-                info.target = fs::path(target);
-                info.has_target = true;
-            }
-            break;
-        }
-        case IO_REPARSE_TAG_MOUNT_POINT: {
-            info.is_link = true;
-            const auto& data = header->MountPointReparseBuffer;
-            std::wstring target = read_reparse_string(data.PathBuffer, data.PrintNameOffset, data.PrintNameLength);
-            if (target.empty()) {
-                target = read_reparse_string(data.PathBuffer, data.SubstituteNameOffset, data.SubstituteNameLength);
-            }
-            target = clean_windows_reparse_target(std::move(target));
-            if (!target.empty()) {
-                info.target = fs::path(target);
-                info.has_target = true;
-            }
-            break;
-        }
-        default:
-            break;
-    }
-    return info;
-}
-#endif
 
 struct ReportStats {
     size_t total = 0;
@@ -397,240 +137,6 @@ static void print_report_long(const ReportStats& stats, const Config& opt) {
     std::cout << "        Links                   : " << stats.links << "\n";
     std::cout << "        Dead links              : " << stats.dead_links << "\n";
     std::cout << "        Total displayed size    : " << format_report_size(stats.total_size, opt) << "\n\n";
-}
-
-static bool is_executable_posix(const fs::directory_entry& de) {
-#ifdef _WIN32
-    // simple heuristic: .exe/.bat/.cmd/.ps1
-    std::string n = de.path().filename().string();
-    auto pos = n.rfind('.');
-    if (pos != std::string::npos) {
-        std::string ext = n.substr(pos+1);
-        for (auto& c: ext) c = (char)tolower((unsigned char)c);
-        return (ext == "exe" || ext == "bat" || ext == "cmd" || ext == "ps1");
-    }
-    return false;
-#else
-    std::error_code ec;
-    auto p = de.status(ec).permissions();
-    (void)ec;
-    return ( (p & fs::perms::owner_exec) != fs::perms::none ||
-             (p & fs::perms::group_exec) != fs::perms::none ||
-             (p & fs::perms::others_exec) != fs::perms::none );
-#endif
-}
-
-static VisitResult collect_entries(const fs::path& dir,
-                                   const Config& opt,
-                                   std::vector<Entry>& out,
-                                   bool is_top_level) {
-    VisitResult status = VisitResult::Ok;
-
-    std::error_code exists_ec;
-    if (!fs::exists(dir, exists_ec)) {
-        report_path_error(dir, exists_ec, "No such file or directory");
-        return is_top_level ? VisitResult::Serious : VisitResult::Minor;
-    }
-
-    std::error_code type_ec;
-    bool is_directory = fs::is_directory(dir, type_ec);
-    if (type_ec) {
-        report_path_error(dir, type_ec, "Unable to access");
-        return is_top_level ? VisitResult::Serious : VisitResult::Minor;
-    }
-
-    Theme& theme_manager = Theme::instance();
-    const ThemeColors& theme_colors = theme_manager.colors();
-
-    auto add_one = [&](const fs::directory_entry& de, std::string override_name = {}, bool is_explicit = false) {
-        std::string name = override_name.empty() ? de.path().filename().string() : std::move(override_name);
-
-        if ((name == "." || name == "..")) {
-            if (!opt.all()) return;
-        } else {
-            if (!opt.all() && !opt.almost_all() && StringUtils::IsHidden(name)) return;
-        }
-        if (opt.almost_all() && (name == "." || name == "..")) return;
-
-        if (!is_explicit) {
-            if (opt.ignore_backups() && !name.empty() && name.back() == '~') return;
-            if (!opt.ignore_patterns().empty() && matches_any_pattern(name, opt.ignore_patterns())) return;
-            if (!opt.hide_patterns().empty() && !opt.all() && !opt.almost_all() && matches_any_pattern(name, opt.hide_patterns())) return;
-        }
-
-        Entry e{};
-        e.info.path = de.path();
-        e.info.name = std::move(name);
-
-        std::error_code info_ec;
-        auto status = de.symlink_status(info_ec);
-        if (!info_ec) {
-            e.info.is_socket = fs::is_socket(status);
-            e.info.is_block_device = fs::is_block_file(status);
-            e.info.is_char_device = fs::is_character_file(status);
-            e.info.is_symlink = fs::is_symlink(status);
-        }
-        info_ec.clear();
-        if (!e.info.is_symlink) {
-            e.info.is_symlink = de.is_symlink(info_ec);
-        }
-        info_ec.clear();
-        e.info.is_dir = de.is_directory(info_ec);
-        info_ec.clear();
-
-        auto fill_symlink_target = [&]() {
-            if (!e.info.is_symlink || e.info.has_symlink_target) return;
-            std::error_code link_ec;
-            auto target = fs::read_symlink(e.info.path, link_ec);
-            if (!link_ec) {
-                e.info.symlink_target = std::move(target);
-                e.info.has_symlink_target = true;
-            }
-        };
-
-        fill_symlink_target();
-#ifdef _WIN32
-        if (!e.info.is_symlink || !e.info.has_symlink_target) {
-            WindowsLinkInfo link_info = query_windows_link(de.path());
-            if (link_info.is_link) {
-                e.info.is_symlink = true;
-                if (!e.info.has_symlink_target && link_info.has_target) {
-                    e.info.symlink_target = std::move(link_info.target);
-                    e.info.has_symlink_target = true;
-                }
-            }
-        }
-        fill_symlink_target();
-#endif
-
-        if (opt.dirs_only() && !e.info.is_dir) return;
-        if (opt.files_only() && e.info.is_dir) return;
-
-        bool is_reg = de.is_regular_file(info_ec);
-        if (info_ec) {
-            is_reg = false;
-            info_ec.clear();
-        }
-        e.info.size = e.info.is_dir ? 0 : (is_reg ? de.file_size(info_ec) : 0);
-        if (info_ec) {
-            e.info.size = 0;
-            info_ec.clear();
-        }
-        e.info.mtime = de.last_write_time(info_ec);
-        e.info.is_exec = is_executable_posix(de);
-        e.info.is_hidden = StringUtils::IsHidden(e.info.name);
-        std::error_code exists_ec;
-        bool exists = fs::exists(e.info.path, exists_ec);
-        e.info.is_broken_symlink = e.info.is_symlink && (!exists || exists_ec);
-        GetFileOwnershipResolver().Populate(e.info, opt.dereference());
-        if (opt.dereference() && e.info.is_symlink && !e.info.is_broken_symlink) {
-            fs::path follow_path = e.info.path;
-            if (auto resolved = GetSymlinkResolver().ResolveTarget(e.info)) {
-                follow_path = std::move(*resolved);
-            }
-            std::error_code follow_ec;
-            auto follow_status = fs::status(follow_path, follow_ec);
-            if (!follow_ec) {
-                e.info.is_dir = fs::is_directory(follow_status);
-                e.info.is_socket = fs::is_socket(follow_status);
-                e.info.is_block_device = fs::is_block_file(follow_status);
-                e.info.is_char_device = fs::is_character_file(follow_status);
-
-                bool follow_is_reg = fs::is_regular_file(follow_status);
-                std::error_code size_ec;
-                if (e.info.is_dir) {
-                    e.info.size = 0;
-                } else if (follow_is_reg) {
-                    auto followed_size = fs::file_size(follow_path, size_ec);
-                    if (!size_ec) {
-                        e.info.size = followed_size;
-                    }
-                }
-            }
-
-            std::error_code time_ec;
-            auto follow_time = fs::last_write_time(follow_path, time_ec);
-            if (!time_ec) {
-                e.info.mtime = follow_time;
-            }
-        } else if (e.info.is_symlink && e.info.has_link_size) {
-            e.info.size = e.info.link_size;
-        }
-        IconResult icon = theme_manager.get_icon(e.info.name, e.info.is_dir, e.info.is_exec);
-        if (!opt.no_icons()) {
-            e.info.icon = icon.icon;
-        }
-        e.info.has_recognized_icon = icon.recognized && !e.info.is_dir;
-
-        if (opt.no_color()) {
-            e.info.color_fg.clear();
-            e.info.color_reset.clear();
-        } else {
-            std::string color;
-            /*if (e.info.is_symlink) {
-                color = e.info.is_broken_symlink ? theme_colors.get("dead_link") : theme_colors.get("link");
-            } else*/ if (e.info.is_socket) {
-                color = theme_colors.get("socket");
-            } else if (e.info.is_block_device) {
-                color = theme_colors.get("blockdev");
-            } else if (e.info.is_char_device) {
-                color = theme_colors.get("chardev");
-            } else if (e.info.is_dir) {
-                color = e.info.is_hidden ? theme_colors.get("hidden_dir") : theme_colors.get("dir");
-            } else if (e.info.is_hidden) {
-                color = theme_colors.get("hidden");
-            } else if (e.info.is_exec) {
-                color = theme_colors.get("executable_file");
-            } else if (e.info.has_recognized_icon) {
-                color = theme_colors.get("recognized_file");
-            } else {
-                color = theme_colors.get("unrecognized_file");
-            }
-            e.info.color_fg = std::move(color);
-            e.info.color_reset = theme_colors.reset;
-        }
-        out.push_back(std::move(e));
-    };
-
-    if (is_directory) {
-        if (opt.all()) {
-            std::error_code self_ec;
-            fs::directory_entry self(dir, self_ec);
-            if (!self_ec) add_one(self, ".");
-
-            std::error_code parent_ec;
-            fs::directory_entry parent(dir / "..", parent_ec);
-            if (!parent_ec) add_one(parent, "..");
-        }
-
-        std::error_code iter_ec;
-        fs::directory_iterator it(dir, iter_ec);
-        if (iter_ec) {
-            report_path_error(dir, iter_ec, "Unable to open directory");
-            return is_top_level ? VisitResult::Serious : VisitResult::Minor;
-        }
-
-        fs::directory_iterator end;
-        while (it != end) {
-            add_one(*it);
-            it.increment(iter_ec);
-            if (iter_ec) break;
-        }
-        if (iter_ec) {
-            report_path_error(dir, iter_ec, "Unable to read directory");
-            status = combine_visit_result(status, is_top_level ? VisitResult::Serious : VisitResult::Minor);
-        }
-    } else {
-        // single file path
-        std::error_code entry_ec;
-        fs::directory_entry de(dir, entry_ec);
-        if (entry_ec) {
-            report_path_error(dir, entry_ec, "Unable to access");
-            return is_top_level ? VisitResult::Serious : VisitResult::Minor;
-        }
-        add_one(de, {}, true);
-    }
-    return status;
 }
 
 static const std::set<std::string>* status_modes_for(const GitStatusResult& status,
@@ -801,14 +307,15 @@ static void sort_entries(std::vector<Entry>& v, const Config& opt) {
     }
 }
 
-static std::vector<TreeItem> build_tree_items(const fs::path& dir,
+static std::vector<TreeItem> build_tree_items(FileScanner& scanner,
+                                             const fs::path& dir,
                                              const Config& opt,
                                              std::size_t depth,
                                              std::vector<Entry>& flat,
                                              VisitResult& status) {
     std::vector<TreeItem> nodes;
     std::vector<Entry> items;
-    VisitResult local = collect_entries(dir, opt, items, depth == 0);
+    VisitResult local = scanner.collect_entries(dir, items, depth == 0);
     status = combine_visit_result(status, local);
     if (local == VisitResult::Serious) {
         return nodes;
@@ -829,7 +336,7 @@ static std::vector<TreeItem> build_tree_items(const fs::path& dir,
             within_limit = depth + 1 < *opt.tree_depth();
         }
         if (is_dir && within_limit && !is_self) {
-            node.children = build_tree_items(node.entry.info.path, opt, depth + 1, flat, status);
+            node.children = build_tree_items(scanner, node.entry.info.path, opt, depth + 1, flat, status);
         }
 
         nodes.push_back(std::move(node));
@@ -1613,7 +1120,7 @@ static void print_comma_separated(const std::vector<Entry>& v,
     write_line_terminator(opt);
 }
 
-static VisitResult list_path(const fs::path& p, const Config& opt) {
+static VisitResult list_path(FileScanner& scanner, const fs::path& p, const Config& opt) {
     std::error_code dir_ec;
     bool is_directory = fs::is_directory(p, dir_ec);
     (void)dir_ec;
@@ -1628,7 +1135,7 @@ static VisitResult list_path(const fs::path& p, const Config& opt) {
                 write_line_terminator(opt);
             }
             VisitResult tree_status = VisitResult::Ok;
-            auto nodes = build_tree_items(p, opt, 0, flat, tree_status);
+            auto nodes = build_tree_items(scanner, p, opt, 0, flat, tree_status);
             status = combine_visit_result(status, tree_status);
             if (tree_status == VisitResult::Serious) {
                 return status;
@@ -1638,7 +1145,7 @@ static VisitResult list_path(const fs::path& p, const Config& opt) {
             print_tree_view(nodes, opt, inode_width, block_width);
         } else {
             std::vector<Entry> single;
-            VisitResult collect_status = collect_entries(p, opt, single, true);
+            VisitResult collect_status = scanner.collect_entries(p, single, true);
             status = combine_visit_result(status, collect_status);
             if (collect_status == VisitResult::Serious) {
                 return status;
@@ -1669,7 +1176,7 @@ static VisitResult list_path(const fs::path& p, const Config& opt) {
     }
 
     std::vector<Entry> items;
-    VisitResult collect_status = collect_entries(p, opt, items, true);
+    VisitResult collect_status = scanner.collect_entries(p, items, true);
     status = combine_visit_result(status, collect_status);
     if (collect_status == VisitResult::Serious) {
         return status;
@@ -1769,11 +1276,12 @@ int main(int argc, char** argv) {
             break;
     }
     Theme::instance().initialize(scheme);
+    FileScanner scanner(opt, GetFileOwnershipResolver(), GetSymlinkResolver());
     VisitResult rc = VisitResult::Ok;
     for (const auto& p : opt.paths()) {
         VisitResult path_result = VisitResult::Ok;
         try {
-            path_result = list_path(std::filesystem::path(p), opt);
+            path_result = list_path(scanner, std::filesystem::path(p), opt);
         } catch (const std::exception& e) {
             std::cerr << "nls: error: " << e.what() << "\n";
             path_result = VisitResult::Serious;
