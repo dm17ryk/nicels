@@ -1,0 +1,34 @@
+{
+  "title": "Refactor Platform Module (Platform-specific support functions)",
+  "description": "Gather all operating system specific helpers into a Platform module. This will include things like console configuration, terminal detection, and any filesystem nuances that differ between OSes:contentReference[oaicite:111]{index=111}. By centralizing these, the core logic can remain clean and cross-platform, calling Platform functions when needed for OS-specific behavior.",
+  "goals": [
+    "Implement a function to detect if the output is a TTY (terminal) or not, for use in auto-color decision (using e.g., isatty on POSIX, GetFileInformation on Windows).",
+    "Implement enabling of ANSI color support on Windows (setting console mode to enable virtual terminal sequences) so that color codes are interpreted correctly:contentReference[oaicite:112]{index=112}.",
+    "Provide other needed OS abstractions: e.g., a function to get terminal width (for `--color=auto` and default width calculations), and possibly wrappers for high-resolution timers if needed for Perf (Windows vs Linux API differences).",
+    "Isolate any direct Win32 or POSIX calls (like SetConsoleMode, ioctl, getpwuid, etc.) behind this module’s interface or keep them contained in their respective specialized modules (FileOwnershipResolver already handles getpwuid/LookupAccountName, so leave that there). The goal is to minimize scattered `#ifdef _WIN32` in the code."
+  ],
+  "scope": [
+    "Introduce `Platform::enableVirtualTerminal()` that performs the Windows console API calls (SetConsoleMode) to enable ANSI escape processing:contentReference[oaicite:113]{index=113}. On non-Windows, this can be a no-op or always return true.",
+    "Introduce `Platform::isOutputTerminal()` (or similar) to check if std::cout is a terminal. Use `isatty(fileno(stdout))` on POSIX and `GetConsoleMode` or `GetFileType` on Windows to determine this. This will be used for `--color=auto` logic.",
+    "If needed, introduce `Platform::getTerminalWidth()` to get the current terminal column count. This could use ioctl(TIOCGWINSZ) on POSIX or GetConsoleScreenBufferInfo on Windows. If such detail is considered out-of-scope, we can rely on CLI11's `CLI::App::get_terminal_size` or skip, but current code’s effective_terminal_width suggests they attempt it:contentReference[oaicite:114]{index=114}.",
+    "Keep platform-specific includes and definitions within this module. For example, include <windows.h> only in Platform.cpp (or a dedicated source) and not globally. Define any necessary constants like NOMINMAX or UNICODE in that implementation file."
+  ],
+  "exclusions": [
+    "Do not replicate functionality already handled in other modules: e.g., user/group name resolution is done in FileOwnershipResolver with OS-specific code, so Platform need not duplicate that.",
+    "Networking or other OS aspects outside our tool's scope are irrelevant here; focus only on console and filesystem/terminal differences that affect this utility.",
+    "Do not introduce new dependencies; use the C++17/20 standard library and OS APIs directly as needed. (No need for something like Boost for these basic tasks.)",
+    "Avoid changing behaviors that are not already present: e.g., if currently the tool doesn’t adjust output to terminal width except for `-x`/`-C` column fitting, we don’t add new fancy resizing logic beyond what is needed to maintain current features."
+  ],
+  "architectural_recommendations": [
+    "Use conditional compilation inside Platform module (e.g., `#ifdef _WIN32`) to implement OS-specific parts, while exposing a unified interface. For instance, Platform::isOutputTerminal can be implemented differently per OS but called uniformly.",
+    "Keep the interface minimal and focused – we might only need a handful of functions now. However, structure it so that adding new platform checks later is straightforward (perhaps group console-related functions together).",
+    "Return simple types (bool, int) from these functions and let the caller decide how to use them. For example, Platform::getTerminalWidth could return an `int` (or std::optional<int> if it can fail), and Renderer or Config can use that to decide layout or default width.",
+    "Ensure that calling these functions when not applicable is safe (e.g., calling enableVirtualTerminal on Linux does nothing but returns true, etc.). This way, higher-level code can call them without wrapping each call in OS checks."
+  ],
+  "cli_considerations": [
+    "`--color=auto`: The Platform.isOutputTerminal() is essential to implement the \"auto\" behavior. During Config initialization, if color mode is Auto, use this to set Config.no_color = true if output is not a terminal (redirected). That ensures no color codes in pipes/files, matching GNU ls default logic.",
+    "Terminal width usage: The `--width=0` convention means \"auto-detect width\". Platform.getTerminalWidth() should provide this. If detection fails, a conservative default (80 or 100 columns) can be used. This affects how many columns -C mode will produce or how `--comma` output wraps.",
+    "Ensure that enabling virtual terminal on Windows is done early (before any color output). App should call Platform::enableVirtualTerminal() at startup (already done in main):contentReference[oaicite:115]{index=115}. This call should not produce errors to the user; if it fails (old Windows not supporting it), Config or Theme might want to fall back to no_color automatically.",
+    "Locale considerations: If `--time-style=locale` is used, the formatting might rely on the C locale. Platform might not need to do much here except ensure `std::locale()` or the default C locale is set/available. We might note that on Windows, classic locale might differ from POSIX for date format. For now, assume the standard C++ locale facets handle it consistently."
+  ]
+}
