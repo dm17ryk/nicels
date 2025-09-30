@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -12,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "perf.h"
 #include "platform.h"
 #include "theme.h"
 
@@ -227,6 +229,14 @@ void Renderer::RenderTree(const std::vector<TreeItem>& nodes,
 }
 
 void Renderer::RenderEntries(const std::vector<Entry>& entries) const {
+    auto& perf_manager = perf::Manager::Instance();
+    const bool perf_enabled = perf_manager.enabled();
+    std::optional<perf::Timer> timer;
+    if (perf_enabled) {
+        timer.emplace("renderer::RenderEntries");
+        perf_manager.IncrementCounter("entries_rendered", static_cast<std::uint64_t>(entries.size()));
+    }
+
     size_t inode_width = ComputeInodeWidth(entries);
     size_t block_width = ComputeBlockWidth(entries);
     switch (opt_.format()) {
@@ -251,6 +261,14 @@ void Renderer::RenderEntries(const std::vector<Entry>& entries) const {
 }
 
 void Renderer::RenderReport(const std::vector<Entry>& entries) const {
+    auto& perf_manager = perf::Manager::Instance();
+    std::optional<perf::Timer> timer;
+    if (perf_manager.enabled()) {
+        timer.emplace("renderer::RenderReport");
+        perf_manager.IncrementCounter("reports_rendered");
+        perf_manager.IncrementCounter("report_entries", static_cast<std::uint64_t>(entries.size()));
+    }
+
     if (opt_.report() == Config::Report::None) {
         return;
     }

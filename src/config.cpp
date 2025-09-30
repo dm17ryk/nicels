@@ -41,6 +41,7 @@ void Config::Reset() {
     hide_control_chars_ = false;
     zero_terminate_ = false;
     show_block_size_ = false;
+    perf_logging_ = false;
 
     tree_depth_.reset();
     output_width_.reset();
@@ -146,6 +147,9 @@ void Config::set_zero_terminate(bool value) { zero_terminate_ = value; }
 
 bool Config::show_block_size() const { return show_block_size_; }
 void Config::set_show_block_size(bool value) { show_block_size_ = value; }
+
+bool Config::perf_logging() const { return perf_logging_; }
+void Config::set_perf_logging(bool value) { perf_logging_ = value; }
 
 const std::optional<std::size_t>& Config::tree_depth() const { return tree_depth_; }
 void Config::set_tree_depth(std::optional<std::size_t> value) { tree_depth_ = std::move(value); }

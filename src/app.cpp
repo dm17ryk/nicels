@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <set>
 #include <string>
 #include <system_error>
@@ -10,6 +11,7 @@
 
 #include "file_ownership_resolver.h"
 #include "git_status.h"
+#include "perf.h"
 #include "platform.h"
 #include "resources.h"
 #include "string_utils.h"
@@ -152,6 +154,12 @@ int App::run(int argc, char** argv) {
     init_resource_paths(argc > 0 ? argv[0] : nullptr);
 
     config_ = &parser_.Parse(argc, argv);
+    perf::Manager& perf_manager = perf::Manager::Instance();
+    perf_manager.set_enabled(config_->perf_logging());
+    std::optional<perf::Timer> run_timer;
+    if (perf_manager.enabled()) {
+        run_timer.emplace("app::run");
+    }
     if (!virtual_terminal_enabled) {
         config_->set_no_color(true);
     }
@@ -187,6 +195,11 @@ int App::run(int argc, char** argv) {
     renderer_.reset();
     scanner_.reset();
     config_ = nullptr;
+
+    if (perf_manager.enabled()) {
+        run_timer.reset();
+        perf_manager.Report(std::cerr);
+    }
 
     return static_cast<int>(rc);
 }
@@ -293,7 +306,21 @@ std::vector<TreeItem> App::buildTreeItems(const fs::path& dir,
 void App::applyGitStatus(std::vector<Entry>& items, const fs::path& dir) {
     if (!options().git_status()) return;
 
-    auto status = GetGitStatus().GetStatus(dir);
+    GitStatusResult status;
+    auto& perf_manager = perf::Manager::Instance();
+    {
+        std::optional<perf::Timer> timer;
+        if (perf_manager.enabled()) {
+            timer.emplace("git_status::GetStatus");
+        }
+        status = GetGitStatus().GetStatus(dir);
+    }
+    if (perf_manager.enabled()) {
+        perf_manager.IncrementCounter("git_status_requests");
+        if (status.repository_found) {
+            perf_manager.IncrementCounter("git_repositories_found");
+        }
+    }
     for (auto& entry : items) {
         std::error_code ec;
         fs::path base = fs::is_directory(dir) ? dir : dir.parent_path();

@@ -130,6 +130,9 @@ public:
     bool show_block_size() const;
     void set_show_block_size(bool value);
 
+    bool perf_logging() const;
+    void set_perf_logging(bool value);
+
     const std::optional<std::size_t>& tree_depth() const;
     void set_tree_depth(std::optional<std::size_t> value);
     void clear_tree_depth();
@@ -202,6 +205,7 @@ private:
     bool hide_control_chars_ = false;
     bool zero_terminate_ = false;
     bool show_block_size_ = false;
+    bool perf_logging_ = false;
 
     std::optional<std::size_t> tree_depth_;
     std::optional<int> output_width_;

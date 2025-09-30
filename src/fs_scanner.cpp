@@ -4,6 +4,7 @@
 #include <array>
 #include <cctype>
 #include <iostream>
+#include <optional>
 #include <system_error>
 #include <utility>
 
@@ -45,6 +46,7 @@ typedef struct _REPARSE_DATA_BUFFER {
 #endif
 
 #include "file_ownership_resolver.h"
+#include "perf.h"
 #include "string_utils.h"
 #include "symlink_resolver.h"
 #include "theme.h"
@@ -485,6 +487,17 @@ bool FileScanner::add_entry(const fs::directory_entry& de,
     }
 
     out.push_back(std::move(entry));
+
+    auto& perf_manager = perf::Manager::Instance();
+    if (perf_manager.enabled()) {
+        perf_manager.IncrementCounter("entries_included");
+        const Entry& stored = out.back();
+        if (stored.info.is_dir) {
+            perf_manager.IncrementCounter("directories_included");
+        } else {
+            perf_manager.IncrementCounter("files_included");
+        }
+    }
     return true;
 }
 
@@ -492,6 +505,14 @@ VisitResult FileScanner::collect_entries(const fs::path& dir,
                                          std::vector<Entry>& out,
                                          bool is_top_level) const {
     VisitResult status = VisitResult::Ok;
+
+    auto& perf_manager = perf::Manager::Instance();
+    const bool perf_enabled = perf_manager.enabled();
+    std::optional<perf::Timer> timer;
+    if (perf_enabled) {
+        timer.emplace("fs::collect_entries");
+        perf_manager.IncrementCounter("paths_scanned");
+    }
 
     std::error_code exists_ec;
     if (!fs::exists(dir, exists_ec)) {
@@ -507,6 +528,9 @@ VisitResult FileScanner::collect_entries(const fs::path& dir,
     }
 
     if (is_directory) {
+        if (perf_enabled) {
+            perf_manager.IncrementCounter("directories_scanned");
+        }
         if (config_.all()) {
             std::error_code self_ec;
             fs::directory_entry self(dir, self_ec);

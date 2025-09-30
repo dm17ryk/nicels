@@ -206,6 +206,11 @@ public:
         actions_.emplace_back([value](Config& cfg) { cfg.set_show_block_size(value); });
     }
 
+    void SetPerfLogging(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_perf_logging(value); });
+    }
+
     void SetBlockSize(uintmax_t value, bool specified, bool show_suffix, std::string suffix)
     {
         actions_.emplace_back([value, specified, show_suffix, suffix = std::move(suffix)](Config& cfg) {
@@ -702,6 +707,10 @@ FORMAT (default: locale))");
 show information for the file the link references)");
     information->add_flag_callback("--gs,--git-status", [&]() { builder.SetGitStatus(true); },
         "show git status for each file");
+
+    auto debug = program.add_option_group("Debug options");
+    debug->add_flag_callback("--perf-debug", [&]() { builder.SetPerfLogging(true); },
+        "enable performance diagnostics");
 
     try {
         program.parse(argc, argv);

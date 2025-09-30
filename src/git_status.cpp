@@ -4,6 +4,8 @@
 #include <system_error>
 #include <utility>
 
+#include "perf.h"
+
 namespace fs = std::filesystem;
 
 #if defined(USE_LIBGIT2)
@@ -284,6 +286,12 @@ GitStatus::GitStatus()
 GitStatus::~GitStatus() = default;
 
 GitStatusResult GitStatus::GetStatus(const fs::path& dir) {
+    auto& perf_manager = perf::Manager::Instance();
+    if (!perf_manager.enabled()) {
+        return impl_->GetStatus(dir);
+    }
+
+    perf::Timer timer("git_status_impl");
     return impl_->GetStatus(dir);
 }
 
