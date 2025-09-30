@@ -4,7 +4,6 @@
 #include <filesystem>
 #include <iostream>
 #include <optional>
-#include <set>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -21,118 +20,6 @@
 namespace fs = std::filesystem;
 
 namespace nls {
-namespace {
-
-const std::set<std::string>* StatusModesFor(const GitStatusResult& status,
-                                            const std::string& rel) {
-    std::string key = rel;
-    auto slash = key.find('/');
-    if (slash != std::string::npos) key = key.substr(0, slash);
-    if (key.empty()) {
-        return status.default_modes.empty() ? nullptr : &status.default_modes;
-    }
-    auto it = status.entries.find(key);
-    if (it != status.entries.end()) return &it->second;
-    return nullptr;
-}
-
-std::string FormatGitPrefix(bool has_repo,
-                            const std::set<std::string>* modes,
-                            bool is_dir,
-                            bool is_empty_dir,
-                            bool no_color) {
-    if (!has_repo) return {};
-    bool saw_code = false;
-    bool saw_visible = false;
-    std::set<char> glyphs;
-    Theme& theme_manager = Theme::instance();
-    const ThemeColors& theme = theme_manager.colors();
-    std::string col_add = theme.color_or("addition", "\x1b[32m");
-    std::string col_mod = theme.color_or("modification", "\x1b[33m");
-    std::string col_del = theme.color_or("deletion", "\x1b[31m");
-    std::string col_untracked = theme.color_or("untracked", "\x1b[35m");
-    std::string col_clean = theme.color_or("unchanged", "\x1b[32m");
-    std::string col_conflict = theme.color_or("error", "\x1b[31m");
-
-    if (modes) {
-        for (const auto& code : *modes) {
-            if (!code.empty()) saw_code = true;
-            for (char ch : code) {
-                if (ch == ' ' || ch == '!') continue;
-                saw_visible = true;
-                glyphs.insert(ch);
-            }
-        }
-    }
-
-    if (!saw_code) {
-        if (!has_repo) {
-            return {};
-        }
-        if (is_dir && is_empty_dir) return std::string(4, ' ');
-        std::string clean = "  \xe2\x9c\x93 ";
-        if (no_color || col_clean.empty()) return clean;
-        return col_clean + clean + theme.reset;
-    }
-
-    if (!saw_visible) {
-        return std::string(4, ' ');
-    }
-
-    std::string symbols;
-    for (char ch : glyphs) symbols.push_back(ch);
-    if (symbols.size() < 3) symbols.insert(symbols.begin(), 3 - symbols.size(), ' ');
-    symbols.push_back(' ');
-
-    if (no_color) return symbols;
-
-    std::string out;
-    out.reserve(symbols.size() + 16);
-    for (char ch : symbols) {
-        if (ch == ' ') {
-            out.push_back(' ');
-            continue;
-        }
-        const std::string* col = nullptr;
-        switch (ch) {
-            case '?':
-                col = &col_untracked;
-                break;
-            case 'A':
-                col = &col_add;
-                break;
-            case 'M':
-                col = &col_mod;
-                break;
-            case 'D':
-                col = &col_del;
-                break;
-            case 'R':
-            case 'T':
-                col = &col_mod;
-                break;
-            case 'U':
-                col = &col_conflict;
-                break;
-            default:
-                break;
-        }
-        if (col) {
-            if (!col->empty()) {
-                out += *col;
-                out.push_back(ch);
-                out += theme.reset;
-            } else {
-                out.push_back(ch);
-            }
-        } else {
-            out.push_back(ch);
-        }
-    }
-    return out;
-}
-
-}  // namespace
 
 int App::run(int argc, char** argv) {
     const bool virtual_terminal_enabled = Platform::enableVirtualTerminal();
@@ -312,7 +199,6 @@ void App::applyGitStatus(std::vector<Entry>& items, const fs::path& dir) {
         fs::path relp = fs::relative(entry.info.path, base, ec);
         std::string rel = ec ? entry.info.path.filename().generic_string() : relp.generic_string();
 
-        const std::set<std::string>* modes = StatusModesFor(status, rel);
         bool is_empty_dir = false;
         if (entry.info.is_dir) {
             is_empty_dir = fs::is_empty(entry.info.path, ec);
@@ -320,7 +206,7 @@ void App::applyGitStatus(std::vector<Entry>& items, const fs::path& dir) {
         }
 
         entry.info.git_prefix =
-            FormatGitPrefix(status.repository_found, modes, entry.info.is_dir, is_empty_dir, options().no_color());
+            status.FormatPrefixFor(rel, entry.info.is_dir, is_empty_dir, options().no_color());
     }
 }
 

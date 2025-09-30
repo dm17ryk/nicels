@@ -1,10 +1,12 @@
 #include "git_status.h"
 
 #include <memory>
+#include <set>
 #include <system_error>
 #include <utility>
 
 #include "perf.h"
+#include "theme.h"
 
 namespace fs = std::filesystem;
 
@@ -25,6 +27,119 @@ namespace fs = std::filesystem;
 #endif
 
 namespace nls {
+
+const std::set<std::string>* GitStatusResult::ModesFor(const std::string& rel_path) const {
+    std::string key = rel_path;
+    auto slash = key.find('/');
+    if (slash != std::string::npos) key = key.substr(0, slash);
+    if (key.empty()) {
+        return default_modes.empty() ? nullptr : &default_modes;
+    }
+    auto it = entries.find(key);
+    if (it != entries.end()) return &it->second;
+    return nullptr;
+}
+
+std::string GitStatusResult::FormatPrefixFor(const std::string& rel_path,
+                                             bool is_dir,
+                                             bool is_empty_dir,
+                                             bool no_color) const {
+    const std::set<std::string>* modes = ModesFor(rel_path);
+    return FormatPrefix(modes, is_dir, is_empty_dir, no_color);
+}
+
+std::string GitStatusResult::FormatPrefix(const std::set<std::string>* modes,
+                                          bool is_dir,
+                                          bool is_empty_dir,
+                                          bool no_color) const {
+    if (!repository_found) return {};
+
+    bool saw_code = false;
+    bool saw_visible = false;
+    std::set<char> glyphs;
+    Theme& theme_manager = Theme::instance();
+    const ThemeColors& theme = theme_manager.colors();
+    std::string col_add = theme.color_or("addition", "\x1b[32m");
+    std::string col_mod = theme.color_or("modification", "\x1b[33m");
+    std::string col_del = theme.color_or("deletion", "\x1b[31m");
+    std::string col_untracked = theme.color_or("untracked", "\x1b[35m");
+    std::string col_clean = theme.color_or("unchanged", "\x1b[32m");
+    std::string col_conflict = theme.color_or("error", "\x1b[31m");
+
+    if (modes) {
+        for (const auto& code : *modes) {
+            if (!code.empty()) saw_code = true;
+            for (char ch : code) {
+                if (ch == ' ' || ch == '!') continue;
+                saw_visible = true;
+                glyphs.insert(ch);
+            }
+        }
+    }
+
+    if (!saw_code) {
+        if (is_dir && is_empty_dir) return std::string(4, ' ');
+        std::string clean = "  \xe2\x9c\x93 ";
+        if (no_color || col_clean.empty()) return clean;
+        return col_clean + clean + theme.reset;
+    }
+
+    if (!saw_visible) {
+        return std::string(4, ' ');
+    }
+
+    std::string symbols;
+    for (char ch : glyphs) symbols.push_back(ch);
+    if (symbols.size() < 3) symbols.insert(symbols.begin(), 3 - symbols.size(), ' ');
+    symbols.push_back(' ');
+
+    if (no_color) return symbols;
+
+    std::string out;
+    out.reserve(symbols.size() + 16);
+    for (char ch : symbols) {
+        if (ch == ' ') {
+            out.push_back(' ');
+            continue;
+        }
+        const std::string* col = nullptr;
+        switch (ch) {
+            case '?':
+                col = &col_untracked;
+                break;
+            case 'A':
+                col = &col_add;
+                break;
+            case 'M':
+                col = &col_mod;
+                break;
+            case 'D':
+                col = &col_del;
+                break;
+            case 'R':
+            case 'T':
+                col = &col_mod;
+                break;
+            case 'U':
+                col = &col_conflict;
+                break;
+            default:
+                break;
+        }
+        if (col) {
+            if (!col->empty()) {
+                out += *col;
+                out.push_back(ch);
+                out += theme.reset;
+            } else {
+                out.push_back(ch);
+            }
+        } else {
+            out.push_back(ch);
+        }
+    }
+    return out;
+}
 
 class GitStatusImpl {
 public:

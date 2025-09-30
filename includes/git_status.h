@@ -12,6 +12,18 @@ struct GitStatusResult {
     std::unordered_map<std::string, std::set<std::string>> entries;
     std::set<std::string> default_modes;
     bool repository_found = false;
+
+    const std::set<std::string>* ModesFor(const std::string& rel_path) const;
+    std::string FormatPrefixFor(const std::string& rel_path,
+                                bool is_dir,
+                                bool is_empty_dir,
+                                bool no_color) const;
+
+private:
+    std::string FormatPrefix(const std::set<std::string>* modes,
+                             bool is_dir,
+                             bool is_empty_dir,
+                             bool no_color) const;
 };
 
 class GitStatusImpl;
