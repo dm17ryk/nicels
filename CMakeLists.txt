@@ -80,7 +80,7 @@ file(GLOB _nls_sources
 
 file(GLOB _nls_headers
   CONFIGURE_DEPENDS
-  src/*.h
+  includes/*.h
 )
 
 add_executable(nls)
@@ -89,10 +89,11 @@ target_sources(nls
     ${_nls_sources}
   PUBLIC
     FILE_SET HEADERS
-      BASE_DIRS src
+      BASE_DIRS includes
       FILES ${_nls_headers}
 )
-source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src" FILES ${_nls_sources} ${_nls_headers})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src" FILES ${_nls_sources})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/includes" FILES ${_nls_headers})
 unset(_nls_sources)
 unset(_nls_headers)
 
@@ -108,6 +109,8 @@ target_compile_features(nls PRIVATE cxx_std_23)
 target_include_directories(nls
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/includes
 )
 
 target_link_libraries(nls
