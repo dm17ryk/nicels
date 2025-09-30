@@ -23,21 +23,6 @@ namespace fs = std::filesystem;
 namespace nls {
 namespace {
 
-SymlinkResolver& GetSymlinkResolver() {
-    static SymlinkResolver resolver;
-    return resolver;
-}
-
-FileOwnershipResolver& GetFileOwnershipResolver() {
-    static FileOwnershipResolver resolver;
-    return resolver;
-}
-
-GitStatus& GetGitStatus() {
-    static GitStatus status;
-    return status;
-}
-
 const std::set<std::string>* StatusModesFor(const GitStatusResult& status,
                                             const std::string& rel) {
     std::string key = rel;
@@ -177,7 +162,7 @@ int App::run(int argc, char** argv) {
     }
     Theme::instance().initialize(scheme);
 
-    scanner_ = std::make_unique<FileScanner>(options(), GetFileOwnershipResolver(), GetSymlinkResolver());
+    scanner_ = std::make_unique<FileScanner>(options(), ownership_resolver_, symlink_resolver_);
     renderer_ = std::make_unique<Renderer>(options());
 
     VisitResult rc = VisitResult::Ok;
@@ -313,7 +298,7 @@ void App::applyGitStatus(std::vector<Entry>& items, const fs::path& dir) {
         if (perf_manager.enabled()) {
             timer.emplace("git_status::GetStatus");
         }
-        status = GetGitStatus().GetStatus(dir);
+        status = git_status_.GetStatus(dir);
     }
     if (perf_manager.enabled()) {
         perf_manager.IncrementCounter("git_status_requests");
