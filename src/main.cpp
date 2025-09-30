@@ -64,7 +64,7 @@ typedef struct _REPARSE_DATA_BUFFER {
 #include "symlink_resolver.h"
 #include "time_formatter.h"
 #include "permission_formatter.h"
-#include "options.h"
+#include "config.h"
 
 namespace fs = std::filesystem;
 using std::string;
@@ -134,8 +134,8 @@ static bool is_nongraphic(unsigned char ch) {
     return !std::isprint(ch);
 }
 
-static std::string apply_control_char_handling(const std::string& name, const Options& opt) {
-    if (!opt.hide_control_chars) return name;
+static std::string apply_control_char_handling(const std::string& name, const Config& opt) {
+    if (!opt.hide_control_chars()) return name;
     std::string out;
     out.reserve(name.size());
     for (unsigned char ch : name) {
@@ -372,18 +372,18 @@ static ReportStats compute_report_stats(const std::vector<Entry>& items) {
     return stats;
 }
 
-static std::string format_report_size(uintmax_t bytes, const Options& opt) {
-    return opt.bytes ? std::to_string(bytes) : GetSizeFormatter().FormatHumanReadable(bytes);
+static std::string format_report_size(uintmax_t bytes, const Config& opt) {
+    return opt.bytes() ? std::to_string(bytes) : GetSizeFormatter().FormatHumanReadable(bytes);
 }
 
-static void print_report_short(const ReportStats& stats, const Options& opt) {
+static void print_report_short(const ReportStats& stats, const Config& opt) {
     std::cout << "    Folders: " << stats.folders
               << ", Files: " << stats.files()
               << ", Size: " << format_report_size(stats.total_size, opt)
               << ".\n\n";
 }
 
-static void print_report_long(const ReportStats& stats, const Options& opt) {
+static void print_report_long(const ReportStats& stats, const Config& opt) {
     std::cout << "    Found " << stats.total << ' '
               << (stats.total == 1 ? "item" : "items")
               << " in total.\n\n";
@@ -417,7 +417,7 @@ static bool is_executable_posix(const fs::directory_entry& de) {
 }
 
 static VisitResult collect_entries(const fs::path& dir,
-                                   const Options& opt,
+                                   const Config& opt,
                                    std::vector<Entry>& out,
                                    bool is_top_level) {
     VisitResult status = VisitResult::Ok;
@@ -441,16 +441,16 @@ static VisitResult collect_entries(const fs::path& dir,
         std::string name = override_name.empty() ? de.path().filename().string() : std::move(override_name);
 
         if ((name == "." || name == "..")) {
-            if (!opt.all) return;
+            if (!opt.all()) return;
         } else {
-            if (!opt.all && !opt.almost_all && StringUtils::IsHidden(name)) return;
+            if (!opt.all() && !opt.almost_all() && StringUtils::IsHidden(name)) return;
         }
-        if (opt.almost_all && (name == "." || name == "..")) return;
+        if (opt.almost_all() && (name == "." || name == "..")) return;
 
         if (!is_explicit) {
-            if (opt.ignore_backups && !name.empty() && name.back() == '~') return;
-            if (!opt.ignore_patterns.empty() && matches_any_pattern(name, opt.ignore_patterns)) return;
-            if (!opt.hide_patterns.empty() && !opt.all && !opt.almost_all && matches_any_pattern(name, opt.hide_patterns)) return;
+            if (opt.ignore_backups() && !name.empty() && name.back() == '~') return;
+            if (!opt.ignore_patterns().empty() && matches_any_pattern(name, opt.ignore_patterns())) return;
+            if (!opt.hide_patterns().empty() && !opt.all() && !opt.almost_all() && matches_any_pattern(name, opt.hide_patterns())) return;
         }
 
         Entry e{};
@@ -498,8 +498,8 @@ static VisitResult collect_entries(const fs::path& dir,
         fill_symlink_target();
 #endif
 
-        if (opt.dirs_only && !e.info.is_dir) return;
-        if (opt.files_only && e.info.is_dir) return;
+        if (opt.dirs_only() && !e.info.is_dir) return;
+        if (opt.files_only() && e.info.is_dir) return;
 
         bool is_reg = de.is_regular_file(info_ec);
         if (info_ec) {
@@ -517,8 +517,8 @@ static VisitResult collect_entries(const fs::path& dir,
         std::error_code exists_ec;
         bool exists = fs::exists(e.info.path, exists_ec);
         e.info.is_broken_symlink = e.info.is_symlink && (!exists || exists_ec);
-        GetFileOwnershipResolver().Populate(e.info, opt.dereference);
-        if (opt.dereference && e.info.is_symlink && !e.info.is_broken_symlink) {
+        GetFileOwnershipResolver().Populate(e.info, opt.dereference());
+        if (opt.dereference() && e.info.is_symlink && !e.info.is_broken_symlink) {
             fs::path follow_path = e.info.path;
             if (auto resolved = GetSymlinkResolver().ResolveTarget(e.info)) {
                 follow_path = std::move(*resolved);
@@ -552,12 +552,12 @@ static VisitResult collect_entries(const fs::path& dir,
             e.info.size = e.info.link_size;
         }
         IconResult icon = icon_for(e.info.name, e.info.is_dir, e.info.is_exec);
-        if (!opt.no_icons) {
+        if (!opt.no_icons()) {
             e.info.icon = icon.icon;
         }
         e.info.has_recognized_icon = icon.recognized && !e.info.is_dir;
 
-        if (opt.no_color) {
+        if (opt.no_color()) {
             e.info.color_fg.clear();
             e.info.color_reset.clear();
         } else {
@@ -588,7 +588,7 @@ static VisitResult collect_entries(const fs::path& dir,
     };
 
     if (is_directory) {
-        if (opt.all) {
+        if (opt.all()) {
             std::error_code self_ec;
             fs::directory_entry self(dir, self_ec);
             if (!self_ec) add_one(self, ".");
@@ -729,8 +729,8 @@ static std::string format_git_prefix(bool has_repo,
     return out;
 }
 
-static void apply_git_status(std::vector<Entry>& items, const fs::path& dir, const Options& opt) {
-    if (!opt.git_status) return;
+static void apply_git_status(std::vector<Entry>& items, const fs::path& dir, const Config& opt) {
+    if (!opt.git_status()) return;
 
     auto status = get_git_status_for_dir(dir);
     for (auto& e : items) {
@@ -747,11 +747,11 @@ static void apply_git_status(std::vector<Entry>& items, const fs::path& dir, con
         }
 
         e.info.git_prefix = format_git_prefix(status.repository_found, modes,
-                                             e.info.is_dir, is_empty_dir, opt.no_color);
+                                             e.info.is_dir, is_empty_dir, opt.no_color());
     }
 }
 
-static void sort_entries(std::vector<Entry>& v, const Options& opt) {
+static void sort_entries(std::vector<Entry>& v, const Config& opt) {
     auto cmp_name = [](const Entry& a, const Entry& b) {
         return StringUtils::ToLower(a.info.name) < StringUtils::ToLower(b.info.name);
     };
@@ -767,26 +767,26 @@ static void sort_entries(std::vector<Entry>& v, const Options& opt) {
         return StringUtils::ToLower(pa) < StringUtils::ToLower(pb);
     };
 
-    switch (opt.sort) {
-        case Options::Sort::Time: std::stable_sort(v.begin(), v.end(), cmp_time); break;
-        case Options::Sort::Size: std::stable_sort(v.begin(), v.end(), cmp_size); break;
-        case Options::Sort::Extension: std::stable_sort(v.begin(), v.end(), cmp_ext); break;
-        case Options::Sort::None: /* keep directory order */ break;
-        case Options::Sort::Name: default: std::stable_sort(v.begin(), v.end(), cmp_name); break;
+    switch (opt.sort()) {
+        case Config::Sort::Time: std::stable_sort(v.begin(), v.end(), cmp_time); break;
+        case Config::Sort::Size: std::stable_sort(v.begin(), v.end(), cmp_size); break;
+        case Config::Sort::Extension: std::stable_sort(v.begin(), v.end(), cmp_ext); break;
+        case Config::Sort::None: /* keep directory order */ break;
+        case Config::Sort::Name: default: std::stable_sort(v.begin(), v.end(), cmp_name); break;
     }
-    if (opt.reverse) std::reverse(v.begin(), v.end());
+    if (opt.reverse()) std::reverse(v.begin(), v.end());
 
-    if (opt.group_dirs_first) {
+    if (opt.group_dirs_first()) {
         std::stable_sort(v.begin(), v.end(), [](const Entry& a, const Entry& b){
             return a.info.is_dir && !b.info.is_dir;
         });
     }
-    if (opt.sort_files_first) {
+    if (opt.sort_files_first()) {
         std::stable_sort(v.begin(), v.end(), [](const Entry& a, const Entry& b){
             return !a.info.is_dir && b.info.is_dir;
         });
     }
-    if (opt.dots_first) {
+    if (opt.dots_first()) {
         std::stable_sort(v.begin(), v.end(), [](const Entry& a, const Entry& b){
             bool da = StringUtils::IsHidden(a.info.name);
             bool db = StringUtils::IsHidden(b.info.name);
@@ -796,7 +796,7 @@ static void sort_entries(std::vector<Entry>& v, const Options& opt) {
 }
 
 static std::vector<TreeItem> build_tree_items(const fs::path& dir,
-                                             const Options& opt,
+                                             const Config& opt,
                                              std::size_t depth,
                                              std::vector<Entry>& flat,
                                              VisitResult& status) {
@@ -819,8 +819,8 @@ static std::vector<TreeItem> build_tree_items(const fs::path& dir,
         bool is_dir = node.entry.info.is_dir && !node.entry.info.is_symlink;
         bool is_self = (node.entry.info.name == "." || node.entry.info.name == "..");
         bool within_limit = true;
-        if (opt.tree_depth.has_value()) {
-            within_limit = depth + 1 < *opt.tree_depth;
+        if (opt.tree_depth().has_value()) {
+            within_limit = depth + 1 < *opt.tree_depth();
         }
         if (is_dir && within_limit && !is_self) {
             node.children = build_tree_items(node.entry.info.path, opt, depth + 1, flat, status);
@@ -961,9 +961,9 @@ static std::string shell_escape(const std::string& text, bool always) {
     return std::string("$'") + c_style_escape(text, false, true) + "'";
 }
 
-static std::string apply_quoting(const std::string& name, const Options& opt) {
-    using QS = Options::QuotingStyle;
-    switch (opt.quoting_style) {
+static std::string apply_quoting(const std::string& name, const Config& opt) {
+    using QS = Config::QuotingStyle;
+    switch (opt.quoting_style()) {
         case QS::Literal:
             return name;
         case QS::Locale:
@@ -983,9 +983,9 @@ static std::string apply_quoting(const std::string& name, const Options& opt) {
     return name;
 }
 
-static std::string base_display_name(const Entry& e, const Options& opt) {
+static std::string base_display_name(const Entry& e, const Config& opt) {
     std::string name = apply_control_char_handling(e.info.name, opt);
-    if (opt.indicator == Options::IndicatorStyle::Slash && e.info.is_dir) name.push_back('/');
+    if (opt.indicator() == Config::IndicatorStyle::Slash && e.info.is_dir) name.push_back('/');
     name = apply_quoting(name, opt);
     if (!e.info.icon.empty()) {
         return e.info.icon + std::string(" ") + name;
@@ -1023,52 +1023,52 @@ static std::string file_uri(const fs::path& path) {
     return std::string("file://") + percent_encode(generic);
 }
 
-static std::string styled_name(const Entry& e, const Options& opt) {
+static std::string styled_name(const Entry& e, const Config& opt) {
     std::string label = base_display_name(e, opt);
     std::string out;
     const ThemeColors& theme = active_theme();
-    if (opt.hyperlink) {
+    if (opt.hyperlink()) {
         out += "\x1b]8;;";
         out += file_uri(e.info.path);
         out += "\x1b\\";
     }
-    if (!opt.no_color && !e.info.color_fg.empty()) out += e.info.color_fg;
+    if (!opt.no_color() && !e.info.color_fg.empty()) out += e.info.color_fg;
     out += label;
-    if (!opt.no_color && !e.info.color_fg.empty()) {
+    if (!opt.no_color() && !e.info.color_fg.empty()) {
         if (!e.info.color_reset.empty()) {
             out += e.info.color_reset;
         } else {
             out += theme.reset;
         }
     }
-    if (opt.hyperlink) {
+    if (opt.hyperlink()) {
         out += "\x1b]8;;\x1b\\";
     }
     return out;
 }
 
-static uintmax_t effective_block_unit(const Options& opt) {
-    if (opt.block_size_specified) {
-        return opt.block_size == 0 ? 1 : opt.block_size;
+static uintmax_t effective_block_unit(const Config& opt) {
+    if (opt.block_size_specified()) {
+        return opt.block_size() == 0 ? 1 : opt.block_size();
     }
     return 1024;
 }
 
-static std::string block_display(const Entry& e, const Options& opt) {
-    if (!opt.show_block_size) return {};
+static std::string block_display(const Entry& e, const Config& opt) {
+    if (!opt.show_block_size()) return {};
     uintmax_t block_bytes = effective_block_unit(opt);
     if (block_bytes == 0) block_bytes = 1;
     uintmax_t allocated = e.info.has_allocated_size ? e.info.allocated_size : e.info.size;
     uintmax_t blocks = block_bytes == 0 ? 0 : (allocated + block_bytes - 1) / block_bytes;
     std::string result = std::to_string(blocks);
-    if (opt.block_size_specified && opt.block_size_show_suffix && !opt.block_size_suffix.empty()) {
-        result += opt.block_size_suffix;
+    if (opt.block_size_specified() && opt.block_size_show_suffix() && !opt.block_size_suffix().empty()) {
+        result += opt.block_size_suffix();
     }
     return result;
 }
 
-static size_t compute_block_width(const std::vector<Entry>& v, const Options& opt) {
-    if (!opt.show_block_size) return 0;
+static size_t compute_block_width(const std::vector<Entry>& v, const Config& opt) {
+    if (!opt.show_block_size()) return 0;
     size_t width = 0;
     for (const auto& e : v) {
         std::string block = block_display(e, opt);
@@ -1077,27 +1077,27 @@ static size_t compute_block_width(const std::vector<Entry>& v, const Options& op
     return width;
 }
 
-static std::string format_size_value(uintmax_t size, const Options& opt) {
-    if (opt.block_size_specified) {
-        uintmax_t unit = opt.block_size == 0 ? 1 : opt.block_size;
+static std::string format_size_value(uintmax_t size, const Config& opt) {
+    if (opt.block_size_specified()) {
+        uintmax_t unit = opt.block_size() == 0 ? 1 : opt.block_size();
         uintmax_t scaled = unit == 0 ? size : (size + unit - 1) / unit;
         std::string result = std::to_string(scaled);
-        if (opt.block_size_show_suffix && !opt.block_size_suffix.empty()) {
-            result += opt.block_size_suffix;
+        if (opt.block_size_show_suffix() && !opt.block_size_suffix().empty()) {
+            result += opt.block_size_suffix();
         }
         return result;
     }
-    if (opt.bytes) return std::to_string(size);
+    if (opt.bytes()) return std::to_string(size);
     return GetSizeFormatter().FormatHumanReadable(size);
 }
 
-static void write_line_terminator(const Options& opt) {
-    std::cout.put(opt.zero_terminate ? '\0' : '\n');
+static void write_line_terminator(const Config& opt) {
+    std::cout.put(opt.zero_terminate() ? '\0' : '\n');
 }
 
-static int effective_terminal_width(const Options& opt) {
-    if (opt.output_width.has_value()) {
-        int value = *opt.output_width;
+static int effective_terminal_width(const Config& opt) {
+    if (opt.output_width().has_value()) {
+        int value = *opt.output_width();
         if (value <= 0) {
             return std::numeric_limits<int>::max();
         }
@@ -1106,7 +1106,7 @@ static int effective_terminal_width(const Options& opt) {
     return terminal_width();
 }
 
-static size_t printable_width(const std::string& s, const Options& opt) {
+static size_t printable_width(const std::string& s, const Config& opt) {
     // Heuristic: count UTF-8 code points, skipping ANSI and OSC escapes.
     size_t w = 0;
     for (size_t i = 0; i < s.size(); ) {
@@ -1137,7 +1137,7 @@ static size_t printable_width(const std::string& s, const Options& opt) {
         }
 
         if (c == '\t') {
-            int tab = opt.tab_size;
+            int tab = opt.tab_size();
             if (tab > 0) {
                 size_t tabsize = static_cast<size_t>(tab);
                 size_t remainder = w % tabsize;
@@ -1159,8 +1159,8 @@ static size_t printable_width(const std::string& s, const Options& opt) {
     return w;
 }
 
-static size_t compute_inode_width(const std::vector<Entry>& v, const Options& opt) {
-    if (!opt.show_inode) return 0;
+static size_t compute_inode_width(const std::vector<Entry>& v, const Config& opt) {
+    if (!opt.show_inode()) return 0;
     size_t width = 0;
     for (const auto& e : v) {
         std::string s = std::to_string(e.info.inode);
@@ -1170,13 +1170,13 @@ static size_t compute_inode_width(const std::vector<Entry>& v, const Options& op
 }
 
 static std::string format_entry_cell(const Entry& e,
-                                     const Options& opt,
+                                     const Config& opt,
                                      size_t inode_width,
                                      size_t block_width,
                                      bool include_git_prefix) {
     std::string out;
-    const ThemeColors* theme = opt.no_color ? nullptr : &active_theme();
-    if (opt.show_inode) {
+    const ThemeColors* theme = opt.no_color() ? nullptr : &active_theme();
+    if (opt.show_inode()) {
         std::string inode = std::to_string(e.info.inode);
         if (inode_width > inode.size()) out.append(inode_width - inode.size(), ' ');
         if (theme) {
@@ -1193,13 +1193,13 @@ static std::string format_entry_cell(const Entry& e,
         }
         out.push_back(' ');
     }
-    if (opt.show_block_size) {
+    if (opt.show_block_size()) {
         std::string block = block_display(e, opt);
         if (block_width > block.size()) out.append(block_width - block.size(), ' ');
         out += block;
         out.push_back(' ');
     }
-    if (include_git_prefix && opt.git_status && !e.info.git_prefix.empty()) {
+    if (include_git_prefix && opt.git_status() && !e.info.git_prefix.empty()) {
         out += e.info.git_prefix;
         out.push_back(' ');
     }
@@ -1218,7 +1218,7 @@ static std::string tree_prefix(const std::vector<bool>& branches, bool is_last) 
 }
 
 static void print_tree_nodes(const std::vector<TreeItem>& nodes,
-                             const Options& opt,
+                             const Config& opt,
                              size_t inode_width,
                              size_t block_width,
                              std::vector<bool>& branch_stack,
@@ -1227,7 +1227,7 @@ static void print_tree_nodes(const std::vector<TreeItem>& nodes,
         const TreeItem& node = nodes[i];
         bool is_last = (i + 1 == nodes.size());
         std::string prefix = tree_prefix(branch_stack, is_last);
-        std::cout << apply_color(theme.get("tree"), prefix, theme, opt.no_color);
+        std::cout << apply_color(theme.get("tree"), prefix, theme, opt.no_color());
         std::cout << format_entry_cell(node.entry, opt, inode_width, block_width, true);
         write_line_terminator(opt);
         if (!node.children.empty()) {
@@ -1239,7 +1239,7 @@ static void print_tree_nodes(const std::vector<TreeItem>& nodes,
 }
 
 static void print_tree_view(const std::vector<TreeItem>& nodes,
-                            const Options& opt,
+                            const Config& opt,
                             size_t inode_width,
                             size_t block_width) {
     std::vector<bool> branch_stack;
@@ -1248,14 +1248,14 @@ static void print_tree_view(const std::vector<TreeItem>& nodes,
 }
 
 static void print_long(const std::vector<Entry>& v,
-                       const Options& opt,
+                       const Config& opt,
                        size_t inode_width,
                        size_t block_width) {
     constexpr size_t perm_width = 10;
     const ThemeColors& theme = active_theme();
 
     auto owner_display = [&](const Entry& entry) -> std::string {
-        if (opt.numeric_uid_gid) {
+        if (opt.numeric_uid_gid()) {
             if (entry.info.has_owner_numeric) {
                 return entry.info.owner_numeric;
             }
@@ -1276,7 +1276,7 @@ static void print_long(const std::vector<Entry>& v,
     };
 
     auto group_display = [&](const Entry& entry) -> std::string {
-        if (opt.numeric_uid_gid) {
+        if (opt.numeric_uid_gid()) {
             if (entry.info.has_group_numeric) {
                 return entry.info.group_numeric;
             }
@@ -1299,28 +1299,28 @@ static void print_long(const std::vector<Entry>& v,
     // Determine column widths for metadata
     size_t w_owner = 0, w_group = 0, w_size = 0, w_nlink = 0, w_time = 0, w_git = 0, w_blocks = block_width;
     for (const auto& e : v) {
-        if (opt.show_owner) w_owner = std::max(w_owner, owner_display(e).size());
-        if (opt.show_group) w_group = std::max(w_group, group_display(e).size());
+        if (opt.show_owner()) w_owner = std::max(w_owner, owner_display(e).size());
+        if (opt.show_group()) w_group = std::max(w_group, group_display(e).size());
         w_nlink = std::max(w_nlink, std::to_string(e.info.nlink).size());
         std::string size_str = format_size_value(e.info.size, opt);
         w_size = std::max(w_size, size_str.size());
         std::string time_str = GetTimeFormatter().Format(e.info.mtime, opt);
         w_time = std::max(w_time, time_str.size());
-        if (opt.git_status) {
+        if (opt.git_status()) {
             w_git = std::max(w_git, printable_width(e.info.git_prefix, opt));
         }
-        if (opt.show_block_size) {
+        if (opt.show_block_size()) {
             std::string block = block_display(e, opt);
             w_blocks = std::max(w_blocks, block.size());
         }
     }
 
-    const std::string inode_color = opt.no_color ? std::string() : theme.get("inode");
+    const std::string inode_color = opt.no_color() ? std::string() : theme.get("inode");
     const std::string links_color = inode_color;
-    const std::string owner_color = opt.no_color ? std::string() : theme.get("owned");
-    const std::string group_color = opt.no_color ? std::string() : theme.get("group");
+    const std::string owner_color = opt.no_color() ? std::string() : theme.get("owned");
+    const std::string group_color = opt.no_color() ? std::string() : theme.get("group");
 
-    const std::string size_header = opt.bytes ? "Length" : "Size";
+    const std::string size_header = opt.bytes() ? "Length" : "Size";
     const std::string links_header = "Links";
     const std::string owner_header = "Owner";
     const std::string group_header = "Group";
@@ -1343,76 +1343,76 @@ static void print_long(const std::vector<Entry>& v,
             oss << std::setw(static_cast<int>(width));
         }
         oss << text;
-        return apply_color(header_color, oss.str(), theme, opt.no_color);
+        return apply_color(header_color, oss.str(), theme, opt.no_color());
     };
     auto format_simple_header = [&](const std::string& text) {
-        return apply_color(header_color, text, theme, opt.no_color);
+        return apply_color(header_color, text, theme, opt.no_color());
     };
 
-    if (opt.header) {
-        if (opt.show_inode) inode_width = std::max(inode_width, inode_header.size());
+    if (opt.header()) {
+        if (opt.show_inode()) inode_width = std::max(inode_width, inode_header.size());
         w_nlink = std::max(w_nlink, links_header.size());
-        if (opt.show_owner) w_owner = std::max(w_owner, owner_header.size());
-        if (opt.show_group) w_group = std::max(w_group, group_header.size());
+        if (opt.show_owner()) w_owner = std::max(w_owner, owner_header.size());
+        if (opt.show_group()) w_group = std::max(w_group, group_header.size());
         w_size = std::max(w_size, size_header.size());
         w_time = std::max(w_time, time_header.size());
-        if (opt.show_block_size) w_blocks = std::max(w_blocks, blocks_header.size());
-        if (opt.git_status) w_git = std::max(w_git, git_header.size());
+        if (opt.show_block_size()) w_blocks = std::max(w_blocks, blocks_header.size());
+        if (opt.git_status()) w_git = std::max(w_git, git_header.size());
     }
 
-    if (opt.header) {
-        if (opt.show_inode) {
+    if (opt.header()) {
+        if (opt.show_inode()) {
             std::cout << format_header_cell(inode_header, inode_width, HeaderAlign::Right) << ' ';
         }
-        if (opt.show_block_size) {
+        if (opt.show_block_size()) {
             std::cout << format_header_cell(blocks_header, w_blocks, HeaderAlign::Right) << ' ';
         }
         std::cout << format_header_cell("Mode", perm_width, HeaderAlign::Left) << ' ';
         std::cout << format_header_cell(links_header, w_nlink, HeaderAlign::Right) << ' ';
-        if (opt.show_owner) {
+        if (opt.show_owner()) {
             std::cout << format_header_cell(owner_header, w_owner, HeaderAlign::Left) << ' ';
         }
-        if (opt.show_group) {
+        if (opt.show_group()) {
             std::cout << format_header_cell(group_header, w_group, HeaderAlign::Left) << ' ';
         }
         std::cout << format_header_cell(size_header, w_size, HeaderAlign::Right) << ' ';
         std::cout << format_header_cell(time_header, w_time, HeaderAlign::Left) << ' ';
-        if (opt.git_status) {
+        if (opt.git_status()) {
             std::cout << format_header_cell(git_header, w_git, HeaderAlign::Left) << ' ';
         }
         std::cout << format_simple_header(name_header) << "\n";
 
-        if (opt.show_inode) {
+        if (opt.show_inode()) {
             std::cout << std::string(inode_width, '-') << ' ';
         }
-        if (opt.show_block_size) {
+        if (opt.show_block_size()) {
             std::cout << std::string(w_blocks, '-') << ' ';
         }
         std::cout << std::string(perm_width, '-') << ' ';
         std::cout << std::string(w_nlink, '-') << ' ';
-        if (opt.show_owner) std::cout << std::string(w_owner, '-') << ' ';
-        if (opt.show_group) std::cout << std::string(w_group, '-') << ' ';
+        if (opt.show_owner()) std::cout << std::string(w_owner, '-') << ' ';
+        if (opt.show_group()) std::cout << std::string(w_group, '-') << ' ';
         std::cout << std::string(w_size, '-') << ' ';
         std::cout << std::string(w_time, '-') << ' ';
-        if (opt.git_status) std::cout << std::string(w_git, '-') << ' ';
+        if (opt.git_status()) std::cout << std::string(w_git, '-') << ' ';
         std::cout << std::string(name_header.size(), '-') << "\n";
     }
 
     for (const auto& e : v) {
-        if (opt.show_inode) {
+        if (opt.show_inode()) {
             std::cout << std::right;
             if (!inode_color.empty()) std::cout << inode_color;
             std::cout << std::setw(static_cast<int>(inode_width)) << e.info.inode;
             if (!inode_color.empty()) std::cout << theme.reset;
             std::cout << ' ';
         }
-        if (opt.show_block_size) {
+        if (opt.show_block_size()) {
             std::string block = block_display(e, opt);
             std::cout << std::right << std::setw(static_cast<int>(w_blocks)) << block << ' ';
         }
 
-        std::string perm = GetPermissionFormatter().Format(fs::directory_entry(e.info.path), e.info.is_symlink, opt.dereference);
-        std::cout << GetPermissionFormatter().Colorize(perm, opt.no_color) << ' ';
+        std::string perm = GetPermissionFormatter().Format(fs::directory_entry(e.info.path), e.info.is_symlink, opt.dereference());
+        std::cout << GetPermissionFormatter().Colorize(perm, opt.no_color()) << ' ';
 
         std::cout << std::right;
         if (!links_color.empty()) std::cout << links_color;
@@ -1420,14 +1420,14 @@ static void print_long(const std::vector<Entry>& v,
         if (!links_color.empty()) std::cout << theme.reset;
         std::cout << ' ';
 
-        if (opt.show_owner) {
+        if (opt.show_owner()) {
             std::string owner_text = owner_display(e);
             if (!owner_color.empty()) std::cout << owner_color;
             std::cout << std::left << std::setw(static_cast<int>(w_owner)) << owner_text;
             if (!owner_color.empty()) std::cout << theme.reset;
             std::cout << ' ';
         }
-        if (opt.show_group) {
+        if (opt.show_group()) {
             std::string group_text = group_display(e);
             if (!group_color.empty()) std::cout << group_color;
             std::cout << std::left << std::setw(static_cast<int>(w_group)) << group_text;
@@ -1436,16 +1436,16 @@ static void print_long(const std::vector<Entry>& v,
         }
 
         std::string size_str = format_size_value(e.info.size, opt);
-        std::string size_col = opt.no_color ? std::string() : size_color(e.info.size, theme);
+        std::string size_col = opt.no_color() ? std::string() : size_color(e.info.size, theme);
         if (!size_col.empty()) std::cout << size_col;
         std::cout << std::right << std::setw(static_cast<int>(w_size)) << size_str;
         if (!size_col.empty()) std::cout << theme.reset;
         std::cout << ' ';
 
         std::string time_str = GetTimeFormatter().Format(e.info.mtime, opt);
-        std::string time_col = opt.no_color ? std::string() : age_color(e.info.mtime, theme);
+        std::string time_col = opt.no_color() ? std::string() : age_color(e.info.mtime, theme);
         if (!time_col.empty()) std::cout << time_col;
-        if (opt.header) {
+        if (opt.header()) {
             std::cout << std::left << std::setw(static_cast<int>(w_time)) << time_str;
         } else {
             std::cout << time_str;
@@ -1453,8 +1453,8 @@ static void print_long(const std::vector<Entry>& v,
         if (!time_col.empty()) std::cout << theme.reset;
         std::cout << ' ';
 
-        if (opt.git_status) {
-            if (opt.header) {
+        if (opt.git_status()) {
+            if (opt.header()) {
                 std::cout << e.info.git_prefix;
                 size_t git_width = printable_width(e.info.git_prefix, opt);
                 if (w_git > git_width) {
@@ -1483,7 +1483,7 @@ static void print_long(const std::vector<Entry>& v,
                 target_str = apply_quoting(target_str, opt);
                 const char* arrow = "  \xE2\x87\x92 ";
                 bool broken = e.info.is_broken_symlink;
-                bool use_color = !opt.no_color;
+                bool use_color = !opt.no_color();
                 std::string link_color;
                 if (use_color) {
                     link_color = broken ? theme.get("dead_link") : theme.get("link");
@@ -1505,7 +1505,7 @@ static void print_long(const std::vector<Entry>& v,
 }
 
 static void print_columns(const std::vector<Entry>& v,
-                          const Options& opt,
+                          const Config& opt,
                           size_t inode_width,
                           size_t block_width) {
     struct Cell { std::string text; size_t width; };
@@ -1536,7 +1536,7 @@ static void print_columns(const std::vector<Entry>& v,
     for (size_t r = 0; r < rows; ++r) {
         for (size_t c = 0; c < per_row; ++c) {
             size_t idx;
-            if (opt.format == Options::Format::ColumnsHorizontal) {
+            if (opt.format() == Config::Format::ColumnsHorizontal) {
                 idx = r * per_row + c;
             } else {
                 idx = c * rows + r;
@@ -1546,7 +1546,7 @@ static void print_columns(const std::vector<Entry>& v,
             std::cout << cell.text;
 
             size_t next;
-            if (opt.format == Options::Format::ColumnsHorizontal) {
+            if (opt.format() == Config::Format::ColumnsHorizontal) {
                 next = r * per_row + (c + 1);
             } else {
                 next = (c + 1) * rows + r;
@@ -1562,7 +1562,7 @@ static void print_columns(const std::vector<Entry>& v,
 }
 
 static void print_comma_separated(const std::vector<Entry>& v,
-                                  const Options& opt,
+                                  const Config& opt,
                                   size_t inode_width,
                                   size_t block_width) {
     if (v.empty()) {
@@ -1604,17 +1604,17 @@ static void print_comma_separated(const std::vector<Entry>& v,
     write_line_terminator(opt);
 }
 
-static VisitResult list_path(const fs::path& p, const Options& opt) {
+static VisitResult list_path(const fs::path& p, const Config& opt) {
     std::error_code dir_ec;
     bool is_directory = fs::is_directory(p, dir_ec);
     (void)dir_ec;
     const ThemeColors& theme = active_theme();
     VisitResult status = VisitResult::Ok;
 
-    if (opt.tree) {
+    if (opt.tree()) {
         std::vector<Entry> flat;
         if (is_directory) {
-            if (opt.paths.size() > 1) {
+            if (opt.paths().size() > 1) {
                 std::cout << p.string() << ':';
                 write_line_terminator(opt);
             }
@@ -1645,17 +1645,17 @@ static VisitResult list_path(const fs::path& p, const Options& opt) {
             }
         }
 
-        if (opt.report != Options::Report::None) {
+        if (opt.report() != Config::Report::None) {
             ReportStats stats = compute_report_stats(flat);
             std::cout << "\n";
-            if (opt.report == Options::Report::Long) {
+            if (opt.report() == Config::Report::Long) {
                 print_report_long(stats, opt);
             } else {
                 print_report_short(stats, opt);
             }
         }
 
-        if (opt.paths.size() > 1) write_line_terminator(opt);
+        if (opt.paths().size() > 1) write_line_terminator(opt);
         return status;
     }
 
@@ -1668,7 +1668,7 @@ static VisitResult list_path(const fs::path& p, const Options& opt) {
     apply_git_status(items, is_directory ? p : p.parent_path(), opt);
     sort_entries(items, opt);
 
-    if (opt.header && opt.format == Options::Format::Long) {
+    if (opt.header() && opt.format() == Config::Format::Long) {
         std::error_code ec;
         fs::path absolute_path = fs::absolute(p, ec);
         fs::path header_path;
@@ -1693,46 +1693,46 @@ static VisitResult list_path(const fs::path& p, const Options& opt) {
                 header_str.pop_back();
             }
         }
-        std::string colored_header = apply_color(theme.get("header_directory"), header_str, theme, opt.no_color);
+        std::string colored_header = apply_color(theme.get("header_directory"), header_str, theme, opt.no_color());
         std::cout << "\nDirectory: " << colored_header << "\n\n";
-    } else if (opt.paths.size() > 1 && is_directory) {
+    } else if (opt.paths().size() > 1 && is_directory) {
         std::cout << p.string() << ':';
         write_line_terminator(opt);
     }
 
     size_t inode_width = compute_inode_width(items, opt);
     size_t block_width = compute_block_width(items, opt);
-    switch (opt.format) {
-        case Options::Format::Long:
+    switch (opt.format()) {
+        case Config::Format::Long:
             print_long(items, opt, inode_width, block_width);
             break;
-        case Options::Format::SingleColumn:
+        case Config::Format::SingleColumn:
             for (const auto& e : items) {
                 std::cout << format_entry_cell(e, opt, inode_width, block_width, true);
                 write_line_terminator(opt);
             }
             break;
-        case Options::Format::CommaSeparated:
+        case Config::Format::CommaSeparated:
             print_comma_separated(items, opt, inode_width, block_width);
             break;
-        case Options::Format::ColumnsHorizontal:
-        case Options::Format::ColumnsVertical:
+        case Config::Format::ColumnsHorizontal:
+        case Config::Format::ColumnsVertical:
         default:
             print_columns(items, opt, inode_width, block_width);
             break;
     }
 
-    if (opt.report != Options::Report::None) {
+    if (opt.report() != Config::Report::None) {
         ReportStats stats = compute_report_stats(items);
         std::cout << "\n";
-        if (opt.report == Options::Report::Long) {
+        if (opt.report() == Config::Report::Long) {
             print_report_long(stats, opt);
         } else {
             print_report_short(stats, opt);
         }
     }
 
-    if (opt.paths.size() > 1) write_line_terminator(opt);
+    if (opt.paths().size() > 1) write_line_terminator(opt);
     return status;
 }
 
@@ -1744,21 +1744,22 @@ int main(int argc, char** argv) {
     init_resource_paths(argc > 0 ? argv[0] : nullptr);
     load_color_themes();
     CommandLineParser parser;
-    Options opt = parser.Parse(argc, argv);
+    Config& config = parser.Parse(argc, argv);
+    const Config& opt = config;
     ColorScheme scheme = ColorScheme::Dark;
-    switch (opt.color_theme) {
-        case Options::ColorTheme::Light:
+    switch (opt.color_theme()) {
+        case Config::ColorTheme::Light:
             scheme = ColorScheme::Light;
             break;
-        case Options::ColorTheme::Dark:
-        case Options::ColorTheme::Default:
+        case Config::ColorTheme::Dark:
+        case Config::ColorTheme::Default:
         default:
             scheme = ColorScheme::Dark;
             break;
     }
     set_active_theme(scheme);
     VisitResult rc = VisitResult::Ok;
-    for (auto& p : opt.paths) {
+    for (const auto& p : opt.paths()) {
         VisitResult path_result = VisitResult::Ok;
         try {
             path_result = list_path(std::filesystem::path(p), opt);

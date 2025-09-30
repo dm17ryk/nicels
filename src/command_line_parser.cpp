@@ -130,21 +130,21 @@ std::optional<CommandLineParser::SizeSpec> CommandLineParser::ParseSizeSpec(cons
     return spec;
 }
 
-const std::map<std::string, Options::QuotingStyle>& CommandLineParser::QuotingStyleMap() const {
-    static const std::map<std::string, Options::QuotingStyle> map{
-        {"literal", Options::QuotingStyle::Literal},
-        {"locale", Options::QuotingStyle::Locale},
-        {"shell", Options::QuotingStyle::Shell},
-        {"shell-always", Options::QuotingStyle::ShellAlways},
-        {"shell-escape", Options::QuotingStyle::ShellEscape},
-        {"shell-escape-always", Options::QuotingStyle::ShellEscapeAlways},
-        {"c", Options::QuotingStyle::C},
-        {"escape", Options::QuotingStyle::Escape},
+const std::map<std::string, Config::QuotingStyle>& CommandLineParser::QuotingStyleMap() const {
+    static const std::map<std::string, Config::QuotingStyle> map{
+        {"literal", Config::QuotingStyle::Literal},
+        {"locale", Config::QuotingStyle::Locale},
+        {"shell", Config::QuotingStyle::Shell},
+        {"shell-always", Config::QuotingStyle::ShellAlways},
+        {"shell-escape", Config::QuotingStyle::ShellEscape},
+        {"shell-escape-always", Config::QuotingStyle::ShellEscapeAlways},
+        {"c", Config::QuotingStyle::C},
+        {"escape", Config::QuotingStyle::Escape},
     };
     return map;
 }
 
-std::optional<Options::QuotingStyle> CommandLineParser::ParseQuotingStyleWord(std::string word) const {
+std::optional<Config::QuotingStyle> CommandLineParser::ParseQuotingStyleWord(std::string word) const {
     word = StringUtils::ToLower(std::move(word));
     const auto& mapping = QuotingStyleMap();
     auto it = mapping.find(word);
@@ -154,11 +154,14 @@ std::optional<Options::QuotingStyle> CommandLineParser::ParseQuotingStyleWord(st
     return std::nullopt;
 }
 
-Options CommandLineParser::Parse(int argc, char** argv) {
+Config& CommandLineParser::Parse(int argc, char** argv) {
+
+    Config& options = Config::Instance();
+    options.Reset();
 
     if (const char* env = std::getenv("QUOTING_STYLE")) {
         if (auto style = ParseQuotingStyleWord(env)) {
-            options.quoting_style = *style;
+            options.set_quoting_style(*style);
         }
     }
 
@@ -189,48 +192,48 @@ Exit status:
  2  if serious trouble (e.g., cannot access command-line argument).)"
     );
 
-    program.add_option("paths", options.paths, "paths to list")->type_name("PATH");
+    program.add_option("paths", options.mutable_paths(), "paths to list")->type_name("PATH");
 
-    const std::map<std::string, Options::Format> format_map{
-        {"long", Options::Format::Long},
-        {"l", Options::Format::Long},
-        {"single-column", Options::Format::SingleColumn},
-        {"single", Options::Format::SingleColumn},
-        {"1", Options::Format::SingleColumn},
-        {"across", Options::Format::ColumnsHorizontal},
-        {"horizontal", Options::Format::ColumnsHorizontal},
-        {"x", Options::Format::ColumnsHorizontal},
-        {"vertical", Options::Format::ColumnsVertical},
-        {"columns", Options::Format::ColumnsVertical},
-        {"column", Options::Format::ColumnsVertical},
-        {"c", Options::Format::ColumnsVertical},
-        {"comma", Options::Format::CommaSeparated},
-        {"commas", Options::Format::CommaSeparated},
-        {"m", Options::Format::CommaSeparated},
+    const std::map<std::string, Config::Format> format_map{
+        {"long", Config::Format::Long},
+        {"l", Config::Format::Long},
+        {"single-column", Config::Format::SingleColumn},
+        {"single", Config::Format::SingleColumn},
+        {"1", Config::Format::SingleColumn},
+        {"across", Config::Format::ColumnsHorizontal},
+        {"horizontal", Config::Format::ColumnsHorizontal},
+        {"x", Config::Format::ColumnsHorizontal},
+        {"vertical", Config::Format::ColumnsVertical},
+        {"columns", Config::Format::ColumnsVertical},
+        {"column", Config::Format::ColumnsVertical},
+        {"c", Config::Format::ColumnsVertical},
+        {"comma", Config::Format::CommaSeparated},
+        {"commas", Config::Format::CommaSeparated},
+        {"m", Config::Format::CommaSeparated},
     };
 
-    const std::map<std::string, Options::Sort> sort_map{
-        {"none", Options::Sort::None},
-        {"name", Options::Sort::Name},
-        {"time", Options::Sort::Time},
-        {"mtime", Options::Sort::Time},
-        {"size", Options::Sort::Size},
-        {"extension", Options::Sort::Extension},
-        {"ext", Options::Sort::Extension},
+    const std::map<std::string, Config::Sort> sort_map{
+        {"none", Config::Sort::None},
+        {"name", Config::Sort::Name},
+        {"time", Config::Sort::Time},
+        {"mtime", Config::Sort::Time},
+        {"size", Config::Sort::Size},
+        {"extension", Config::Sort::Extension},
+        {"ext", Config::Sort::Extension},
     };
 
-    const std::map<std::string, Options::IndicatorStyle> indicator_map{
-        {"slash", Options::IndicatorStyle::Slash},
-        {"slashes", Options::IndicatorStyle::Slash},
-        {"none", Options::IndicatorStyle::None},
-        {"off", Options::IndicatorStyle::None},
+    const std::map<std::string, Config::IndicatorStyle> indicator_map{
+        {"slash", Config::IndicatorStyle::Slash},
+        {"slashes", Config::IndicatorStyle::Slash},
+        {"none", Config::IndicatorStyle::None},
+        {"off", Config::IndicatorStyle::None},
     };
 
     const auto& quoting_map = QuotingStyleMap();
 
-    const std::map<std::string, Options::Report> report_map{
-        {"long", Options::Report::Long},
-        {"short", Options::Report::Short},
+    const std::map<std::string, Config::Report> report_map{
+        {"long", Config::Report::Long},
+        {"short", Config::Report::Short},
     };
 
     enum class ColorMode { Auto, Always, Never };
@@ -241,16 +244,17 @@ Exit status:
     };
 
     auto layout = program.add_option_group("Layout options");
-    layout->add_flag_callback("-l,--long", [&]() { options.format = Options::Format::Long; },
+    layout->add_flag_callback("-l,--long", [&]() { options.set_format(Config::Format::Long); },
         "use a long listing format");
-    layout->add_flag_callback("-1,--one-per-line", [&]() { options.format = Options::Format::SingleColumn; },
+    layout->add_flag_callback("-1,--one-per-line", [&]() { options.set_format(Config::Format::SingleColumn); },
         "list one file per line");
-    layout->add_flag_callback("-x", [&]() { options.format = Options::Format::ColumnsHorizontal; },
+    layout->add_flag_callback("-x", [&]() { options.set_format(Config::Format::ColumnsHorizontal); },
         "list entries by lines instead of by columns");
-    layout->add_flag_callback("-C", [&]() { options.format = Options::Format::ColumnsVertical; },
+    layout->add_flag_callback("-C", [&]() { options.set_format(Config::Format::ColumnsVertical); },
         "list entries by columns instead of by lines");
 
-    auto format_option = layout->add_option("--format", options.format,
+    auto format_option = layout->add_option_function<Config::Format>("--format",
+        [&](const Config::Format& format) { options.set_format(format); },
         R"(use format: across (-x), horizontal (-x),
 long (-l), single-column (-1), vertical (-C)
 or comma (-m) (default: vertical))");
@@ -258,9 +262,9 @@ or comma (-m) (default: vertical))");
     format_option->transform(CLI::CheckedTransformer(format_map, CLI::ignore_case).description(""));
     format_option->default_str("vertical");
 
-    layout->add_flag_callback("--header", [&]() { options.header = true; },
+    layout->add_flag_callback("--header", [&]() { options.set_header(true); },
         "print directory header and column names in long listing");
-    layout->add_flag_callback("-m", [&]() { options.format = Options::Format::CommaSeparated; },
+    layout->add_flag_callback("-m", [&]() { options.set_format(Config::Format::CommaSeparated); },
         "fill width with a comma separated list of entries");
 
     auto tab_option = layout->add_option_function<int>("-T,--tabsize",
@@ -268,7 +272,7 @@ or comma (-m) (default: vertical))");
             if (cols < 0) {
                 throw CLI::ValidationError("--tabsize", "COLS must be non-negative");
             }
-            options.tab_size = cols;
+            options.set_tab_size(cols);
         },
         "assume tab stops at each COLS instead of 8");
     tab_option->type_name("COLS");
@@ -279,7 +283,7 @@ or comma (-m) (default: vertical))");
             if (cols < 0) {
                 throw CLI::ValidationError("--width", "COLS must be non-negative");
             }
-            options.output_width = cols;
+            options.set_output_width(cols);
         },
         "set output width to COLS.  0 means no limit");
     width_option->type_name("COLS");
@@ -290,16 +294,16 @@ or comma (-m) (default: vertical))");
             if (depth == 0) {
                 throw CLI::ValidationError("--tree", "DEPTH must be greater than zero");
             }
-            options.tree = true;
-            options.tree_depth = depth;
+            options.set_tree(true);
+            options.set_tree_depth(depth);
         },
         "show tree view of directories, optionally limited to DEPTH");
     tree_option->type_name("DEPTH");
     tree_option->expected(1);
 
-    auto report_option = layout->add_option_function<Options::Report>("--report",
-        [&](const Options::Report& report) {
-            options.report = report;
+    auto report_option = layout->add_option_function<Config::Report>("--report",
+        [&](const Config::Report& report) {
+            options.set_report(report);
         },
         R"(show summary report: short, long (default: long)
  )");
@@ -308,47 +312,48 @@ or comma (-m) (default: vertical))");
     report_option->transform(CLI::CheckedTransformer(report_map, CLI::ignore_case).description(""));
     report_option->default_str("long");
 
-    layout->add_flag_callback("--zero", [&]() { options.zero_terminate = true; },
+    layout->add_flag_callback("--zero", [&]() { options.set_zero_terminate(true); },
         "end each output line with NUL, not newline");
 
     auto filtering = program.add_option_group("Filtering options");
-    filtering->add_flag_callback("-a,--all", [&]() { options.all = true; },
+    filtering->add_flag_callback("-a,--all", [&]() { options.set_all(true); },
         "do not ignore entries starting with .");
-    filtering->add_flag_callback("-A,--almost-all", [&]() { options.almost_all = true; },
+    filtering->add_flag_callback("-A,--almost-all", [&]() { options.set_almost_all(true); },
         "do not list . and ..");
     filtering->add_flag_callback("-d,--dirs", [&]() {
-        options.dirs_only = true;
-        options.files_only = false;
+        options.set_dirs_only(true);
+        options.set_files_only(false);
     }, "show only directories");
     filtering->add_flag_callback("-f,--files", [&]() {
-        options.files_only = true;
-        options.dirs_only = false;
+        options.set_files_only(true);
+        options.set_dirs_only(false);
     }, "show only files");
-    filtering->add_flag_callback("-B,--ignore-backups", [&]() { options.ignore_backups = true; },
+    filtering->add_flag_callback("-B,--ignore-backups", [&]() { options.set_ignore_backups(true); },
         "do not list implied entries ending with ~");
 
-    auto hide_option = filtering->add_option("--hide", options.hide_patterns,
+    auto hide_option = filtering->add_option("--hide", options.mutable_hide_patterns(),
         R"(do not list implied entries matching shell
 PATTERN (overridden by -a or -A))");
     hide_option->type_name("PATTERN");
 
-    auto ignore_option = filtering->add_option("-I,--ignore", options.ignore_patterns,
+    auto ignore_option = filtering->add_option("-I,--ignore", options.mutable_ignore_patterns(),
         "do not list implied entries matching shell PATTERN");
     ignore_option->type_name("PATTERN");
 
     auto sorting = program.add_option_group("Sorting options");
-    sorting->add_flag_callback("-t", [&]() { options.sort = Options::Sort::Time; },
+    sorting->add_flag_callback("-t", [&]() { options.set_sort(Config::Sort::Time); },
         "sort by modification time, newest first");
-    sorting->add_flag_callback("-S", [&]() { options.sort = Options::Sort::Size; },
+    sorting->add_flag_callback("-S", [&]() { options.set_sort(Config::Sort::Size); },
         "sort by file size, largest first");
-    sorting->add_flag_callback("-X", [&]() { options.sort = Options::Sort::Extension; },
+    sorting->add_flag_callback("-X", [&]() { options.set_sort(Config::Sort::Extension); },
         "sort by file extension");
-    sorting->add_flag_callback("-U", [&]() { options.sort = Options::Sort::None; },
+    sorting->add_flag_callback("-U", [&]() { options.set_sort(Config::Sort::None); },
         "do not sort; list entries in directory order");
-    sorting->add_flag_callback("-r,--reverse", [&]() { options.reverse = true; },
+    sorting->add_flag_callback("-r,--reverse", [&]() { options.set_reverse(true); },
         "reverse order while sorting");
 
-    auto sort_option = sorting->add_option("--sort", options.sort,
+    auto sort_option = sorting->add_option_function<Config::Sort>("--sort",
+        [&](const Config::Sort& sort) { options.set_sort(sort); },
         R"(sort by WORD instead of name: none, size,
 time, extension (default: name))");
     sort_option->type_name("WORD");
@@ -356,25 +361,26 @@ time, extension (default: name))");
     sort_option->default_str("name");
 
     sorting->add_flag_callback("--group-directories-first,--sd,--sort-dirs", [&]() {
-        options.group_dirs_first = true;
-        options.sort_files_first = false;
+        options.set_group_dirs_first(true);
+        options.set_sort_files_first(false);
     }, "sort directories before files");
     sorting->add_flag_callback("--sf,--sort-files", [&]() {
-        options.sort_files_first = true;
-        options.group_dirs_first = false;
+        options.set_sort_files_first(true);
+        options.set_group_dirs_first(false);
     }, "sort files first");
-    sorting->add_flag_callback("--df,--dots-first", [&]() { options.dots_first = true; },
+    sorting->add_flag_callback("--df,--dots-first", [&]() { options.set_dots_first(true); },
         "sort dot-files and dot-folders first");
 
     auto appearance = program.add_option_group("Appearance options");
-    appearance->add_flag_callback("-b,--escape", [&]() { options.quoting_style = Options::QuotingStyle::Escape; },
+    appearance->add_flag_callback("-b,--escape", [&]() { options.set_quoting_style(Config::QuotingStyle::Escape); },
         "print C-style escapes for nongraphic characters");
-    appearance->add_flag_callback("-N,--literal", [&]() { options.quoting_style = Options::QuotingStyle::Literal; },
+    appearance->add_flag_callback("-N,--literal", [&]() { options.set_quoting_style(Config::QuotingStyle::Literal); },
         "print entry names without quoting");
-    appearance->add_flag_callback("-Q,--quote-name", [&]() { options.quoting_style = Options::QuotingStyle::C; },
+    appearance->add_flag_callback("-Q,--quote-name", [&]() { options.set_quoting_style(Config::QuotingStyle::C); },
         "enclose entry names in double quotes");
 
-    auto quoting_option = appearance->add_option("--quoting-style", options.quoting_style,
+    auto quoting_option = appearance->add_option_function<Config::QuotingStyle>("--quoting-style",
+        [&](const Config::QuotingStyle& quoting) { options.set_quoting_style(quoting); },
         R"(use quoting style WORD for entry names:
 literal, locale, shell, shell-always, shell-escape,
 shell-escape-always, c, escape (default: literal))");
@@ -382,24 +388,25 @@ shell-escape-always, c, escape (default: literal))");
     quoting_option->transform(CLI::CheckedTransformer(quoting_map, CLI::ignore_case).description(""));
     quoting_option->default_str("literal");
 
-    appearance->add_flag_callback("-p", [&]() { options.indicator = Options::IndicatorStyle::Slash; },
+    appearance->add_flag_callback("-p", [&]() { options.set_indicator(Config::IndicatorStyle::Slash); },
         "append / indicator to directories");
 
-    auto indicator_option = appearance->add_option("--indicator-style", options.indicator,
+    auto indicator_option = appearance->add_option_function<Config::IndicatorStyle>("--indicator-style",
+        [&](const Config::IndicatorStyle& indicator) { options.set_indicator(indicator); },
         R"(append indicator with style STYLE to entry names:
 none, slash (-p) (default: slash))");
     indicator_option->type_name("STYLE");
     indicator_option->transform(CLI::CheckedTransformer(indicator_map, CLI::ignore_case).description(""));
     indicator_option->default_str("slash");
 
-    appearance->add_flag_callback("--no-icons,--without-icons", [&]() { options.no_icons = true; },
+    appearance->add_flag_callback("--no-icons,--without-icons", [&]() { options.set_no_icons(true); },
         "disable icons in output");
-    appearance->add_flag_callback("--no-color", [&]() { options.no_color = true; },
+    appearance->add_flag_callback("--no-color", [&]() { options.set_no_color(true); },
         "disable ANSI colors");
 
     auto color_option = appearance->add_option_function<ColorMode>("--color",
         [&](const ColorMode& color) {
-            options.no_color = (color == ColorMode::Never);
+            options.set_no_color(color == ColorMode::Never);
         },
         R"(colorize the output: auto, always,
 never (default: auto))");
@@ -407,45 +414,47 @@ never (default: auto))");
     color_option->transform(CLI::CheckedTransformer(color_map, CLI::ignore_case).description(""));
     color_option->default_str("auto");
 
-    appearance->add_flag_callback("--light", [&]() { options.color_theme = Options::ColorTheme::Light; },
+    appearance->add_flag_callback("--light", [&]() { options.set_color_theme(Config::ColorTheme::Light); },
         "use light color scheme");
-    appearance->add_flag_callback("--dark", [&]() { options.color_theme = Options::ColorTheme::Dark; },
+    appearance->add_flag_callback("--dark", [&]() { options.set_color_theme(Config::ColorTheme::Dark); },
         "use dark color scheme");
-    appearance->add_flag_callback("-q,--hide-control-chars", [&]() { options.hide_control_chars = true; },
+    appearance->add_flag_callback("-q,--hide-control-chars", [&]() { options.set_hide_control_chars(true); },
         "print ? instead of nongraphic characters");
-    appearance->add_flag_callback("--show-control-chars", [&]() { options.hide_control_chars = false; },
+    appearance->add_flag_callback("--show-control-chars", [&]() { options.set_hide_control_chars(false); },
         "show nongraphic characters as-is");
-    appearance->add_option("--time-style", options.time_style,
+    auto time_style_option = appearance->add_option_function<std::string>("--time-style",
+        [&](const std::string& style) { options.set_time_style(style); },
         R"(use time display format: default, locale,
 long-iso, full-iso, iso, iso8601,
-+FORMAT (default: locale))")->type_name("FORMAT");
+FORMAT (default: locale))");
+    time_style_option->type_name("FORMAT");
     appearance->add_flag_callback("--full-time", [&]() {
-        options.format = Options::Format::Long;
-        options.time_style = "full-iso";
+        options.set_format(Config::Format::Long);
+        options.set_time_style("full-iso");
     }, "like -l --time-style=full-iso");
-    appearance->add_flag_callback("--hyperlink", [&]() { options.hyperlink = true; },
+    appearance->add_flag_callback("--hyperlink", [&]() { options.set_hyperlink(true); },
         "emit hyperlinks for entries");
 
     auto information = program.add_option_group("Information options");
-    information->add_flag_callback("-i,--inode", [&]() { options.show_inode = true; },
+    information->add_flag_callback("-i,--inode", [&]() { options.set_show_inode(true); },
         "show inode number");
     information->add_flag_callback("-o", [&]() {
-        options.format = Options::Format::Long;
-        options.show_group = false;
+        options.set_format(Config::Format::Long);
+        options.set_show_group(false);
     }, "use a long listing format without group information");
     information->add_flag_callback("-g", [&]() {
-        options.format = Options::Format::Long;
-        options.show_owner = false;
+        options.set_format(Config::Format::Long);
+        options.set_show_owner(false);
     }, "use a long listing format without owner information");
-    information->add_flag_callback("-G,--no-group", [&]() { options.show_group = false; },
+    information->add_flag_callback("-G,--no-group", [&]() { options.set_show_group(false); },
         "show no group information in a long listing");
     information->add_flag_callback("-n,--numeric-uid-gid", [&]() {
-        options.format = Options::Format::Long;
-        options.numeric_uid_gid = true;
+        options.set_format(Config::Format::Long);
+        options.set_numeric_uid_gid(true);
     }, "like -l, but list numeric user and group IDs");
-    information->add_flag_callback("--bytes,--non-human-readable", [&]() { options.bytes = true; },
+    information->add_flag_callback("--bytes,--non-human-readable", [&]() { options.set_bytes(true); },
         "show file sizes in bytes");
-    information->add_flag_callback("-s,--size", [&]() { options.show_block_size = true; },
+    information->add_flag_callback("-s,--size", [&]() { options.set_show_block_size(true); },
         "print the allocated size of each file, in blocks");
 
     auto block_option = information->add_option_function<std::string>("--block-size",
@@ -454,18 +463,18 @@ long-iso, full-iso, iso, iso8601,
             if (!spec) {
                 throw CLI::ValidationError("--block-size", "invalid value '" + text + "'");
             }
-            options.block_size = spec->value;
-            options.block_size_specified = true;
-            options.block_size_show_suffix = spec->show_suffix;
-            options.block_size_suffix = spec->suffix;
+            options.set_block_size(spec->value);
+            options.set_block_size_specified(true);
+            options.set_block_size_show_suffix(spec->show_suffix);
+            options.set_block_size_suffix(spec->suffix);
         },
         "with -l, scale sizes by SIZE when printing them");
     block_option->type_name("SIZE");
 
-    information->add_flag_callback("-L,--dereference", [&]() { options.dereference = true; },
+    information->add_flag_callback("-L,--dereference", [&]() { options.set_dereference(true); },
         R"(when showing file information for a symbolic link,
 show information for the file the link references)");
-    information->add_flag_callback("--gs,--git-status", [&]() { options.git_status = true; },
+    information->add_flag_callback("--gs,--git-status", [&]() { options.set_git_status(true); },
         "show git status for each file");
 
     try {
@@ -474,11 +483,11 @@ show information for the file the link references)");
         std::exit(program.exit(e));
     }
 
-    if (options.paths.empty()) {
-        options.paths.push_back(".");
+    if (options.paths().empty()) {
+        options.mutable_paths().push_back(".");
     }
-    if (options.all) {
-        options.almost_all = false;
+    if (options.all()) {
+        options.set_almost_all(false);
     }
     return options;
 }

@@ -16,7 +16,7 @@ std::time_t TimeFormatter::ToTimeT(std::filesystem::file_time_type timestamp) co
 
 std::string TimeFormatter::Format(
     const std::filesystem::file_time_type& timestamp,
-    const Options& options) const
+    const Config& options) const
 {
     const std::time_t time_value = ToTimeT(timestamp);
     std::tm tm{};
@@ -37,12 +37,12 @@ std::string TimeFormatter::Format(
     return buffer;
 }
 
-std::string TimeFormatter::ResolveFormat(const Options& options) const {
-    if (options.time_style.empty() || options.time_style == "locale" || options.time_style == "default") {
+std::string TimeFormatter::ResolveFormat(const Config& options) const {
+    if (options.time_style().empty() || options.time_style() == "locale" || options.time_style() == "default") {
         return "%a %b %d %H:%M:%S %Y";
     }
 
-    std::string normalized = StringUtils::ToLower(options.time_style);
+    std::string normalized = StringUtils::ToLower(options.time_style());
     if (normalized == "long-iso") {
         return "%Y-%m-%d %H:%M";
     }
@@ -52,10 +52,10 @@ std::string TimeFormatter::ResolveFormat(const Options& options) const {
     if (normalized == "iso" || normalized == "iso8601") {
         return "%Y-%m-%d";
     }
-    if (!options.time_style.empty() && options.time_style.front() == '+') {
-        return options.time_style.substr(1);
+    if (!options.time_style().empty() && options.time_style().front() == '+') {
+        return options.time_style().substr(1);
     }
-    return options.time_style;
+    return options.time_style();
 }
 
 } // namespace nls
