@@ -2,7 +2,7 @@
 
 #include <cstdlib>
 
-#include "colors.h"
+#include "theme.h"
 #include "platform.h"
 
 namespace nls {
@@ -22,7 +22,8 @@ std::string ColorFormatter::ColorText(std::string_view text, std::string_view th
         return std::string(text);
     }
 
-    const ThemeColors& theme = active_theme();
+    Theme& theme_manager = Theme::instance();
+    const ThemeColors& theme = theme_manager.colors();
     const std::string color = theme.color_or(theme_key, fallback_color);
     return apply_color(color, text, theme, false);
 }

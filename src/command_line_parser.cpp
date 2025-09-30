@@ -20,7 +20,6 @@
 
 #include <CLI/CLI.hpp>
 
-#include "colors.h"
 #include "string_utils.h"
 #include "color_formatter.h"
 #include "platform.h"

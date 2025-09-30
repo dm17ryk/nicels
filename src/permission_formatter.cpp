@@ -8,7 +8,7 @@
 #include <windows.h>
 #endif
 
-#include "colors.h"
+#include "theme.h"
 
 namespace nls {
 
@@ -131,7 +131,7 @@ std::string PermissionFormatter::Colorize(const std::string& permissions, bool d
         return permissions;
     }
 
-    const ThemeColors& theme = active_theme();
+    const ThemeColors& theme = Theme::instance().colors();
     const std::string color_read = theme.color_or("read", "\x1b[32m");
     const std::string color_write = theme.color_or("write", "\x1b[31m");
     const std::string color_exec = theme.color_or("exec", "\x1b[33m");

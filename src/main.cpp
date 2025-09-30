@@ -55,9 +55,8 @@ typedef struct _REPARSE_DATA_BUFFER {
 #include "command_line_parser.h"
 #include "file_info.h"
 #include "file_ownership_resolver.h"
-#include "icons.h"
 #include "git_status.h"
-#include "colors.h"
+#include "theme.h"
 #include "resources.h"
 #include "size_formatter.h"
 #include "string_utils.h"
@@ -440,7 +439,8 @@ static VisitResult collect_entries(const fs::path& dir,
         return is_top_level ? VisitResult::Serious : VisitResult::Minor;
     }
 
-    const ThemeColors& theme_colors = active_theme();
+    Theme& theme_manager = Theme::instance();
+    const ThemeColors& theme_colors = theme_manager.colors();
 
     auto add_one = [&](const fs::directory_entry& de, std::string override_name = {}, bool is_explicit = false) {
         std::string name = override_name.empty() ? de.path().filename().string() : std::move(override_name);
@@ -556,7 +556,7 @@ static VisitResult collect_entries(const fs::path& dir,
         } else if (e.info.is_symlink && e.info.has_link_size) {
             e.info.size = e.info.link_size;
         }
-        IconResult icon = icon_for(e.info.name, e.info.is_dir, e.info.is_exec);
+        IconResult icon = theme_manager.get_icon(e.info.name, e.info.is_dir, e.info.is_exec);
         if (!opt.no_icons()) {
             e.info.icon = icon.icon;
         }
@@ -655,7 +655,8 @@ static std::string format_git_prefix(bool has_repo,
     bool saw_code = false;
     bool saw_visible = false;
     std::set<char> glyphs;
-    const ThemeColors& theme = active_theme();
+    Theme& theme_manager = Theme::instance();
+    const ThemeColors& theme = theme_manager.colors();
     std::string col_add = theme.color_or("addition", "\x1b[32m");
     std::string col_mod = theme.color_or("modification", "\x1b[33m");
     std::string col_del = theme.color_or("deletion", "\x1b[31m");
@@ -1031,7 +1032,7 @@ static std::string file_uri(const fs::path& path) {
 static std::string styled_name(const Entry& e, const Config& opt) {
     std::string label = base_display_name(e, opt);
     std::string out;
-    const ThemeColors& theme = active_theme();
+    const ThemeColors& theme = Theme::instance().colors();
     if (opt.hyperlink()) {
         out += "\x1b]8;;";
         out += file_uri(e.info.path);
@@ -1180,7 +1181,10 @@ static std::string format_entry_cell(const Entry& e,
                                      size_t block_width,
                                      bool include_git_prefix) {
     std::string out;
-    const ThemeColors* theme = opt.no_color() ? nullptr : &active_theme();
+    const ThemeColors* theme = nullptr;
+    if (!opt.no_color()) {
+        theme = &Theme::instance().colors();
+    }
     if (opt.show_inode()) {
         std::string inode = std::to_string(e.info.inode);
         if (inode_width > inode.size()) out.append(inode_width - inode.size(), ' ');
@@ -1248,7 +1252,7 @@ static void print_tree_view(const std::vector<TreeItem>& nodes,
                             size_t inode_width,
                             size_t block_width) {
     std::vector<bool> branch_stack;
-    const ThemeColors& theme = active_theme();
+    const ThemeColors& theme = Theme::instance().colors();
     print_tree_nodes(nodes, opt, inode_width, block_width, branch_stack, theme);
 }
 
@@ -1257,7 +1261,7 @@ static void print_long(const std::vector<Entry>& v,
                        size_t inode_width,
                        size_t block_width) {
     constexpr size_t perm_width = 10;
-    const ThemeColors& theme = active_theme();
+    const ThemeColors& theme = Theme::instance().colors();
 
     auto owner_display = [&](const Entry& entry) -> std::string {
         if (opt.numeric_uid_gid()) {
@@ -1613,7 +1617,7 @@ static VisitResult list_path(const fs::path& p, const Config& opt) {
     std::error_code dir_ec;
     bool is_directory = fs::is_directory(p, dir_ec);
     (void)dir_ec;
-    const ThemeColors& theme = active_theme();
+    const ThemeColors& theme = Theme::instance().colors();
     VisitResult status = VisitResult::Ok;
 
     if (opt.tree()) {
@@ -1747,7 +1751,6 @@ int main(int argc, char** argv) {
     using namespace nls;
     const bool virtual_terminal_enabled = Platform::enableVirtualTerminal();
     init_resource_paths(argc > 0 ? argv[0] : nullptr);
-    load_color_themes();
     CommandLineParser parser;
     Config& config = parser.Parse(argc, argv);
     if (!virtual_terminal_enabled) {
@@ -1765,7 +1768,7 @@ int main(int argc, char** argv) {
             scheme = ColorScheme::Dark;
             break;
     }
-    set_active_theme(scheme);
+    Theme::instance().initialize(scheme);
     VisitResult rc = VisitResult::Ok;
     for (const auto& p : opt.paths()) {
         VisitResult path_result = VisitResult::Ok;
