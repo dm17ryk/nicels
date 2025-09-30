@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -13,7 +14,21 @@ struct GitStatusResult {
     bool repository_found = false;
 };
 
-GitStatusResult get_git_status_for_dir(const std::filesystem::path& dir);
+class GitStatusImpl;
+
+class GitStatus {
+public:
+    GitStatus();
+    ~GitStatus();
+
+    GitStatus(const GitStatus&) = delete;
+    GitStatus& operator=(const GitStatus&) = delete;
+
+    GitStatusResult GetStatus(const std::filesystem::path& dir);
+
+private:
+    std::unique_ptr<GitStatusImpl> impl_;
+};
 
 } // namespace nls
 

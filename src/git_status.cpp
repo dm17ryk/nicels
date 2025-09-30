@@ -1,6 +1,8 @@
-#include <system_error>
-
 #include "git_status.h"
+
+#include <memory>
+#include <system_error>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -22,141 +24,267 @@ namespace fs = std::filesystem;
 
 namespace nls {
 
-#if NLS_USE_LIBGIT2
+class GitStatusImpl {
+public:
+    virtual ~GitStatusImpl() = default;
+    virtual GitStatusResult GetStatus(const fs::path& dir) = 0;
+};
 
-// Open a repository by searching upward from 'p'
-static bool repo_open_for_path(const fs::path& p, git_repository** out) {
-    git_libgit2_init();
-    fs::path dir = fs::is_directory(p) ? p : p.parent_path();
-    int rc = git_repository_open_ext(out, dir.string().c_str(),
-                                     GIT_REPOSITORY_OPEN_CROSS_FS | GIT_REPOSITORY_OPEN_FROM_ENV,
-                                     nullptr);
-    return rc == 0;
+#if NLS_USE_LIBGIT2
+namespace {
+
+struct RepositoryDeleter {
+    void operator()(git_repository* repo) const noexcept { git_repository_free(repo); }
+};
+
+struct StatusListDeleter {
+    void operator()(git_status_list* list) const noexcept { git_status_list_free(list); }
+};
+
+using RepositoryHandle = std::unique_ptr<git_repository, RepositoryDeleter>;
+using StatusListHandle = std::unique_ptr<git_status_list, StatusListDeleter>;
+
+fs::path Canonicalize(const fs::path& input) {
+    std::error_code ec;
+    fs::path canonical = fs::weakly_canonical(input, ec);
+    if (ec) canonical = fs::absolute(input, ec);
+    if (ec) return {};
+    return canonical;
 }
 
-// Map libgit2 bitfield to two-char porcelain-style code (X=index, Y=worktree)
-static std::string to_porcelain_code(unsigned s) {
-    // Special cases first
-    if (s & GIT_STATUS_CONFLICTED) {
+fs::path DetermineBaseDir(const fs::path& path) {
+    std::error_code ec;
+    if (fs::is_directory(path, ec) && !ec) {
+        return path;
+    }
+    return path.parent_path();
+}
+
+std::string ToPorcelainCode(unsigned status) {
+    if (status & GIT_STATUS_CONFLICTED) {
         return "UU";
     }
-    if (s & GIT_STATUS_IGNORED) {
+    if (status & GIT_STATUS_IGNORED) {
         return "!!";
     }
 
-    // X (index) column
-    char X = ' ';
-    if      (s & GIT_STATUS_INDEX_NEW)        X = 'A';
-    else if (s & GIT_STATUS_INDEX_MODIFIED)   X = 'M';
-    else if (s & GIT_STATUS_INDEX_DELETED)    X = 'D';
-    else if (s & GIT_STATUS_INDEX_RENAMED)    X = 'R';
-    else if (s & GIT_STATUS_INDEX_TYPECHANGE) X = 'T';
+    char index_state = ' ';
+    if      (status & GIT_STATUS_INDEX_NEW)        index_state = 'A';
+    else if (status & GIT_STATUS_INDEX_MODIFIED)   index_state = 'M';
+    else if (status & GIT_STATUS_INDEX_DELETED)    index_state = 'D';
+    else if (status & GIT_STATUS_INDEX_RENAMED)    index_state = 'R';
+    else if (status & GIT_STATUS_INDEX_TYPECHANGE) index_state = 'T';
 
-    // Y (work tree) column
-    char Y = ' ';
-    if      (s & GIT_STATUS_WT_NEW)           Y = '?';
-    else if (s & GIT_STATUS_WT_MODIFIED)      Y = 'M';
-    else if (s & GIT_STATUS_WT_DELETED)       Y = 'D';
-    else if (s & GIT_STATUS_WT_RENAMED)       Y = 'R';
-    else if (s & GIT_STATUS_WT_TYPECHANGE)    Y = 'T';
-    else if (s & GIT_STATUS_WT_UNREADABLE)    Y = '!';
+    char worktree_state = ' ';
+    if      (status & GIT_STATUS_WT_NEW)        worktree_state = '?';
+    else if (status & GIT_STATUS_WT_MODIFIED)   worktree_state = 'M';
+    else if (status & GIT_STATUS_WT_DELETED)    worktree_state = 'D';
+    else if (status & GIT_STATUS_WT_RENAMED)    worktree_state = 'R';
+    else if (status & GIT_STATUS_WT_TYPECHANGE) worktree_state = 'T';
+    else if (status & GIT_STATUS_WT_UNREADABLE) worktree_state = '!';
 
-    // Untracked files are rendered "??" (not " ?")
-    if (X == ' ' && Y == '?') return "??";
+    if (index_state == ' ' && worktree_state == '?') {
+        return "??";
+    }
 
-    // Normal two-character code
-    return std::string() + X + Y;
+    return std::string() + index_state + worktree_state;
 }
 
-GitStatusResult get_git_status_for_dir(const fs::path& dir) {
-    GitStatusResult result;
+bool IsWithin(const std::string& root, const std::string& candidate) {
+    if (root.empty()) return false;
+    if (candidate.size() < root.size()) return false;
+    if (candidate.compare(0, root.size(), root) != 0) return false;
+    if (candidate.size() == root.size()) return true;
+    return candidate[root.size()] == '/';
+}
 
-    git_repository* repo = nullptr;
-    if (!repo_open_for_path(dir, &repo)) return result;
-    result.repository_found = true;
+class LibGit2StatusImpl : public GitStatusImpl {
+public:
+    LibGit2StatusImpl() { git_libgit2_init(); }
 
-    std::error_code ec;
-    fs::path dir_abs = fs::is_directory(dir) ? dir : dir.parent_path();
-    dir_abs = fs::weakly_canonical(dir_abs, ec);
-    if (ec) dir_abs = fs::absolute(dir, ec);
+    ~LibGit2StatusImpl() override {
+        cached_repo_.reset();
+        git_libgit2_shutdown();
+    }
 
-    const char* wd = git_repository_workdir(repo);
-    fs::path repo_root = wd ? fs::path(wd) : fs::current_path();
-    repo_root = fs::weakly_canonical(repo_root, ec);
+    GitStatusResult GetStatus(const fs::path& dir) override {
+        GitStatusResult result;
+        Repository* repository = EnsureRepository(dir);
+        if (!repository) {
+            return result;
+        }
 
-    git_status_options opts = GIT_STATUS_OPTIONS_INIT;
-    opts.show  = GIT_STATUS_SHOW_INDEX_AND_WORKDIR;
-    opts.flags =
-        GIT_STATUS_OPT_INCLUDE_UNTRACKED |
-        GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS |
-        GIT_STATUS_OPT_INCLUDE_IGNORED |
-        GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX |
-        GIT_STATUS_OPT_RENAMES_INDEX_TO_WORKDIR;
+        result.repository_found = true;
 
-    git_status_list* status = nullptr;
-    if (git_status_list_new(&status, repo, &opts) != 0) {
-        git_repository_free(repo);
+        fs::path base_dir = DetermineBaseDir(dir);
+        fs::path dir_abs = Canonicalize(base_dir);
+        if (dir_abs.empty()) dir_abs = base_dir;
+
+        git_status_options options = GIT_STATUS_OPTIONS_INIT;
+        options.show = GIT_STATUS_SHOW_INDEX_AND_WORKDIR;
+        options.flags =
+            GIT_STATUS_OPT_INCLUDE_UNTRACKED |
+            GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS |
+            GIT_STATUS_OPT_INCLUDE_IGNORED |
+            GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX |
+            GIT_STATUS_OPT_RENAMES_INDEX_TO_WORKDIR;
+
+        git_status_list* raw_list = nullptr;
+        if (git_status_list_new(&raw_list, repository->handle.get(), &options) != 0) {
+            return result;
+        }
+
+        StatusListHandle list(raw_list);
+        const size_t count = git_status_list_entrycount(list.get());
+        std::error_code ec;
+        for (size_t i = 0; i < count; ++i) {
+            const git_status_entry* entry = git_status_byindex(list.get(), i);
+            if (!entry) continue;
+
+            const unsigned status = entry->status;
+            const std::string code = ToPorcelainCode(status);
+            if (code.empty()) continue;
+
+            std::string relative_from_repo;
+            if (entry->head_to_index && entry->head_to_index->new_file.path) {
+                relative_from_repo = entry->head_to_index->new_file.path;
+            } else if (entry->index_to_workdir && entry->index_to_workdir->new_file.path) {
+                relative_from_repo = entry->index_to_workdir->new_file.path;
+            }
+
+            if (relative_from_repo.empty()) continue;
+
+            fs::path absolute = repository->root / relative_from_repo;
+            absolute = fs::weakly_canonical(absolute, ec);
+            if (ec) {
+                ec.clear();
+                absolute = fs::absolute(absolute, ec);
+            }
+            if (ec) {
+                ec.clear();
+                continue;
+            }
+
+            const std::string abs_string = absolute.generic_string();
+            const std::string dir_string = dir_abs.generic_string();
+            if (!IsWithin(dir_string, abs_string)) {
+                continue;
+            }
+
+            fs::path relative_to_dir = fs::relative(absolute, dir_abs, ec);
+            if (ec) {
+                ec.clear();
+                continue;
+            }
+
+            std::string relative = relative_to_dir.generic_string();
+            if (relative.empty() || relative == ".") {
+                result.default_modes.insert(code);
+                continue;
+            }
+
+            if (!relative.empty() && relative.back() == '/') {
+                relative.pop_back();
+            }
+
+            auto slash = relative.find('/');
+            std::string key = (slash == std::string::npos) ? relative : relative.substr(0, slash);
+            if (!key.empty()) {
+                result.entries[key].insert(code);
+            }
+        }
+
         return result;
     }
 
-    const size_t count = git_status_list_entrycount(status);
-    for (size_t i = 0; i < count; ++i) {
-        const git_status_entry* e = git_status_byindex(status, i);
-        if (!e) continue;
+private:
+    struct Repository {
+        RepositoryHandle handle;
+        fs::path root;
+        std::string root_generic;
+    };
 
-        const unsigned s = e->status;
-        const std::string code = to_porcelain_code(s);
+    Repository* EnsureRepository(const fs::path& dir) {
+        fs::path base_dir = DetermineBaseDir(dir);
+        fs::path dir_abs = Canonicalize(base_dir);
+        const std::string dir_string = dir_abs.generic_string();
 
-        if (code.empty()) continue;
-
-        // libgit2 paths are relative to repo root; prefer whichever delta is present
-        std::string rel_from_repo;
-        if (e->head_to_index && e->head_to_index->new_file.path)
-            rel_from_repo = e->head_to_index->new_file.path;
-        else if (e->index_to_workdir && e->index_to_workdir->new_file.path)
-            rel_from_repo = e->index_to_workdir->new_file.path;
-
-        if (rel_from_repo.empty()) continue;
-
-        // Absolute path for the changed entry
-        fs::path abs = repo_root / rel_from_repo;
-        abs = fs::weakly_canonical(abs, ec);
-        if (ec) continue;
-
-        // Only keep entries under the listed directory; map keys relative to 'dir'
-        const auto abs_str = abs.generic_string();
-        const auto dir_str = dir_abs.generic_string();
-        if (abs_str.size() >= dir_str.size() &&
-            abs_str.compare(0, dir_str.size(), dir_str) == 0) {
-            fs::path rel_to_dir = fs::relative(abs, dir_abs, ec);
-            if (!ec) {
-                std::string rel = rel_to_dir.generic_string();
-                if (rel.empty() || rel == ".") {
-                    result.default_modes.insert(code);
-                    continue;
-                }
-                if (!rel.empty() && rel.back() == '/') rel.pop_back();
-                auto slash = rel.find('/');
-                std::string key = (slash == std::string::npos) ? rel : rel.substr(0, slash);
-                if (!key.empty()) {
-                    result.entries[key].insert(code);
-                }
-            }
+        if (cached_repo_ && IsWithin(cached_repo_->root_generic, dir_string)) {
+            return cached_repo_.get();
         }
+
+        fs::path repo_root;
+        RepositoryHandle handle = OpenRepository(base_dir, repo_root);
+        if (!handle) {
+            cached_repo_.reset();
+            return nullptr;
+        }
+
+        auto repo = std::make_unique<Repository>();
+        repo->root = repo_root;
+        repo->root_generic = repo_root.generic_string();
+        repo->handle = std::move(handle);
+        cached_repo_ = std::move(repo);
+        return cached_repo_.get();
     }
 
-    git_status_list_free(status);
-    git_repository_free(repo);
-    return result;
-}
+    RepositoryHandle OpenRepository(const fs::path& dir, fs::path& repo_root) {
+        git_repository* raw_repo = nullptr;
+        fs::path search = DetermineBaseDir(dir);
+        int rc = git_repository_open_ext(&raw_repo,
+                                         search.string().c_str(),
+                                         GIT_REPOSITORY_OPEN_CROSS_FS | GIT_REPOSITORY_OPEN_FROM_ENV,
+                                         nullptr);
+        if (rc != 0) {
+            return {};
+        }
+
+        RepositoryHandle handle(raw_repo);
+        const char* workdir = git_repository_workdir(raw_repo);
+        std::error_code ec;
+        fs::path root = workdir ? fs::path(workdir) : fs::current_path(ec);
+        if (ec) {
+            ec.clear();
+            root = fs::path();
+        }
+        if (root.empty()) {
+            root = DetermineBaseDir(dir);
+        }
+        repo_root = Canonicalize(root);
+        if (repo_root.empty()) repo_root = root;
+        return handle;
+    }
+
+    std::unique_ptr<Repository> cached_repo_;
+};
+
+} // namespace
 
 #else
 
-GitStatusResult get_git_status_for_dir(const fs::path& /*dir*/) {
-    // Stub: no git info.
-    return {};
-}
+namespace {
+
+class NoopStatusImpl : public GitStatusImpl {
+public:
+    GitStatusResult GetStatus(const fs::path& /*dir*/) override { return {}; }
+};
+
+} // namespace
 
 #endif
+
+GitStatus::GitStatus()
+#if NLS_USE_LIBGIT2
+    : impl_(std::make_unique<LibGit2StatusImpl>())
+#else
+    : impl_(std::make_unique<NoopStatusImpl>())
+#endif
+{}
+
+GitStatus::~GitStatus() = default;
+
+GitStatusResult GitStatus::GetStatus(const fs::path& dir) {
+    return impl_->GetStatus(dir);
+}
 
 } // namespace nls

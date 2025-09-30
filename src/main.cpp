@@ -112,6 +112,11 @@ FileOwnershipResolver& GetFileOwnershipResolver() {
     static FileOwnershipResolver resolver;
     return resolver;
 }
+
+GitStatus& GetGitStatus() {
+    static GitStatus status;
+    return status;
+}
 } // namespace
 
 static VisitResult combine_visit_result(VisitResult a, VisitResult b) {
@@ -732,7 +737,7 @@ static std::string format_git_prefix(bool has_repo,
 static void apply_git_status(std::vector<Entry>& items, const fs::path& dir, const Config& opt) {
     if (!opt.git_status()) return;
 
-    auto status = get_git_status_for_dir(dir);
+    auto status = GetGitStatus().GetStatus(dir);
     for (auto& e : items) {
         std::error_code ec;
         fs::path base = fs::is_directory(dir) ? dir : dir.parent_path();

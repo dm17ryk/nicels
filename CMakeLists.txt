@@ -118,6 +118,9 @@ target_link_libraries(nls
 if(NLS_ENABLE_LIBGIT2)
   target_link_libraries(nls PRIVATE libgit2::git2)
   target_compile_definitions(nls PRIVATE USE_LIBGIT2)
+  target_include_directories(nls PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third-party/libgit2/include
+    ${CMAKE_BINARY_DIR}/libgit2/include)
 endif()
 
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL CMAKE_SYSTEM_NAME)
