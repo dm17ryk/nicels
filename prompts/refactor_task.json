@@ -1,7 +1,7 @@
 {
   "title": "Refactor 'nicels' to modern OOP C++23",
   "goals": [
-    "Analyze the entire 'nicels', all files in the repository and refactor all the code to idiomatic, modern, object-oriented C++ using C++23 features.",
+    "Analyze the entire 'nicels', look at all .cpp and .h files in the repository and refactor all the code to idiomatic, modern, object-oriented C++ using C++23 features.",
     "Eliminate all C-like code: no global variables; no free/global functions.",
     "Preserve all current behavior and CLI compatibility.",
     "Currently cli implemented with CLI11 library from third-party submodule. Maintain this dependency.",
