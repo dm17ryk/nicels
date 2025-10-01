@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "config.h"
@@ -24,7 +26,15 @@ enum class VisitResult {
     Serious = 2,
 };
 
-VisitResult combine_visit_result(VisitResult a, VisitResult b);
+class VisitResultAggregator {
+public:
+    [[nodiscard]] static constexpr VisitResult Combine(VisitResult a, VisitResult b) noexcept {
+        using Underlying = std::underlying_type_t<VisitResult>;
+        const auto lhs = static_cast<Underlying>(a);
+        const auto rhs = static_cast<Underlying>(b);
+        return static_cast<VisitResult>(std::max(lhs, rhs));
+    }
+};
 
 class FileOwnershipResolver;
 class SymlinkResolver;

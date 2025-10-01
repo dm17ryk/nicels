@@ -1,8 +1,10 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace nls {
 
@@ -37,6 +39,15 @@ public:
         UnitSystem system = UnitSystem::Binary);
 
 private:
+    inline static constexpr std::array<std::string_view, 9> kBinaryUnits{
+        "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"};
+    inline static constexpr std::array<std::string_view, 9> kDecimalUnits{
+        "B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"};
+
+    static constexpr uintmax_t SanitizeUnit(uintmax_t unit) noexcept {
+        return unit == 0 ? 1 : unit;
+    }
+
     Options options_{};
 };
 

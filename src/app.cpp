@@ -58,7 +58,7 @@ int App::run(int argc, char** argv) {
             std::cerr << "nls: error: " << e.what() << "\n";
             path_result = VisitResult::Serious;
         }
-        rc = combine_visit_result(rc, path_result);
+        rc = VisitResultAggregator::Combine(rc, path_result);
     }
 
     renderer_.reset();

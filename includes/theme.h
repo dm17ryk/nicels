@@ -50,6 +50,11 @@ public:
     IconResult get_folder_icon(std::string_view folder_name);
     IconResult get_icon(std::string_view name, bool is_dir, bool is_executable);
 
+    static std::string ApplyColor(const std::string& color,
+                                  std::string_view text,
+                                  const ThemeColors& theme,
+                                  bool no_color);
+
 private:
     Theme() = default;
 
@@ -67,10 +72,5 @@ private:
     ThemeColors light_;
     IconTheme icons_;
 };
-
-std::string apply_color(const std::string& color,
-                        std::string_view text,
-                        const ThemeColors& theme,
-                        bool no_color);
 
 } // namespace nls

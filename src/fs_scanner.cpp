@@ -55,11 +55,99 @@ namespace nls {
 
 namespace fs = std::filesystem;
 
-VisitResult combine_visit_result(VisitResult a, VisitResult b) {
-    return static_cast<VisitResult>(std::max(static_cast<int>(a), static_cast<int>(b)));
-}
-
 namespace {
+
+class WildcardMatcher final {
+public:
+    [[nodiscard]] static bool Matches(const std::string& pattern, const std::string& text) {
+        size_t p = 0;
+        size_t t = 0;
+        size_t star = std::string::npos;
+        size_t match = 0;
+        while (t < text.size()) {
+            if (p < pattern.size()) {
+                char pc = pattern[p];
+                if (pc == '?') {
+                    ++p;
+                    ++t;
+                    continue;
+                }
+                if (pc == '*') {
+                    star = ++p;
+                    match = t;
+                    continue;
+                }
+                if (pc == '[') {
+                    size_t idx = p + 1;
+                    if (MatchCharClass(pattern, idx, text[t])) {
+                        p = idx;
+                        ++t;
+                        continue;
+                    }
+                } else {
+                    if (pc == '\\' && p + 1 < pattern.size()) {
+                        ++p;
+                        pc = pattern[p];
+                    }
+                    if (pc == text[t]) {
+                        ++p;
+                        ++t;
+                        continue;
+                    }
+                }
+            }
+            if (star != std::string::npos) {
+                p = star;
+                ++match;
+                t = match;
+                continue;
+            }
+            return false;
+        }
+        while (p < pattern.size() && pattern[p] == '*') ++p;
+        return p == pattern.size();
+    }
+
+private:
+    [[nodiscard]] static bool MatchCharClass(const std::string& pattern, size_t& idx, char ch) {
+        size_t start = idx;
+        if (idx >= pattern.size()) return false;
+        bool negated = false;
+        if (pattern[idx] == '!' || pattern[idx] == '^') {
+            negated = true;
+            ++idx;
+        }
+        bool matched = false;
+        while (idx < pattern.size() && pattern[idx] != ']') {
+            char start_char = pattern[idx];
+            if (start_char == '\\' && idx + 1 < pattern.size()) {
+                ++idx;
+                start_char = pattern[idx];
+            }
+            ++idx;
+            if (idx < pattern.size() && pattern[idx] == '-' && idx + 1 < pattern.size() && pattern[idx + 1] != ']') {
+                ++idx;
+                char end_char = pattern[idx];
+                if (end_char == '\\' && idx + 1 < pattern.size()) {
+                    ++idx;
+                    end_char = pattern[idx];
+                }
+                if (start_char <= ch && ch <= end_char) {
+                    matched = true;
+                }
+                ++idx;
+            } else {
+                if (ch == start_char) matched = true;
+            }
+        }
+        if (idx < pattern.size() && pattern[idx] == ']') {
+            ++idx;
+            return negated ? !matched : matched;
+        }
+        idx = start;
+        return false;
+    }
+};
 
 #ifdef _WIN32
 struct WindowsLinkInfo {
@@ -68,202 +156,121 @@ struct WindowsLinkInfo {
     fs::path target;
 };
 
-static std::wstring read_reparse_string(const WCHAR* path_buffer, USHORT offset, USHORT length) {
-    if (length == 0) return {};
-    const unsigned char* bytes = reinterpret_cast<const unsigned char*>(path_buffer);
-    const WCHAR* start = reinterpret_cast<const WCHAR*>(bytes + offset);
-    size_t count = length / sizeof(WCHAR);
-    return std::wstring(start, start + count);
-}
-
-static std::wstring clean_windows_reparse_target(std::wstring target) {
-    const std::wstring prefix = L"\\??\\";
-    if (target.rfind(prefix, 0) == 0) {
-        target.erase(0, prefix.size());
-        const std::wstring unc_prefix = L"UNC\\";
-        if (target.rfind(unc_prefix, 0) == 0) {
-            target.erase(0, unc_prefix.size());
-            target.insert(0, L"\\\\");
+class WindowsLinkInspector final {
+public:
+    [[nodiscard]] static WindowsLinkInfo Inspect(const fs::path& path) {
+        WindowsLinkInfo info;
+        DWORD attrs = GetFileAttributesW(path.c_str());
+        if (attrs == INVALID_FILE_ATTRIBUTES) {
+            return info;
         }
-    }
-    return target;
-}
+        if ((attrs & FILE_ATTRIBUTE_REPARSE_POINT) == 0) {
+            return info;
+        }
 
-static WindowsLinkInfo query_windows_link(const fs::path& path) {
-    WindowsLinkInfo info;
-    DWORD attrs = GetFileAttributesW(path.c_str());
-    if (attrs == INVALID_FILE_ATTRIBUTES) {
-        return info;
-    }
-    if ((attrs & FILE_ATTRIBUTE_REPARSE_POINT) == 0) {
-        return info;
-    }
-
-    HANDLE handle = CreateFileW(path.c_str(), 0,
-                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                nullptr, OPEN_EXISTING,
-                                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
-                                nullptr);
-    if (handle == INVALID_HANDLE_VALUE) {
-        info.is_link = true;
-        return info;
-    }
-
-    std::array<unsigned char, MAXIMUM_REPARSE_DATA_BUFFER_SIZE> buffer{};
-    DWORD bytes_returned = 0;
-    BOOL ok = DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
-                              buffer.data(), static_cast<DWORD>(buffer.size()),
-                              &bytes_returned, nullptr);
-    CloseHandle(handle);
-    if (!ok) {
-        info.is_link = true;
-        return info;
-    }
-
-    auto* header = reinterpret_cast<REPARSE_DATA_BUFFER*>(buffer.data());
-    switch (header->ReparseTag) {
-        case IO_REPARSE_TAG_SYMLINK: {
+        HANDLE handle = CreateFileW(path.c_str(), 0,
+                                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                    nullptr, OPEN_EXISTING,
+                                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                                    nullptr);
+        if (handle == INVALID_HANDLE_VALUE) {
             info.is_link = true;
-            const auto& data = header->SymbolicLinkReparseBuffer;
-            std::wstring target = read_reparse_string(data.PathBuffer, data.PrintNameOffset, data.PrintNameLength);
-            if (target.empty()) {
-                target = read_reparse_string(data.PathBuffer, data.SubstituteNameOffset, data.SubstituteNameLength);
-            }
-            target = clean_windows_reparse_target(std::move(target));
-            if (!target.empty()) {
-                info.target = fs::path(target);
-                info.has_target = true;
-            }
-            break;
+            return info;
         }
-        case IO_REPARSE_TAG_MOUNT_POINT: {
+
+        std::array<unsigned char, MAXIMUM_REPARSE_DATA_BUFFER_SIZE> buffer{};
+        DWORD bytes_returned = 0;
+        BOOL ok = DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+                                  buffer.data(), static_cast<DWORD>(buffer.size()),
+                                  &bytes_returned, nullptr);
+        CloseHandle(handle);
+        if (!ok) {
             info.is_link = true;
-            const auto& data = header->MountPointReparseBuffer;
-            std::wstring target = read_reparse_string(data.PathBuffer, data.PrintNameOffset, data.PrintNameLength);
-            if (target.empty()) {
-                target = read_reparse_string(data.PathBuffer, data.SubstituteNameOffset, data.SubstituteNameLength);
-            }
-            target = clean_windows_reparse_target(std::move(target));
-            if (!target.empty()) {
-                info.target = fs::path(target);
-                info.has_target = true;
-            }
-            break;
+            return info;
         }
-        default:
-            break;
+
+        auto* header = reinterpret_cast<REPARSE_DATA_BUFFER*>(buffer.data());
+        switch (header->ReparseTag) {
+            case IO_REPARSE_TAG_SYMLINK: {
+                info.is_link = true;
+                const auto& data = header->SymbolicLinkReparseBuffer;
+                std::wstring target = ReadReparseString(data.PathBuffer, data.PrintNameOffset, data.PrintNameLength);
+                if (target.empty()) {
+                    target = ReadReparseString(data.PathBuffer, data.SubstituteNameOffset, data.SubstituteNameLength);
+                }
+                target = CleanTarget(std::move(target));
+                if (!target.empty()) {
+                    info.target = fs::path(target);
+                    info.has_target = true;
+                }
+                break;
+            }
+            case IO_REPARSE_TAG_MOUNT_POINT: {
+                info.is_link = true;
+                const auto& data = header->MountPointReparseBuffer;
+                std::wstring target = ReadReparseString(data.PathBuffer, data.PrintNameOffset, data.PrintNameLength);
+                if (target.empty()) {
+                    target = ReadReparseString(data.PathBuffer, data.SubstituteNameOffset, data.SubstituteNameLength);
+                }
+                target = CleanTarget(std::move(target));
+                if (!target.empty()) {
+                    info.target = fs::path(target);
+                    info.has_target = true;
+                }
+                break;
+            }
+            default:
+                break;
+        }
+        return info;
     }
-    return info;
-}
+
+private:
+    [[nodiscard]] static std::wstring ReadReparseString(const WCHAR* path_buffer, USHORT offset, USHORT length) {
+        if (length == 0) return {};
+        const unsigned char* bytes = reinterpret_cast<const unsigned char*>(path_buffer);
+        const WCHAR* start = reinterpret_cast<const WCHAR*>(bytes + offset);
+        size_t count = length / sizeof(WCHAR);
+        return std::wstring(start, start + count);
+    }
+
+    [[nodiscard]] static std::wstring CleanTarget(std::wstring target) {
+        const std::wstring prefix = L"\\??\\";
+        if (target.rfind(prefix, 0) == 0) {
+            target.erase(0, prefix.size());
+            const std::wstring unc_prefix = L"UNC\\";
+            if (target.rfind(unc_prefix, 0) == 0) {
+                target.erase(0, unc_prefix.size());
+                target.insert(0, L"\\\\");
+            }
+        }
+        return target;
+    }
+};
 #endif  // _WIN32
 
-static bool match_char_class(const std::string& pattern, size_t& idx, char ch) {
-    size_t start = idx;
-    if (idx >= pattern.size()) return false;
-    bool negated = false;
-    if (pattern[idx] == '!' || pattern[idx] == '^') {
-        negated = true;
-        ++idx;
-    }
-    bool matched = false;
-    while (idx < pattern.size() && pattern[idx] != ']') {
-        char start_char = pattern[idx];
-        if (start_char == '\\' && idx + 1 < pattern.size()) {
-            ++idx;
-            start_char = pattern[idx];
-        }
-        ++idx;
-        if (idx < pattern.size() && pattern[idx] == '-' && idx + 1 < pattern.size() && pattern[idx + 1] != ']') {
-            ++idx;
-            char end_char = pattern[idx];
-            if (end_char == '\\' && idx + 1 < pattern.size()) {
-                ++idx;
-                end_char = pattern[idx];
-            }
-            if (start_char <= ch && ch <= end_char) {
-                matched = true;
-            }
-            ++idx;
-        } else {
-            if (ch == start_char) matched = true;
-        }
-    }
-    if (idx < pattern.size() && pattern[idx] == ']') {
-        ++idx;
-        return negated ? !matched : matched;
-    }
-    idx = start;
-    return false;
-}
-
-static bool wildcard_match(const std::string& pattern, const std::string& text) {
-    size_t p = 0;
-    size_t t = 0;
-    size_t star = std::string::npos;
-    size_t match = 0;
-    while (t < text.size()) {
-        if (p < pattern.size()) {
-            char pc = pattern[p];
-            if (pc == '?') {
-                ++p;
-                ++t;
-                continue;
-            }
-            if (pc == '*') {
-                star = ++p;
-                match = t;
-                continue;
-            }
-            if (pc == '[') {
-                size_t idx = p + 1;
-                if (match_char_class(pattern, idx, text[t])) {
-                    p = idx;
-                    ++t;
-                    continue;
-                }
-            } else {
-                if (pc == '\\' && p + 1 < pattern.size()) {
-                    ++p;
-                    pc = pattern[p];
-                }
-                if (pc == text[t]) {
-                    ++p;
-                    ++t;
-                    continue;
-                }
-            }
-        }
-        if (star != std::string::npos) {
-            p = star;
-            ++match;
-            t = match;
-            continue;
+class ExecutableClassifier final {
+public:
+    [[nodiscard]] static bool IsExecutable(const fs::directory_entry& de) {
+#ifdef _WIN32
+        std::string n = de.path().filename().string();
+        auto pos = n.rfind('.');
+        if (pos != std::string::npos) {
+            std::string ext = n.substr(pos + 1);
+            for (auto& c : ext) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+            return (ext == "exe" || ext == "bat" || ext == "cmd" || ext == "ps1");
         }
         return false;
-    }
-    while (p < pattern.size() && pattern[p] == '*') ++p;
-    return p == pattern.size();
-}
-
-static bool is_executable_posix(const fs::directory_entry& de) {
-#ifdef _WIN32
-    std::string n = de.path().filename().string();
-    auto pos = n.rfind('.');
-    if (pos != std::string::npos) {
-        std::string ext = n.substr(pos + 1);
-        for (auto& c : ext) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
-        return (ext == "exe" || ext == "bat" || ext == "cmd" || ext == "ps1");
-    }
-    return false;
 #else
-    std::error_code ec;
-    auto perm = de.status(ec).permissions();
-    (void)ec;
-    return ((perm & fs::perms::owner_exec) != fs::perms::none ||
-            (perm & fs::perms::group_exec) != fs::perms::none ||
-            (perm & fs::perms::others_exec) != fs::perms::none);
+        std::error_code ec;
+        auto perm = de.status(ec).permissions();
+        (void)ec;
+        return ((perm & fs::perms::owner_exec) != fs::perms::none ||
+                (perm & fs::perms::group_exec) != fs::perms::none ||
+                (perm & fs::perms::others_exec) != fs::perms::none);
 #endif
-}
+    }
+};
 
 }  // namespace
 
@@ -277,7 +284,7 @@ FileScanner::FileScanner(const Config& config,
 bool FileScanner::matches_any_pattern(const std::string& name,
                                       const std::vector<std::string>& patterns) const {
     for (const auto& pat : patterns) {
-        if (wildcard_match(pat, name)) return true;
+        if (WildcardMatcher::Matches(pat, name)) return true;
     }
     return false;
 }
@@ -343,7 +350,7 @@ void FileScanner::populate_entry(const fs::directory_entry& de, Entry& entry) co
     fill_symlink_target();
 #ifdef _WIN32
     if (!entry.info.is_symlink || !entry.info.has_symlink_target) {
-        WindowsLinkInfo link_info = query_windows_link(de.path());
+        WindowsLinkInfo link_info = WindowsLinkInspector::Inspect(de.path());
         if (link_info.is_link) {
             entry.info.is_symlink = true;
             if (!entry.info.has_symlink_target && link_info.has_target) {
@@ -366,7 +373,7 @@ void FileScanner::populate_entry(const fs::directory_entry& de, Entry& entry) co
         info_ec.clear();
     }
     entry.info.mtime = de.last_write_time(info_ec);
-    entry.info.is_exec = is_executable_posix(de);
+    entry.info.is_exec = ExecutableClassifier::IsExecutable(de);
     entry.info.is_hidden = StringUtils::IsHidden(entry.info.name);
     std::error_code exists_ec;
     bool exists = fs::exists(entry.info.path, exists_ec);
@@ -556,7 +563,7 @@ VisitResult FileScanner::collect_entries(const fs::path& dir,
         }
         if (iter_ec) {
             report_path_error(dir, iter_ec, "Unable to read directory");
-            status = combine_visit_result(status, is_top_level ? VisitResult::Serious : VisitResult::Minor);
+            status = VisitResultAggregator::Combine(status, is_top_level ? VisitResult::Serious : VisitResult::Minor);
         }
     } else {
         std::error_code entry_ec;

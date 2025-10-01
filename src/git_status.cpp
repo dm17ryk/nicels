@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <set>
+#include <string_view>
 #include <system_error>
 #include <utility>
 
@@ -158,63 +159,6 @@ struct StatusListDeleter {
     void operator()(git_status_list* list) const noexcept { git_status_list_free(list); }
 };
 
-using RepositoryHandle = std::unique_ptr<git_repository, RepositoryDeleter>;
-using StatusListHandle = std::unique_ptr<git_status_list, StatusListDeleter>;
-
-fs::path Canonicalize(const fs::path& input) {
-    std::error_code ec;
-    fs::path canonical = fs::weakly_canonical(input, ec);
-    if (ec) canonical = fs::absolute(input, ec);
-    if (ec) return {};
-    return canonical;
-}
-
-fs::path DetermineBaseDir(const fs::path& path) {
-    std::error_code ec;
-    if (fs::is_directory(path, ec) && !ec) {
-        return path;
-    }
-    return path.parent_path();
-}
-
-std::string ToPorcelainCode(unsigned status) {
-    if (status & GIT_STATUS_CONFLICTED) {
-        return "UU";
-    }
-    if (status & GIT_STATUS_IGNORED) {
-        return "!!";
-    }
-
-    char index_state = ' ';
-    if      (status & GIT_STATUS_INDEX_NEW)        index_state = 'A';
-    else if (status & GIT_STATUS_INDEX_MODIFIED)   index_state = 'M';
-    else if (status & GIT_STATUS_INDEX_DELETED)    index_state = 'D';
-    else if (status & GIT_STATUS_INDEX_RENAMED)    index_state = 'R';
-    else if (status & GIT_STATUS_INDEX_TYPECHANGE) index_state = 'T';
-
-    char worktree_state = ' ';
-    if      (status & GIT_STATUS_WT_NEW)        worktree_state = '?';
-    else if (status & GIT_STATUS_WT_MODIFIED)   worktree_state = 'M';
-    else if (status & GIT_STATUS_WT_DELETED)    worktree_state = 'D';
-    else if (status & GIT_STATUS_WT_RENAMED)    worktree_state = 'R';
-    else if (status & GIT_STATUS_WT_TYPECHANGE) worktree_state = 'T';
-    else if (status & GIT_STATUS_WT_UNREADABLE) worktree_state = '!';
-
-    if (index_state == ' ' && worktree_state == '?') {
-        return "??";
-    }
-
-    return std::string() + index_state + worktree_state;
-}
-
-bool IsWithin(const std::string& root, const std::string& candidate) {
-    if (root.empty()) return false;
-    if (candidate.size() < root.size()) return false;
-    if (candidate.compare(0, root.size(), root) != 0) return false;
-    if (candidate.size() == root.size()) return true;
-    return candidate[root.size()] == '/';
-}
-
 class LibGit2StatusImpl : public GitStatusImpl {
 public:
     LibGit2StatusImpl() { git_libgit2_init(); }
@@ -316,10 +260,68 @@ public:
 
 private:
     struct Repository {
+        using RepositoryHandle = std::unique_ptr<git_repository, RepositoryDeleter>;
         RepositoryHandle handle;
         fs::path root;
         std::string root_generic;
     };
+
+    using RepositoryHandle = typename Repository::RepositoryHandle;
+    using StatusListHandle = std::unique_ptr<git_status_list, StatusListDeleter>;
+
+    static fs::path Canonicalize(const fs::path& input) {
+        std::error_code ec;
+        fs::path canonical = fs::weakly_canonical(input, ec);
+        if (ec) canonical = fs::absolute(input, ec);
+        if (ec) return {};
+        return canonical;
+    }
+
+    static fs::path DetermineBaseDir(const fs::path& path) {
+        std::error_code ec;
+        if (fs::is_directory(path, ec) && !ec) {
+            return path;
+        }
+        return path.parent_path();
+    }
+
+    static std::string ToPorcelainCode(unsigned status) {
+        if (status & GIT_STATUS_CONFLICTED) {
+            return "UU";
+        }
+        if (status & GIT_STATUS_IGNORED) {
+            return "!!";
+        }
+
+        char index_state = ' ';
+        if      (status & GIT_STATUS_INDEX_NEW)        index_state = 'A';
+        else if (status & GIT_STATUS_INDEX_MODIFIED)   index_state = 'M';
+        else if (status & GIT_STATUS_INDEX_DELETED)    index_state = 'D';
+        else if (status & GIT_STATUS_INDEX_RENAMED)    index_state = 'R';
+        else if (status & GIT_STATUS_INDEX_TYPECHANGE) index_state = 'T';
+
+        char worktree_state = ' ';
+        if      (status & GIT_STATUS_WT_NEW)        worktree_state = '?';
+        else if (status & GIT_STATUS_WT_MODIFIED)   worktree_state = 'M';
+        else if (status & GIT_STATUS_WT_DELETED)    worktree_state = 'D';
+        else if (status & GIT_STATUS_WT_RENAMED)    worktree_state = 'R';
+        else if (status & GIT_STATUS_WT_TYPECHANGE) worktree_state = 'T';
+        else if (status & GIT_STATUS_WT_UNREADABLE) worktree_state = '!';
+
+        if (index_state == ' ' && worktree_state == '?') {
+            return "??";
+        }
+
+        return std::string() + index_state + worktree_state;
+    }
+
+    static bool IsWithin(std::string_view root, std::string_view candidate) {
+        if (root.empty()) return false;
+        if (candidate.size() < root.size()) return false;
+        if (candidate.substr(0, root.size()) != root) return false;
+        if (candidate.size() == root.size()) return true;
+        return candidate[root.size()] == '/';
+    }
 
     Repository* EnsureRepository(const fs::path& dir) {
         fs::path base_dir = DetermineBaseDir(dir);

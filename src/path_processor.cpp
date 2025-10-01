@@ -41,7 +41,7 @@ VisitResult PathProcessor::listPath(const fs::path& path) {
             }
             VisitResult tree_status = VisitResult::Ok;
             auto nodes = buildTreeItems(path, 0, flat, tree_status);
-            status = combine_visit_result(status, tree_status);
+            status = VisitResultAggregator::Combine(status, tree_status);
             if (tree_status == VisitResult::Serious) {
                 return status;
             }
@@ -49,7 +49,7 @@ VisitResult PathProcessor::listPath(const fs::path& path) {
         } else {
             std::vector<Entry> single;
             VisitResult collect_status = scanner().collect_entries(path, single, true);
-            status = combine_visit_result(status, collect_status);
+            status = VisitResultAggregator::Combine(status, collect_status);
             if (collect_status == VisitResult::Serious) {
                 return status;
             }
@@ -66,7 +66,7 @@ VisitResult PathProcessor::listPath(const fs::path& path) {
 
     std::vector<Entry> items;
     VisitResult collect_status = scanner().collect_entries(path, items, true);
-    status = combine_visit_result(status, collect_status);
+    status = VisitResultAggregator::Combine(status, collect_status);
     if (collect_status == VisitResult::Serious) {
         return status;
     }
@@ -92,7 +92,7 @@ std::vector<TreeItem> PathProcessor::buildTreeItems(const fs::path& dir,
     std::vector<TreeItem> nodes;
     std::vector<Entry> items;
     VisitResult local = scanner().collect_entries(dir, items, depth == 0);
-    status = combine_visit_result(status, local);
+    status = VisitResultAggregator::Combine(status, local);
     if (local == VisitResult::Serious) {
         return nodes;
     }

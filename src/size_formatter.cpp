@@ -1,6 +1,5 @@
 #include "size_formatter.h"
 
-#include <array>
 #include <cmath>
 #include <format>
 #include <optional>
@@ -11,19 +10,6 @@
 #include "config.h"
 
 namespace nls {
-namespace {
-
-constexpr std::array<std::string_view, 9> kBinaryUnits{
-    "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"};
-constexpr std::array<std::string_view, 9> kDecimalUnits{
-    "B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"};
-
-uintmax_t sanitize_unit(uintmax_t unit) {
-    return unit == 0 ? 1 : unit;
-}
-
-}  // namespace
-
 SizeFormatter::SizeFormatter(Options options)
     : options_(std::move(options)) {}
 
@@ -40,7 +26,7 @@ SizeFormatter::SizeFormatter(const Config& config)
 
 std::string SizeFormatter::FormatSize(uintmax_t size) const {
     if (options_.block_size_specified) {
-        uintmax_t unit = sanitize_unit(options_.block_size);
+        uintmax_t unit = SanitizeUnit(options_.block_size);
         uintmax_t scaled = unit == 0 ? size : (size + unit - 1) / unit;
         std::string result = std::to_string(scaled);
         if (options_.block_size_show_suffix && !options_.block_size_suffix.empty()) {
@@ -59,7 +45,7 @@ std::string SizeFormatter::FormatBlocks(uintmax_t logical_size,
     if (!ShowsBlocks()) {
         return {};
     }
-    uintmax_t unit = sanitize_unit(BlockUnit());
+    uintmax_t unit = SanitizeUnit(BlockUnit());
     uintmax_t value = allocated_size.value_or(logical_size);
     uintmax_t blocks = unit == 0 ? 0 : (value + unit - 1) / unit;
     std::string text = std::to_string(blocks);
@@ -72,7 +58,7 @@ std::string SizeFormatter::FormatBlocks(uintmax_t logical_size,
 
 uintmax_t SizeFormatter::BlockUnit() const {
     if (options_.block_size_specified) {
-        return sanitize_unit(options_.block_size);
+        return SanitizeUnit(options_.block_size);
     }
     return 1024;
 }

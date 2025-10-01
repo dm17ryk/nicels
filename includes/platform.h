@@ -1,9 +1,12 @@
 #pragma once
 
-namespace nls::Platform {
+namespace nls {
 
-bool enableVirtualTerminal();
-bool isOutputTerminal();
-int  terminalWidth();
+class Platform {
+public:
+    static bool enableVirtualTerminal();
+    static bool isOutputTerminal();
+    static int terminalWidth();
+};
 
-} // namespace nls::Platform
+}  // namespace nls

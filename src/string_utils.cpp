@@ -10,7 +10,7 @@ std::string StringUtils::ToLower(std::string_view value)
 {
     std::string result(value);
     std::transform(result.begin(), result.end(), result.begin(), [](unsigned char ch) {
-        return static_cast<char>(detail::ascii_to_lower(ch));
+        return static_cast<char>(StringUtils::ascii_to_lower(ch));
     });
     return result;
 }

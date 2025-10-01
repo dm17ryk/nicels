@@ -10,9 +10,9 @@
 #    include <unistd.h>
 #endif
 
-namespace nls::Platform {
+namespace nls {
 
-bool enableVirtualTerminal()
+bool Platform::enableVirtualTerminal()
 {
 #ifdef _WIN32
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -39,7 +39,7 @@ bool enableVirtualTerminal()
 #endif
 }
 
-bool isOutputTerminal()
+bool Platform::isOutputTerminal()
 {
 #ifdef _WIN32
     HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -63,7 +63,7 @@ bool isOutputTerminal()
 #endif
 }
 
-int terminalWidth()
+int Platform::terminalWidth()
 {
 #ifdef _WIN32
     CONSOLE_SCREEN_BUFFER_INFO csbi;
@@ -82,4 +82,4 @@ int terminalWidth()
 #endif
 }
 
-} // namespace nls::Platform
+} // namespace nls

@@ -216,7 +216,7 @@ void Renderer::PrintDirectoryHeader(const fs::path& path, bool is_directory) con
         }
     }
     const ThemeColors& theme = Theme::instance().colors();
-    std::string colored_header = apply_color(theme.get("header_directory"), header_str, theme, opt_.no_color());
+    std::string colored_header = Theme::ApplyColor(theme.get("header_directory"), header_str, theme, opt_.no_color());
     std::cout << '\n' << "Directory: " << colored_header << "\n\n";
 }
 
@@ -519,7 +519,7 @@ void Renderer::PrintTreeNodes(const std::vector<TreeItem>& nodes,
         const TreeItem& node = nodes[i];
         bool is_last = (i + 1 == nodes.size());
         std::string prefix = TreePrefix(branch_stack, is_last);
-        std::cout << apply_color(theme.get("tree"), prefix, theme, opt_.no_color());
+        std::cout << Theme::ApplyColor(theme.get("tree"), prefix, theme, opt_.no_color());
         std::cout << FormatEntryCell(node.entry, inode_width, block_width, true);
         TerminateLine();
         if (!node.children.empty()) {
@@ -624,10 +624,10 @@ void Renderer::PrintLong(const std::vector<Entry>& entries,
             oss << std::setw(static_cast<int>(width));
         }
         oss << text;
-        return apply_color(header_color, oss.str(), theme, opt_.no_color());
+        return Theme::ApplyColor(header_color, oss.str(), theme, opt_.no_color());
     };
     auto format_simple_header = [&](const std::string& text) {
-        return apply_color(header_color, text, theme, opt_.no_color());
+        return Theme::ApplyColor(header_color, text, theme, opt_.no_color());
     };
 
     if (opt_.header()) {
