@@ -92,6 +92,24 @@ if(NOT TARGET ${_libgit2_primary_target})
   endif()
 endif()
 
+get_target_property(_libgit2_type ${_libgit2_primary_target} TYPE)
+
+if(NLS_RELEASE_COMPILE_OPTIONS)
+  target_compile_options(${_libgit2_primary_target}
+    PRIVATE $<$<CONFIG:Release>:${NLS_RELEASE_COMPILE_OPTIONS}>)
+endif()
+
+if(DEFINED _nls_enable_ipo AND _nls_enable_ipo)
+  set_property(TARGET ${_libgit2_primary_target} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+if(NLS_RELEASE_LINK_OPTIONS)
+  if(_libgit2_type STREQUAL "SHARED_LIBRARY" OR _libgit2_type STREQUAL "MODULE_LIBRARY" OR _libgit2_type STREQUAL "EXECUTABLE")
+    target_link_options(${_libgit2_primary_target}
+      PRIVATE $<$<CONFIG:Release>:${NLS_RELEASE_LINK_OPTIONS}>)
+  endif()
+endif()
+
 add_library(libgit2::git2 ALIAS ${_libgit2_primary_target})
 set(libgit2_FOUND TRUE)
 
@@ -99,6 +117,7 @@ foreach(_flag LIBGIT2_ENABLE_HTTPS LIBGIT2_ENABLE_SSH_AGENT LIBGIT2_USE_BUNDLED_
   unset(${_flag}_VALUE)
 endforeach()
 
+unset(_libgit2_type)
 unset(_libgit2_primary_target)
 unset(_libgit2_binary_dir)
 unset(_LIBGIT2_ROOT)

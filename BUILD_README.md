@@ -22,6 +22,23 @@ trees and cross-compilation scenarios are supported via CMake presets.
 > **Tip:** On Windows/MSYS2 install `clang`, `ninja`, and `cmake` packages and
 > run the commands from a MSYS or CLANG64 shell.
 
+### Enabling IPO/LTO on MSYS2 UCRT64
+
+The MinGW Clang toolchain distributed with MSYS2 ships the LLVMgold plugin and
+`libLTO` in the `mingw-w64-ucrt-x86_64-llvm-libs` package.  Without it the link
+step fails with an `error loading plugin` message even when Clang reports that
+IPO is supported.  Install the required runtime components alongside the
+standard development tools:
+
+```sh
+pacman -S --needed \
+  mingw-w64-ucrt-x86_64-{clang,cmake,ninja,llvm,llvm-libs,lld}
+```
+
+This ensures GNU `ld` can load LLVMgold when ThinLTO is enabled and also makes
+the `lld` linker available as an alternative should you wish to experiment with
+it.
+
 ## Configure
 
 Configure once using the appropriate preset for your host platform:
