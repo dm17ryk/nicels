@@ -56,15 +56,54 @@ option(NLS_ENABLE_IPO "Enable interprocedural optimisations when available" ON)
 option(NLS_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(NLS_ENABLE_COLOR_DIAGNOSTICS "Enable compiler colour diagnostics" ON)
 
+set(_nls_enable_ipo FALSE)
 if(NLS_ENABLE_IPO)
   check_ipo_supported(RESULT _nls_ipo_supported OUTPUT _nls_ipo_output)
   if(_nls_ipo_supported)
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    set(_nls_enable_ipo TRUE)
+    if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT MSVC)
+      # ThinLTO on Clang/MinGW relies on the LLVMgold plugin and libLTO shipped
+      # with the toolchain.  Older MSYS2 installations can miss these runtime
+      # pieces even though the compiler itself is available.  Detect the
+      # situation early and provide an actionable hint instead of failing during
+      # the final link step.
+      get_filename_component(_nls_clang_bindir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+      get_filename_component(_nls_clang_root "${_nls_clang_bindir}/.." ABSOLUTE)
+      set(_nls_llvm_search_paths
+        "${_nls_clang_bindir}"
+        "${_nls_clang_root}"
+      )
+      find_file(_nls_llvmgold_plugin
+        NAMES LLVMgold.dll LLVMgold.so
+        PATHS ${_nls_llvm_search_paths}
+        PATH_SUFFIXES lib lib/clang/${CMAKE_CXX_COMPILER_VERSION}/lib
+      )
+      find_file(_nls_liblto
+        NAMES libLTO.dll libLTO.so
+        PATHS ${_nls_llvm_search_paths}
+        PATH_SUFFIXES bin lib lib/clang/${CMAKE_CXX_COMPILER_VERSION}/lib
+      )
+      if(NOT (_nls_llvmgold_plugin AND _nls_liblto))
+        message(WARNING
+          "IPO/LTO disabled: install the 'mingw-w64-ucrt-x86_64-llvm-libs'"
+          " package (and its dependencies) so GNU ld can load LLVMgold/libLTO")
+        set(_nls_enable_ipo FALSE)
+      endif()
+      unset(_nls_llvmgold_plugin)
+      unset(_nls_liblto)
+      unset(_nls_clang_bindir)
+      unset(_nls_clang_root)
+      unset(_nls_llvm_search_paths)
+    endif()
   else()
     message(WARNING "IPO/LTO was requested but is not supported: ${_nls_ipo_output}")
   endif()
   unset(_nls_ipo_supported)
   unset(_nls_ipo_output)
+endif()
+
+if(_nls_enable_ipo)
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 endif()
 
 find_package(CLI11 REQUIRED)
@@ -118,6 +157,39 @@ target_link_libraries(nls
     CLI11::CLI11
 )
 
+set(_nls_release_compile_opts)
+set(_nls_release_link_opts)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  list(APPEND _nls_release_compile_opts
+    -O3
+    -fstrict-aliasing
+    -fomit-frame-pointer
+    -fdata-sections
+    -ffunction-sections
+  )
+  list(APPEND _nls_release_link_opts -Wl,-O3)
+  if(APPLE)
+    list(APPEND _nls_release_link_opts -Wl,-dead_strip)
+  else()
+    list(APPEND _nls_release_link_opts -Wl,--gc-sections)
+  endif()
+elseif(MSVC)
+  list(APPEND _nls_release_compile_opts /O2 /Oi /Ot /GL /Gy /fp:fast)
+  list(APPEND _nls_release_link_opts /LTCG /OPT:REF /OPT:ICF)
+endif()
+
+if(_nls_release_compile_opts)
+  target_compile_options(nls PRIVATE $<$<CONFIG:Release>:${_nls_release_compile_opts}>)
+endif()
+
+if(_nls_release_link_opts)
+  target_link_options(nls PRIVATE $<$<CONFIG:Release>:${_nls_release_link_opts}>)
+endif()
+
+unset(_nls_release_compile_opts)
+unset(_nls_release_link_opts)
+
 if(NLS_ENABLE_LIBGIT2)
   target_link_libraries(nls PRIVATE libgit2::git2)
   target_compile_definitions(nls PRIVATE USE_LIBGIT2)
@@ -125,6 +197,12 @@ if(NLS_ENABLE_LIBGIT2)
     ${CMAKE_CURRENT_SOURCE_DIR}/third-party/libgit2/include
     ${CMAKE_BINARY_DIR}/libgit2/include)
 endif()
+
+if(_nls_enable_ipo)
+  set_property(TARGET nls PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+endif()
+
+unset(_nls_enable_ipo)
 
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL CMAKE_SYSTEM_NAME)
   set(_nls_detected_system "${CMAKE_SYSTEM_NAME}")
