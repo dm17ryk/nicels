@@ -1,5 +1,6 @@
 #include "git_status.h"
 
+#include <filesystem>
 #include <memory>
 #include <set>
 #include <string>
@@ -224,6 +225,8 @@ public:
             }
         }
 
+        const bool dir_is_repo_root = dir_string == repository->root_generic;
+
         for (size_t i = 0; i < count; ++i) {
             const git_status_entry* entry = git_status_byindex(list.get(), i);
             if (!entry) continue;
@@ -250,32 +253,34 @@ public:
 
             if (relative_from_repo.empty()) continue;
 
-            fs::path absolute = repository->root / relative_from_repo;
-            absolute = fs::weakly_canonical(absolute, ec);
-            if (ec) {
-                ec.clear();
-                absolute = fs::absolute(absolute, ec);
+            std::string abs_string = repository->root_generic;
+            if (!abs_string.empty() && abs_string.back() != '/' && !relative_from_repo.empty()) {
+                abs_string.push_back('/');
             }
-            if (ec) {
-                ec.clear();
-                continue;
-            }
+            abs_string += relative_from_repo;
 
-            const std::string abs_string = absolute.generic_string();
-            if (!IsWithin(dir_string, abs_string)) {
-                if (IsWithin(abs_string, dir_string)) {
+            const std::string normalized_abs = fs::path(abs_string).lexically_normal().generic_string();
+            if (!IsWithin(dir_string, normalized_abs)) {
+                if (IsWithin(normalized_abs, dir_string)) {
                     result.default_modes.insert(code);
                 }
                 continue;
             }
 
-            fs::path relative_to_dir = fs::relative(absolute, dir_abs, ec);
-            if (ec) {
-                ec.clear();
-                continue;
+            std::string relative;
+            if (!dir_is_repo_root) {
+                relative = normalized_abs.substr(dir_string.size());
+                if (!relative.empty() && relative.front() == '/') {
+                    relative.erase(0, 1);
+                }
+            } else {
+                relative = relative_from_repo;
             }
 
-            std::string relative = relative_to_dir.generic_string();
+            if (!relative.empty()) {
+                relative = fs::path(relative).lexically_normal().generic_string();
+            }
+
             if (relative.empty() || relative == ".") {
                 result.default_modes.insert(code);
                 continue;
