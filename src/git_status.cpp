@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <set>
+#include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
@@ -38,6 +39,7 @@ const std::set<std::string>* GitStatusResult::ModesFor(const std::string& rel_pa
     }
     auto it = entries.find(key);
     if (it != entries.end()) return &it->second;
+    if (!default_modes.empty()) return &default_modes;
     return nullptr;
 }
 
@@ -187,6 +189,7 @@ public:
             GIT_STATUS_OPT_INCLUDE_UNTRACKED |
             GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS |
             GIT_STATUS_OPT_INCLUDE_IGNORED |
+            GIT_STATUS_OPT_RECURSE_IGNORED_DIRS |
             GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX |
             GIT_STATUS_OPT_RENAMES_INDEX_TO_WORKDIR;
 
@@ -197,7 +200,30 @@ public:
 
         StatusListHandle list(raw_list);
         const size_t count = git_status_list_entrycount(list.get());
+        std::string dir_string = dir_abs.generic_string();
         std::error_code ec;
+
+        if (IsWithin(repository->root_generic, dir_string)) {
+            fs::path rel_dir = fs::relative(dir_abs, repository->root, ec);
+            if (!ec) {
+                std::string rel_dir_str = rel_dir.generic_string();
+                if (rel_dir_str.empty() || rel_dir_str == ".") {
+                    rel_dir_str.clear();
+                }
+                if (!rel_dir_str.empty()) {
+                    int ignored = 0;
+                    if (git_ignore_path_is_ignored(&ignored,
+                                                   repository->handle.get(),
+                                                   rel_dir_str.c_str()) == 0 &&
+                        ignored) {
+                        result.default_modes.insert("!!");
+                    }
+                }
+            } else {
+                ec.clear();
+            }
+        }
+
         for (size_t i = 0; i < count; ++i) {
             const git_status_entry* entry = git_status_byindex(list.get(), i);
             if (!entry) continue;
@@ -206,11 +232,20 @@ public:
             const std::string code = ToPorcelainCode(status);
             if (code.empty()) continue;
 
-            std::string relative_from_repo;
-            if (entry->head_to_index && entry->head_to_index->new_file.path) {
-                relative_from_repo = entry->head_to_index->new_file.path;
-            } else if (entry->index_to_workdir && entry->index_to_workdir->new_file.path) {
-                relative_from_repo = entry->index_to_workdir->new_file.path;
+            auto extract_path = [](const git_diff_delta* delta) -> std::string {
+                if (!delta) return {};
+                if (delta->new_file.path && delta->new_file.path[0]) {
+                    return delta->new_file.path;
+                }
+                if (delta->old_file.path && delta->old_file.path[0]) {
+                    return delta->old_file.path;
+                }
+                return {};
+            };
+
+            std::string relative_from_repo = extract_path(entry->head_to_index);
+            if (relative_from_repo.empty()) {
+                relative_from_repo = extract_path(entry->index_to_workdir);
             }
 
             if (relative_from_repo.empty()) continue;
@@ -227,8 +262,10 @@ public:
             }
 
             const std::string abs_string = absolute.generic_string();
-            const std::string dir_string = dir_abs.generic_string();
             if (!IsWithin(dir_string, abs_string)) {
+                if (IsWithin(abs_string, dir_string)) {
+                    result.default_modes.insert(code);
+                }
                 continue;
             }
 
