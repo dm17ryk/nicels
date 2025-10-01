@@ -375,9 +375,34 @@ void FileScanner::populate_entry(const fs::directory_entry& de, Entry& entry) co
     entry.info.mtime = de.last_write_time(info_ec);
     entry.info.is_exec = ExecutableClassifier::IsExecutable(de);
     entry.info.is_hidden = StringUtils::IsHidden(entry.info.name);
-    std::error_code exists_ec;
-    bool exists = fs::exists(entry.info.path, exists_ec);
-    entry.info.is_broken_symlink = entry.info.is_symlink && (!exists || exists_ec);
+    auto is_missing_error = [](const std::error_code& ec) {
+        if (!ec) {
+            return false;
+        }
+        return ec == std::errc::no_such_file_or_directory || ec == std::errc::not_a_directory;
+    };
+
+    bool is_broken_symlink = false;
+    if (entry.info.is_symlink) {
+        std::error_code status_ec;
+        fs::file_status status_value = fs::status(entry.info.path, status_ec);
+        if (is_missing_error(status_ec)) {
+            is_broken_symlink = true;
+        } else if (!status_ec && status_value.type() == fs::file_type::not_found) {
+            is_broken_symlink = true;
+        } else {
+            fs::path resolved_path = entry.info.path;
+            if (auto resolved = symlink_resolver_.ResolveTarget(entry.info)) {
+                resolved_path = std::move(*resolved);
+            }
+            std::error_code resolved_ec;
+            fs::file_status resolved_status = fs::status(resolved_path, resolved_ec);
+            if (is_missing_error(resolved_ec) || resolved_status.type() == fs::file_type::not_found) {
+                is_broken_symlink = true;
+            }
+        }
+    }
+    entry.info.is_broken_symlink = is_broken_symlink;
 
     ownership_resolver_.Populate(entry.info, config_.dereference());
     apply_symlink_metadata(entry);

@@ -50,9 +50,12 @@ const std::filesystem::file_status* PermissionFormatter::StatusFor(const FileInf
 char PermissionFormatter::TypeSymbol(const FileInfo& info,
                                      const std::filesystem::file_status& status) const {
     using std::filesystem::file_type;
+
+    if (info.is_broken_symlink || (info.is_symlink && !options_.dereference)) return 'l';
+
     switch (status.type()) {
-        case file_type::directory:
-            return 'd';
+        case file_type::symlink:
+            return 'l';
         case file_type::character:
             return 'c';
         case file_type::block:
@@ -61,14 +64,14 @@ char PermissionFormatter::TypeSymbol(const FileInfo& info,
             return 'p';
         case file_type::socket:
             return 's';
-        case file_type::symlink:
-            return 'l';
+        case file_type::directory:
+            return 'd';
         case file_type::regular:
             return '-';
         default:
             break;
     }
-    if (info.is_symlink && !options_.dereference) return 'l';
+
     if (info.is_dir) return 'd';
     if (info.is_socket) return 's';
     if (info.is_block_device) return 'b';
