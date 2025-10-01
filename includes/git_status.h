@@ -36,7 +36,7 @@ public:
     GitStatus(const GitStatus&) = delete;
     GitStatus& operator=(const GitStatus&) = delete;
 
-    GitStatusResult GetStatus(const std::filesystem::path& dir);
+    GitStatusResult GetStatus(const std::filesystem::path& dir, bool recursive = false);
 
 private:
     std::unique_ptr<GitStatusImpl> impl_;

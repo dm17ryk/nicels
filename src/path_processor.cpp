@@ -131,7 +131,7 @@ void PathProcessor::applyGitStatus(std::vector<Entry>& items, const fs::path& di
         if (perf_manager.enabled()) {
             timer.emplace("git_status::GetStatus");
         }
-        status = gitStatus().GetStatus(dir);
+        status = gitStatus().GetStatus(dir, options().tree());
     }
     if (perf_manager.enabled()) {
         perf_manager.IncrementCounter("git_status_requests");
