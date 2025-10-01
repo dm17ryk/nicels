@@ -528,26 +528,21 @@ or comma (-m) (default: vertical))");
     width_option->type_name("COLS");
     width_option->expected(0, 256);
 
-    auto tree_option = layout->add_option_function<std::size_t>("--tree",
-        [&](const std::size_t& depth) {
-            if (depth == 0) {
-                throw CLI::ValidationError("--tree", "DEPTH must be greater than zero");
-            }
-            builder.EnableTree(depth);
-        },
-        "show tree view of directories, optionally limited to DEPTH");
+    std::string tree_value;
+    auto tree_option = layout->add_flag("--tree{0}", tree_value,
+        "show tree view of directories, optionally limited to DEPTH (0 for unlimited)");
     tree_option->type_name("DEPTH");
-    tree_option->expected(1);
+    tree_option->option_text("[=DEPTH]");
+    tree_option->expected(0, 1);
+    tree_option->default_str("0");
 
-    auto report_option = layout->add_option_function<Config::Report>("--report",
-        [&](const Config::Report& report) {
-            builder.SetReport(report);
-        },
+    std::string report_value;
+    auto report_option = layout->add_flag("--report{long}", report_value,
         R"(show summary report: short, long (default: long)
 )");
     report_option->type_name("WORD");
-    report_option->expected(1);
-    report_option->transform(CLI::CheckedTransformer(report_map, CLI::ignore_case).description(""));
+    report_option->option_text("[=WORD]");
+    report_option->expected(0, 1);
     report_option->default_str("long");
 
     layout->add_flag_callback("--zero", [&]() { builder.SetZeroTerminate(true); },
@@ -596,7 +591,7 @@ time, extension (default: name))");
     sort_option->transform(CLI::CheckedTransformer(sort_map, CLI::ignore_case).description(""));
     sort_option->default_str("name");
 
-    sorting->add_flag_callback("--group-directories-first,--sd,--sort-dirs", [&]() {
+    sorting->add_flag_callback("--sd,--sort-dirs,--group-directories-first", [&]() {
         builder.SetGroupDirsFirst();
     }, "sort directories before files");
     sorting->add_flag_callback("--sf,--sort-files", [&]() {
@@ -658,10 +653,11 @@ never (default: auto))");
         "show nongraphic characters as-is");
     auto time_style_option = appearance->add_option_function<std::string>("--time-style",
         [&](const std::string& style) { builder.SetTimeStyle(style); },
-        R"(use time display format: default, locale,
+        R"(use time display format: default, locale, local,
 long-iso, full-iso, iso, iso8601,
-FORMAT (default: locale))");
+FORMAT (default: local))");
     time_style_option->type_name("FORMAT");
+    time_style_option->default_str("local");
     appearance->add_flag_callback("--full-time", [&]() {
         builder.SetFormat(Config::Format::Long);
         builder.SetTimeStyle("full-iso");
@@ -712,10 +708,135 @@ show information for the file the link references)");
     debug->add_flag_callback("--perf-debug", [&]() { builder.SetPerfLogging(true); },
         "enable performance diagnostics");
 
+    std::vector<std::optional<std::string>> tree_arguments;
+    std::vector<std::optional<std::string>> report_arguments;
+    std::vector<std::string> arg_storage;
+    std::vector<const char*> parse_argv;
+    arg_storage.reserve(static_cast<std::size_t>(argc));
+    parse_argv.reserve(static_cast<std::size_t>(argc));
+    arg_storage.emplace_back(argv[0] != nullptr ? argv[0] : "");
+    parse_argv.push_back(arg_storage.back().c_str());
+
+    for (int i = 1; i < argc; ++i) {
+        std::string_view current(argv[i] != nullptr ? argv[i] : "");
+        if (current == "--") {
+            arg_storage.emplace_back(current);
+            parse_argv.push_back(arg_storage.back().c_str());
+            for (int j = i + 1; j < argc; ++j) {
+                arg_storage.emplace_back(argv[j] != nullptr ? argv[j] : "");
+                parse_argv.push_back(arg_storage.back().c_str());
+            }
+            break;
+        }
+
+        if (current == "--report") {
+            std::optional<std::string> value;
+            if (i + 1 < argc) {
+                std::string_view next(argv[i + 1] != nullptr ? argv[i + 1] : "");
+                if (!next.empty() && next != "--" && next.front() != '-') {
+                    std::string lowered = StringUtils::ToLower(next);
+                    if (report_map.find(lowered) != report_map.end()) {
+                        value = std::string(next);
+                        ++i;
+                    }
+                }
+            }
+            report_arguments.push_back(value);
+            std::string actual = "--report=" + (value ? StringUtils::ToLower(*value) : std::string("long"));
+            arg_storage.emplace_back(std::move(actual));
+            parse_argv.push_back(arg_storage.back().c_str());
+            continue;
+        }
+
+        if (current.rfind("--report=", 0) == 0) {
+            std::string original = std::string(current.substr(9));
+            report_arguments.emplace_back(original);
+            arg_storage.emplace_back(std::string("--report=") + StringUtils::ToLower(original));
+            parse_argv.push_back(arg_storage.back().c_str());
+            continue;
+        }
+
+        if (current == "--tree") {
+            std::optional<std::string> value;
+            if (i + 1 < argc) {
+                std::string_view next(argv[i + 1] != nullptr ? argv[i + 1] : "");
+                if (!next.empty() && next != "--" && next.front() != '-') {
+                    bool numeric = std::all_of(next.begin(), next.end(), [](unsigned char ch) {
+                        return std::isdigit(ch) != 0;
+                    });
+                    if (numeric) {
+                        value = std::string(next);
+                        ++i;
+                    }
+                }
+            }
+            tree_arguments.push_back(value);
+            std::string actual = "--tree=" + (value ? *value : std::string("0"));
+            arg_storage.emplace_back(std::move(actual));
+            parse_argv.push_back(arg_storage.back().c_str());
+            continue;
+        }
+
+        if (current.rfind("--tree=", 0) == 0) {
+            std::string value = std::string(current.substr(7));
+            tree_arguments.emplace_back(value);
+            arg_storage.emplace_back(std::string("--tree=") + value);
+            parse_argv.push_back(arg_storage.back().c_str());
+            continue;
+        }
+
+        arg_storage.emplace_back(current);
+        parse_argv.push_back(arg_storage.back().c_str());
+    }
+
+    int patched_argc = static_cast<int>(parse_argv.size());
+
     try {
-        program.parse(argc, argv);
+        program.parse(patched_argc, parse_argv.data());
     } catch (const CLI::ParseError& e) {
         std::exit(program.exit(e));
+    }
+
+    if (!tree_arguments.empty()) {
+        std::optional<std::size_t> depth;
+        for (const auto& value : tree_arguments) {
+            if (!value || value->empty()) {
+                depth.reset();
+                continue;
+            }
+            try {
+                size_t idx = 0;
+                unsigned long long parsed = std::stoull(*value, &idx, 10);
+                if (idx != value->size()) {
+                    throw CLI::ValidationError("--tree", "invalid value '" + *value + "'");
+                }
+                if (parsed == 0) {
+                    depth.reset();
+                } else {
+                    depth = static_cast<std::size_t>(parsed);
+                }
+            } catch (const std::exception&) {
+                throw CLI::ValidationError("--tree", "invalid value '" + *value + "'");
+            }
+        }
+        builder.EnableTree(depth);
+    }
+
+    if (!report_arguments.empty()) {
+        Config::Report report = Config::Report::Long;
+        for (const auto& value : report_arguments) {
+            if (!value || value->empty()) {
+                report = Config::Report::Long;
+                continue;
+            }
+            std::string normalized = StringUtils::ToLower(*value);
+            auto it = report_map.find(normalized);
+            if (it == report_map.end()) {
+                throw CLI::ValidationError("--report", "invalid value '" + *value + "'");
+            }
+            report = it->second;
+        }
+        builder.SetReport(report);
     }
 
     Config& options = builder.Build();

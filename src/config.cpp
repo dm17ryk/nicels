@@ -46,7 +46,7 @@ void Config::Reset() {
     tree_depth_.reset();
     output_width_.reset();
 
-    time_style_.clear();
+    time_style_ = "local";
     hide_patterns_.clear();
     ignore_patterns_.clear();
     paths_.clear();

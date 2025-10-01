@@ -29,13 +29,21 @@ TimeFormatter::TimeFormatter(Options options)
       fallback_spec_(std::string(kDefaultStrftime)) {
     std::string style = std::move(options.style);
     if (style.empty()) {
-        use_locale_names_ = true;
+        mode_ = Mode::ChronoFormat;
+        format_spec_ = "{:%Y-%m-%d %H:%M:%S%z}";
         return;
     }
 
     std::string normalized = normalize_style(style);
+    if (normalized == "local") {
+        mode_ = Mode::ChronoFormat;
+        format_spec_ = "{:%Y-%m-%d %H:%M:%s}";
+        return;
+    }
+
     if (normalized == "default" || normalized == "locale") {
         use_locale_names_ = true;
+        format_spec_ = "{:%Y-%m-%d %H:%M:%s}";
         return;
     }
 
