@@ -7,7 +7,7 @@ executable is implemented in ISO C++23, uses [CLI11](https://github.com/CLIUtils
 for its command-line interface, and links against libgit2 when Git status
 information is requested. Icons, colour themes, file metadata, and Git porce-
 lain state can all be surfaced in a single listing, while CMake presets keep
-builds reproducible across Linux and Windows targets.【F:CMakeLists.txt†L39-L122】【F:src/git_status.cpp†L1-L116】
+builds reproducible across Linux and Windows (msys2,pwsh,cmd) targets.【F:CMakeLists.txt†L39-L122】【F:src/git_status.cpp†L1-L116】
 
 ## Installation
 ### Linux
@@ -277,18 +277,17 @@ Directory: ␛[38;2;65;105;225m/workspace/nicels␛[0m
 ␛[38;2;255;228;181m1441818␛[0m ␛[38;2;30;144;255md␛[0m␛[38;2;50;205;50mr␛[0m␛[38;2;189;183;107mw␛[0m␛[38;2;255;0;0mx␛[0m␛[38;2;50;205;50mr␛[0m-␛[38;2;255;0;0mx␛[0m␛[38;2;50;205;50mr␛[0m-␛[38;2;255;0;0mx␛[0m ␛[38;2;255;228;181m    5␛[0m ␛[38;2;255;228;181mroot ␛[0m ␛[38;2;189;183;107mroot ␛[0m ␛[38;2;255;218;185m    0 B␛[0m ␛[38;2;0;255;0mSat Sep 27 23:19:06 2025␛[0m     ␛[38;2;30;144;255mbuild/␛[0m
 ␛[38;2;255;228;181m1442005␛[0m -␛[38;2;50;205;50mr␛[0m␛[38;2;189;183;107mw␛[0m-␛[38;2;50;205;50mr␛[0m--␛[38;2;50;205;50mr␛[0m-- ␛[38;2;255;228;181m    1␛[0m ␛[38;2;255;228;181mroot ␛[0m ␛[38;2;189;183;107mroot ␛[0m ␛[38;2;255;218;185m3.5 KiB␛[0m ␛[38;2;0;255;0mSat Sep 27 23:17:05 2025␛[0m     ␛[38;2;255;255;0mBUILD_README.md␛[0m
 ```
-![Linux long listing](images/Linux-alAL_2025-10-02.png)
+### Linux (bash example)
+![Linux bash](images/Linux-alAL_2025-10-02.png)
 
 ### Windows (MSYS2 UCRT example)
-```
-Directory: ␛[38;2;65;105;225mC:\\Users\\Dev\\source\\nicels␛[0m
+![Windows msys2](images/Windows-alAL_2025-10-02.png)
 
-␛[38;2;211;211;211m  Inode␛[0m ␛[38;2;211;211;211mMode      ␛[0m ␛[38;2;211;211;211mLinks␛[0m ␛[38;2;211;211;211mOwner         ␛[0m ␛[38;2;211;211;211mGroup         ␛[0m ␛[38;2;211;211;211m   Size␛[0m ␛[38;2;211;211;211mLastWriteTime           ␛[0m ␛[38;2;211;211;211mGit␛[0m ␛[38;2;211;211;211mName␛[0m
-------- ---------- ----- -------------- -------------- ------- ------------------------ --- -----------------
-␛[38;2;255;228;181m000000␛[0m ␛[38;2;30;144;255md␛[0m␛[38;2;50;205;50mr␛[0m␛[38;2;189;183;107mw␛[0m␛[38;2;255;0;0mx␛[0m␛[38;2;50;205;50mr␛[0m-␛[38;2;255;0;0mx␛[0m␛[38;2;50;205;50mr␛[0m-␛[38;2;255;0;0mx␛[0m ␛[38;2;255;228;181m    5␛[0m ␛[38;2;255;228;181mDEV\\Dev      ␛[0m ␛[38;2;189;183;107mDEV\\None     ␛[0m ␛[38;2;255;218;185m    0 B␛[0m ␛[38;2;0;255;0mSat Sep 27 23:19:06 2025␛[0m     ␛[38;2;30;144;255msrc\\␛[0m
-␛[38;2;255;228;181m000000␛[0m -␛[38;2;50;205;50mr␛[0m␛[38;2;189;183;107mw␛[0m-␛[38;2;50;205;50mr␛[0m--␛[38;2;50;205;50mr␛[0m-- ␛[38;2;255;228;181m    1␛[0m ␛[38;2;255;228;181mDEV\\Dev      ␛[0m ␛[38;2;189;183;107mDEV\\None     ␛[0m ␛[38;2;255;218;185m6.8 KiB␛[0m ␛[38;2;0;255;0mSat Sep 27 23:17:05 2025␛[0m     ␛[38;2;255;255;0mCMakeLists.txt␛[0m
-```
-![Windows long listing](images/Windows-alAL_2025-10-02.png)
+### Windows (PowerShell example)
+![Windows pwsh](images/Windows-pwsh-alAL_2025-10-02.png)
+
+### Windows (cmd example)
+![Windows cmd](images/Windows-cmd-alAL_2025-10-02.png)
 
 ## Packaging and artifacts
 Binary packaging is not configured yet. Use `cmake --install` to stage files for
