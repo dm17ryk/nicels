@@ -20,9 +20,10 @@
 
 #include <CLI/CLI.hpp>
 
-#include "string_utils.h"
 #include "color_formatter.h"
 #include "platform.h"
+#include "string_utils.h"
+#include "version.h"
 
 namespace nls {
 
@@ -415,7 +416,7 @@ Config& CommandLineParser::Parse(int argc, char** argv) {
     CLI::App program{R"(List information about the FILEs (the current directory by default).
 Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.)", "nls"};
     program.formatter(std::make_shared<ColorFormatter>());
-    program.set_version_flag("--version", "1.0.0");
+    program.set_version_flag("--version", Version::FullString());
     program.footer(R"(The SIZE argument is an integer and optional unit (example: 10K is 10*1024).
 Units are K,M,G,T,P,E,Z,Y,R,Q (powers of 1024) or KB,MB,... (powers of 1000).
 Binary prefixes can be used, too: KiB=K, MiB=M, and so on.

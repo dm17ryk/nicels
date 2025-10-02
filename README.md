@@ -65,6 +65,26 @@ The `nls` executable appears under `build/<preset>/<config>/`. Run it directly
 from the build tree or after `cmake --install` to stage an install tree under
 `build/<preset>/install/`.【F:BUILD_README.md†L68-L118】
 
+## Versioning
+
+nls follows a four-component version scheme: `major.minor[.maintenance[.build]]`.
+The canonical version is stored in the repository's `VERSION` file and surfaced
+via `nls --version` at runtime.【F:VERSION†L1-L1】【F:src/command_line_parser.cpp†L413-L443】
+
+* **Major/minor** numbers are updated manually whenever a breaking or notable
+  change warrants it.
+* **Maintenance** increments automatically after each pull request merge. The
+  helper script `tools/update_version.py --bump-maintenance` applies the bump
+  and resets the build counter.【F:tools/update_version.py†L1-L169】
+* **Build** increments on release builds that ship new code. Use
+  `tools/update_version.py --bump-build` and provide `--compare-ref <ref>` to
+  guard against unintended bumps when no changes occurred compared to the
+  previous release reference.【F:tools/update_version.py†L1-L169】
+
+Both bump operations print the resulting version and rewrite `VERSION` unless
+`--dry-run` is specified. The script enforces non-negative values and ensures
+the file always contains four components, starting at `1.0.0.0`.
+
 ### Run
 ```sh
 ./build/linux-clang/Release/nls --help
@@ -125,7 +145,7 @@ terminal, and `--no-icons` when running inside tools that strip Unicode.
 The CLI reference below is generated from the live binary. After changing
 options in `src/command_line_parser.cpp`, rebuild `nls` and run:
 ```sh
-python tools/update_cli_reference.py --output /tmp/cli.md
+python ./tools/update_cli_reference.py ./build/msys-clang/Release/nls.exe
 ```
 Paste the output into the README to keep the documentation in lock-step with
 what the executable reports.
@@ -156,8 +176,8 @@ what the executable reports.
 | `-m` | `—` | `—` | fill width with a comma separated list of entries |
 | `-T, --tabsize` | `COLS` | `—` | assume tab stops at each COLS instead of 8 |
 | `-w, --width` | `COLS` | `—` | set output width to COLS. 0 means no limit |
-| `--tree` | `DEPTH` | `—` | show tree view of directories, optionally limited to DEPTH |
-| `--report` | `WORD` | `long` | show summary report: short, long (default: long) |
+| `--tree{0}` | `—` | `=DEPTH` | show tree view of directories, optionally limited to DEPTH (0 for unlimited) |
+| `--report{long}` | `—` | `=WORD` | show summary report: short, long (default: long) |
 | `--zero` | `—` | `—` | end each output line with NUL, not newline |
 
 #### Filtering options
@@ -182,7 +202,7 @@ what the executable reports.
 | `-U` | `—` | `—` | do not sort; list entries in directory order |
 | `-r, --reverse` | `—` | `—` | reverse order while sorting |
 | `--sort` | `WORD` | `name` | sort by WORD instead of name: none, size, time, extension (default: name) |
-| `--group-directories-first, --sd, --sort-dirs` | `—` | `—` | sort directories before files |
+| `--sd, --sort-dirs, --group-directories-first` | `—` | `—` | sort directories before files |
 | `--sf, --sort-files` | `—` | `—` | sort files first |
 | `--df, --dots-first` | `—` | `—` | sort dot-files and dot-folders first |
 
@@ -199,12 +219,12 @@ what the executable reports.
 | `--no-icons, --without-icons` | `—` | `—` | disable icons in output |
 | `--no-color` | `—` | `—` | disable ANSI colors |
 | `--color` | `WHEN` | `auto` | colorize the output: auto, always, never (default: auto) |
+| `--theme` | `NAME` | `—` | use theme NAME (loads NAME_theme.yaml) |
 | `--light` | `—` | `—` | use light color scheme |
 | `--dark` | `—` | `—` | use dark color scheme |
-| `--theme` | `NAME` | `—` | load theme NAME from `NAME_theme.yaml` |
 | `-q, --hide-control-chars` | `—` | `—` | print ? instead of nongraphic characters |
 | `--show-control-chars` | `—` | `—` | show nongraphic characters as-is |
-| `--time-style` | `FORMAT` | `—` | use time display format: default, locale, long-iso, full-iso, iso, iso8601, +FORMAT (default: locale) |
+| `--time-style` | `FORMAT` | `local` | use time display format: default, locale, local, long-iso, full-iso, iso, iso8601, FORMAT (default: local) |
 | `--full-time` | `—` | `—` | like -l --time-style=full-iso |
 | `--hyperlink` | `—` | `—` | emit hyperlinks for entries |
 
@@ -222,6 +242,12 @@ what the executable reports.
 | `--block-size` | `SIZE` | `—` | with -l, scale sizes by SIZE when printing them |
 | `-L, --dereference` | `—` | `—` | when showing file information for a symbolic link, show information for the file the link references |
 | `--gs, --git-status` | `—` | `—` | show git status for each file |
+
+#### Debug options
+
+| Option(s) | Argument | Default | Description |
+| --- | --- | --- | --- |
+| `--perf-debug` | `—` | `—` | enable performance diagnostics |
 
 **Footnotes and related behaviour**
 - `SIZE` accepts optional binary (K, M, …) or decimal (KB, MB, …) suffixes.

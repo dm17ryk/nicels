@@ -38,8 +38,64 @@ endif()
 unset(_nls_clang CACHE)
 unset(_nls_clangxx CACHE)
 
+set(_nls_version_file "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_nls_version_file}")
+if(NOT EXISTS "${_nls_version_file}")
+  message(FATAL_ERROR "VERSION file not found at ${_nls_version_file}")
+endif()
+
+file(READ "${_nls_version_file}" _nls_version_contents)
+string(REGEX MATCH "^[^\n\r]*" _nls_version_raw "${_nls_version_contents}")
+string(STRIP "${_nls_version_raw}" _nls_version_raw)
+string(REPLACE "." ";" _nls_version_parts "${_nls_version_raw}")
+list(LENGTH _nls_version_parts _nls_version_count)
+if(_nls_version_count LESS 2 OR _nls_version_count GREATER 4)
+  message(FATAL_ERROR "VERSION must contain two to four dot-separated numbers")
+endif()
+
+list(GET _nls_version_parts 0 NLS_VERSION_MAJOR)
+list(GET _nls_version_parts 1 NLS_VERSION_MINOR)
+if(_nls_version_count GREATER 2)
+  list(GET _nls_version_parts 2 NLS_VERSION_MAINTENANCE)
+else()
+  set(NLS_VERSION_MAINTENANCE 0)
+endif()
+if(_nls_version_count GREATER 3)
+  list(GET _nls_version_parts 3 NLS_VERSION_BUILD)
+else()
+  set(NLS_VERSION_BUILD 0)
+endif()
+
+foreach(_nls_component IN ITEMS NLS_VERSION_MAJOR NLS_VERSION_MINOR NLS_VERSION_MAINTENANCE NLS_VERSION_BUILD)
+  if(NOT ${_nls_component} MATCHES "^[0-9]+$")
+    message(FATAL_ERROR "VERSION component '${${_nls_component}}' for ${_nls_component} is not numeric")
+  endif()
+endforeach()
+
+if(_nls_version_count GREATER 2)
+  set(_nls_version_has_maintenance 1)
+else()
+  set(_nls_version_has_maintenance 0)
+endif()
+if(_nls_version_count GREATER 3)
+  set(_nls_version_has_build 1)
+else()
+  set(_nls_version_has_build 0)
+endif()
+
+set(NLS_VERSION_CORE_STRING "${NLS_VERSION_MAJOR}.${NLS_VERSION_MINOR}")
+set(NLS_VERSION_STRING "${NLS_VERSION_CORE_STRING}")
+if(_nls_version_has_maintenance)
+  string(APPEND NLS_VERSION_STRING ".${NLS_VERSION_MAINTENANCE}")
+  if(_nls_version_has_build)
+    string(APPEND NLS_VERSION_STRING ".${NLS_VERSION_BUILD}")
+  endif()
+endif()
+
+message(STATUS "Configuring nicels version ${NLS_VERSION_STRING}")
+
 project(nicels
-  VERSION 0.1.0
+  VERSION ${NLS_VERSION_MAJOR}.${NLS_VERSION_MINOR}.${NLS_VERSION_MAINTENANCE}
   DESCRIPTION "Next generation ls clone"
   LANGUAGES C CXX
 )
@@ -155,6 +211,18 @@ target_include_directories(nls
 target_link_libraries(nls
   PRIVATE
     CLI11::CLI11
+)
+
+target_compile_definitions(nls
+  PRIVATE
+    NLS_VERSION_MAJOR=${NLS_VERSION_MAJOR}
+    NLS_VERSION_MINOR=${NLS_VERSION_MINOR}
+    NLS_VERSION_MAINTENANCE=${NLS_VERSION_MAINTENANCE}
+    NLS_VERSION_BUILD=${NLS_VERSION_BUILD}
+    NLS_VERSION_HAS_MAINTENANCE=${_nls_version_has_maintenance}
+    NLS_VERSION_HAS_BUILD=${_nls_version_has_build}
+    NLS_VERSION_STRING="${NLS_VERSION_STRING}"
+    NLS_VERSION_CORE_STRING="${NLS_VERSION_CORE_STRING}"
 )
 
 set(NLS_RELEASE_COMPILE_OPTIONS)
