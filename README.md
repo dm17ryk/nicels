@@ -28,7 +28,7 @@ builds reproducible across Linux and Windows targets.【F:CMakeLists.txt†L39-L
    ```sh
    pacman -S --needed \
        git \
-       mingw-w64-ucrt-x86_64-{cmake,clang,ninja,python}
+       mingw-w64-ucrt-x86_64-{git,cmake,clang,ninja,python,llvm,llvm-libs,lld,toolchain}
    ```
 2. Clone the sources and initialise submodules:
    ```sh
