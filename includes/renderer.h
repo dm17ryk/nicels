@@ -30,6 +30,18 @@ public:
     void TerminateLine() const;
 
 private:
+    struct LongFormatColumns {
+        size_t inode_width = 0;
+        size_t block_width = 0;
+        size_t perm_width = 10;
+        size_t nlink_width = 0;
+        size_t owner_width = 0;
+        size_t group_width = 0;
+        size_t size_width = 0;
+        size_t time_width = 0;
+        size_t git_width = 0;
+    };
+
     struct ReportStats {
         size_t total = 0;
         size_t folders = 0;
@@ -55,6 +67,15 @@ private:
                                 size_t block_width,
                                 bool include_git_prefix) const;
 
+    LongFormatColumns ComputeLongColumns(const std::vector<Entry>& entries,
+                                         size_t inode_width,
+                                         size_t block_width) const;
+    void PrintLongHeader(const LongFormatColumns& columns) const;
+    void PrintLongEntry(const Entry& entry, const LongFormatColumns& columns) const;
+
+    std::string OwnerDisplay(const Entry& entry) const;
+    std::string GroupDisplay(const Entry& entry) const;
+
     size_t ComputeInodeWidth(const std::vector<Entry>& entries) const;
     size_t ComputeBlockWidth(const std::vector<Entry>& entries) const;
 
@@ -66,6 +87,7 @@ private:
     void PrintTreeNodes(const std::vector<TreeItem>& nodes,
                         size_t inode_width,
                         size_t block_width,
+                        const LongFormatColumns* long_columns,
                         std::vector<bool>& branch_stack) const;
 
     void PrintLong(const std::vector<Entry>& entries,

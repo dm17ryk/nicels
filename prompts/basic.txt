@@ -1,4 +1,5 @@
 Act as genius, C++23/OOP/CMake expert, senior developer.
 All changes committed, get latest from master.
 Don't forget to run, to get "submodules: git submodule update --init --recursive"
+Compile and test.
 Use folders ./test/win for testing on Windows and ./test/lin for testing on Linux.

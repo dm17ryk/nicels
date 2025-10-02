@@ -4,10 +4,9 @@
   "goals": [
     "Add smoke tests and golden-output tests that validate behavior and CLI compatibility on Linux and Windows (MSYS2 UCRT).",
     "Provide sample invocation scripts under ./test/win and ./test/lin that cover key modes (-l, -1, -C, --format, filtering, sorting, appearance, information flags).",
-    "Verify a subset of outputs against GNU ls where meaningful (normalizing environment-sensitive fields); otherwise compare to golden files with fixed locale and no colors.",
     "If the project uses CMake, integrate tests with CTest; otherwise supply shell/batch scripts that return nonzero on mismatches.",
     "Optionally add a minimal CI workflow for Linux and MSYS2 ucrt64 to run the tests.",
-    "Mock or isolate libgit2 interactions where deterministic outputs are required; include at least one end-to-end test with Git status enabled."
+    "Add full tests that covers all CLI options and combinations. Verify output text, colors, icons, exit codes."
   ],
   "context": {
     "repo_state": "All changes committed. Use latest master.",

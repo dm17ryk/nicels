@@ -224,8 +224,16 @@ void Renderer::RenderTree(const std::vector<TreeItem>& nodes,
                           const std::vector<Entry>& flat_entries) const {
     size_t inode_width = ComputeInodeWidth(flat_entries);
     size_t block_width = ComputeBlockWidth(flat_entries);
+    std::optional<LongFormatColumns> long_columns;
+    if (opt_.format() == Config::Format::Long) {
+        long_columns = ComputeLongColumns(flat_entries, inode_width, block_width);
+    }
     std::vector<bool> branch_stack;
-    PrintTreeNodes(nodes, inode_width, block_width, branch_stack);
+    PrintTreeNodes(nodes,
+                   inode_width,
+                   block_width,
+                   long_columns ? &*long_columns : nullptr,
+                   branch_stack);
 }
 
 void Renderer::RenderEntries(const std::vector<Entry>& entries) const {
@@ -500,6 +508,48 @@ std::string Renderer::FormatEntryCell(const Entry& entry,
     return out;
 }
 
+std::string Renderer::OwnerDisplay(const Entry& entry) const {
+    if (opt_.numeric_uid_gid()) {
+        if (entry.info.has_owner_numeric) {
+            return entry.info.owner_numeric;
+        }
+        if (entry.info.has_owner_id) {
+            return std::to_string(entry.info.owner_id);
+        }
+    }
+    if (!entry.info.owner.empty()) {
+        return entry.info.owner;
+    }
+    if (entry.info.has_owner_numeric) {
+        return entry.info.owner_numeric;
+    }
+    if (entry.info.has_owner_id) {
+        return std::to_string(entry.info.owner_id);
+    }
+    return std::string();
+}
+
+std::string Renderer::GroupDisplay(const Entry& entry) const {
+    if (opt_.numeric_uid_gid()) {
+        if (entry.info.has_group_numeric) {
+            return entry.info.group_numeric;
+        }
+        if (entry.info.has_group_id) {
+            return std::to_string(entry.info.group_id);
+        }
+    }
+    if (!entry.info.group.empty()) {
+        return entry.info.group;
+    }
+    if (entry.info.has_group_numeric) {
+        return entry.info.group_numeric;
+    }
+    if (entry.info.has_group_id) {
+        return std::to_string(entry.info.group_id);
+    }
+    return std::string();
+}
+
 std::string Renderer::TreePrefix(const std::vector<bool>& branches, bool is_last) const {
     std::string prefix;
     prefix.reserve(branches.size() * 4 + 5);
@@ -513,94 +563,86 @@ std::string Renderer::TreePrefix(const std::vector<bool>& branches, bool is_last
 void Renderer::PrintTreeNodes(const std::vector<TreeItem>& nodes,
                               size_t inode_width,
                               size_t block_width,
+                              const LongFormatColumns* long_columns,
                               std::vector<bool>& branch_stack) const {
     const ThemeColors& theme = Theme::instance().colors();
+    const bool use_long = long_columns != nullptr;
     for (size_t i = 0; i < nodes.size(); ++i) {
         const TreeItem& node = nodes[i];
         bool is_last = (i + 1 == nodes.size());
         std::string prefix = TreePrefix(branch_stack, is_last);
         std::cout << Theme::ApplyColor(theme.get("tree"), prefix, theme, opt_.no_color());
-        std::cout << FormatEntryCell(node.entry, inode_width, block_width, true);
+        if (use_long) {
+            PrintLongEntry(node.entry, *long_columns);
+        } else {
+            std::cout << FormatEntryCell(node.entry, inode_width, block_width, true);
+        }
         TerminateLine();
         if (!node.children.empty()) {
             branch_stack.push_back(!is_last);
-            PrintTreeNodes(node.children, inode_width, block_width, branch_stack);
+            PrintTreeNodes(node.children, inode_width, block_width, long_columns, branch_stack);
             branch_stack.pop_back();
         }
     }
 }
 
-void Renderer::PrintLong(const std::vector<Entry>& entries,
-                         size_t inode_width,
-                         size_t block_width) const {
-    constexpr size_t perm_width = 10;
-    const ThemeColors& theme = Theme::instance().colors();
+Renderer::LongFormatColumns Renderer::ComputeLongColumns(const std::vector<Entry>& entries,
+                                                         size_t inode_width,
+                                                         size_t block_width) const {
+    LongFormatColumns columns;
+    columns.inode_width = inode_width;
+    columns.block_width = block_width;
 
-    auto owner_display = [&](const Entry& entry) -> std::string {
-        if (opt_.numeric_uid_gid()) {
-            if (entry.info.has_owner_numeric) {
-                return entry.info.owner_numeric;
-            }
-            if (entry.info.has_owner_id) {
-                return std::to_string(entry.info.owner_id);
-            }
-        }
-        if (!entry.info.owner.empty()) {
-            return entry.info.owner;
-        }
-        if (entry.info.has_owner_numeric) {
-            return entry.info.owner_numeric;
-        }
-        if (entry.info.has_owner_id) {
-            return std::to_string(entry.info.owner_id);
-        }
-        return std::string();
-    };
-
-    auto group_display = [&](const Entry& entry) -> std::string {
-        if (opt_.numeric_uid_gid()) {
-            if (entry.info.has_group_numeric) {
-                return entry.info.group_numeric;
-            }
-            if (entry.info.has_group_id) {
-                return std::to_string(entry.info.group_id);
-            }
-        }
-        if (!entry.info.group.empty()) {
-            return entry.info.group;
-        }
-        if (entry.info.has_group_numeric) {
-            return entry.info.group_numeric;
-        }
-        if (entry.info.has_group_id) {
-            return std::to_string(entry.info.group_id);
-        }
-        return std::string();
-    };
-
-    size_t w_owner = 0, w_group = 0, w_size = 0, w_nlink = 0, w_time = 0, w_git = 0, w_blocks = block_width;
     for (const auto& entry : entries) {
-        if (opt_.show_owner()) w_owner = std::max(w_owner, owner_display(entry).size());
-        if (opt_.show_group()) w_group = std::max(w_group, group_display(entry).size());
-        w_nlink = std::max(w_nlink, std::to_string(entry.info.nlink).size());
+        if (opt_.show_owner()) {
+            columns.owner_width = std::max(columns.owner_width, OwnerDisplay(entry).size());
+        }
+        if (opt_.show_group()) {
+            columns.group_width = std::max(columns.group_width, GroupDisplay(entry).size());
+        }
+        columns.nlink_width = std::max(columns.nlink_width, std::to_string(entry.info.nlink).size());
         std::string size_str = FormatSizeValue(entry.info.size);
-        w_size = std::max(w_size, size_str.size());
+        columns.size_width = std::max(columns.size_width, size_str.size());
         std::string time_str = time_formatter_.Format(entry.info.mtime);
-        w_time = std::max(w_time, time_str.size());
+        columns.time_width = std::max(columns.time_width, time_str.size());
         if (opt_.git_status()) {
-            w_git = std::max(w_git, PrintableWidth(entry.info.git_prefix));
+            columns.git_width = std::max(columns.git_width, PrintableWidth(entry.info.git_prefix));
         }
         if (opt_.show_block_size()) {
             std::string block = BlockDisplay(entry);
-            w_blocks = std::max(w_blocks, block.size());
+            columns.block_width = std::max(columns.block_width, block.size());
         }
     }
 
-    const std::string inode_color = opt_.no_color() ? std::string() : theme.get("inode");
-    const std::string links_color = inode_color;
-    const std::string owner_color = opt_.no_color() ? std::string() : theme.get("owned");
-    const std::string group_color = opt_.no_color() ? std::string() : theme.get("group");
+    if (opt_.header()) {
+        const std::string size_header = opt_.bytes() ? "Length" : "Size";
+        const std::string links_header = "Links";
+        const std::string owner_header = "Owner";
+        const std::string group_header = "Group";
+        const std::string time_header = "LastWriteTime";
+        const std::string inode_header = "Inode";
+        const std::string blocks_header = "Blocks";
+        const std::string git_header = "Git";
 
+        if (opt_.show_inode()) columns.inode_width = std::max(columns.inode_width, inode_header.size());
+        columns.nlink_width = std::max(columns.nlink_width, links_header.size());
+        if (opt_.show_owner()) columns.owner_width = std::max(columns.owner_width, owner_header.size());
+        if (opt_.show_group()) columns.group_width = std::max(columns.group_width, group_header.size());
+        columns.size_width = std::max(columns.size_width, size_header.size());
+        columns.time_width = std::max(columns.time_width, time_header.size());
+        if (opt_.show_block_size()) columns.block_width = std::max(columns.block_width, blocks_header.size());
+        if (opt_.git_status()) columns.git_width = std::max(columns.git_width, git_header.size());
+    }
+
+    return columns;
+}
+
+void Renderer::PrintLongHeader(const LongFormatColumns& columns) const {
+    if (!opt_.header()) {
+        return;
+    }
+
+    const ThemeColors& theme = Theme::instance().colors();
     const std::string size_header = opt_.bytes() ? "Length" : "Size";
     const std::string links_header = "Links";
     const std::string owner_header = "Owner";
@@ -630,156 +672,159 @@ void Renderer::PrintLong(const std::vector<Entry>& entries,
         return Theme::ApplyColor(header_color, text, theme, opt_.no_color());
     };
 
-    if (opt_.header()) {
-        if (opt_.show_inode()) inode_width = std::max(inode_width, inode_header.size());
-        w_nlink = std::max(w_nlink, links_header.size());
-        if (opt_.show_owner()) w_owner = std::max(w_owner, owner_header.size());
-        if (opt_.show_group()) w_group = std::max(w_group, group_header.size());
-        w_size = std::max(w_size, size_header.size());
-        w_time = std::max(w_time, time_header.size());
-        if (opt_.show_block_size()) w_blocks = std::max(w_blocks, blocks_header.size());
-        if (opt_.git_status()) w_git = std::max(w_git, git_header.size());
+    if (opt_.show_inode()) {
+        std::cout << format_header_cell(inode_header, columns.inode_width, HeaderAlign::Right) << ' ';
+    }
+    if (opt_.show_block_size()) {
+        std::cout << format_header_cell(blocks_header, columns.block_width, HeaderAlign::Right) << ' ';
+    }
+    std::cout << format_header_cell("Mode", columns.perm_width, HeaderAlign::Left) << ' ';
+    std::cout << format_header_cell(links_header, columns.nlink_width, HeaderAlign::Right) << ' ';
+    if (opt_.show_owner()) {
+        std::cout << format_header_cell(owner_header, columns.owner_width, HeaderAlign::Left) << ' ';
+    }
+    if (opt_.show_group()) {
+        std::cout << format_header_cell(group_header, columns.group_width, HeaderAlign::Left) << ' ';
+    }
+    std::cout << format_header_cell(size_header, columns.size_width, HeaderAlign::Right) << ' ';
+    std::cout << format_header_cell(time_header, columns.time_width, HeaderAlign::Left) << ' ';
+    if (opt_.git_status()) {
+        std::cout << format_header_cell(git_header, columns.git_width, HeaderAlign::Left) << ' ';
+    }
+    std::cout << format_simple_header(name_header) << "\n";
+
+    if (opt_.show_inode()) {
+        std::cout << std::string(columns.inode_width, '-') << ' ';
+    }
+    if (opt_.show_block_size()) {
+        std::cout << std::string(columns.block_width, '-') << ' ';
+    }
+    std::cout << std::string(columns.perm_width, '-') << ' ';
+    std::cout << std::string(columns.nlink_width, '-') << ' ';
+    if (opt_.show_owner()) std::cout << std::string(columns.owner_width, '-') << ' ';
+    if (opt_.show_group()) std::cout << std::string(columns.group_width, '-') << ' ';
+    std::cout << std::string(columns.size_width, '-') << ' ';
+    std::cout << std::string(columns.time_width, '-') << ' ';
+    if (opt_.git_status()) std::cout << std::string(columns.git_width, '-') << ' ';
+    std::cout << std::string(name_header.size(), '-') << "\n";
+}
+
+void Renderer::PrintLongEntry(const Entry& entry, const LongFormatColumns& columns) const {
+    const ThemeColors& theme = Theme::instance().colors();
+    const std::string inode_color = opt_.no_color() ? std::string() : theme.get("inode");
+    const std::string links_color = inode_color;
+    const std::string owner_color = opt_.no_color() ? std::string() : theme.get("owned");
+    const std::string group_color = opt_.no_color() ? std::string() : theme.get("group");
+
+    if (opt_.show_inode()) {
+        std::cout << std::right;
+        if (!inode_color.empty()) std::cout << inode_color;
+        std::cout << std::setw(static_cast<int>(columns.inode_width)) << entry.info.inode;
+        if (!inode_color.empty()) std::cout << theme.reset;
+        std::cout << ' ';
+    }
+    if (opt_.show_block_size()) {
+        std::string block = BlockDisplay(entry);
+        std::cout << std::right << std::setw(static_cast<int>(columns.block_width)) << block << ' ';
     }
 
-    if (opt_.header()) {
-        if (opt_.show_inode()) {
-            std::cout << format_header_cell(inode_header, inode_width, HeaderAlign::Right) << ' ';
-        }
-        if (opt_.show_block_size()) {
-            std::cout << format_header_cell(blocks_header, w_blocks, HeaderAlign::Right) << ' ';
-        }
-        std::cout << format_header_cell("Mode", perm_width, HeaderAlign::Left) << ' ';
-        std::cout << format_header_cell(links_header, w_nlink, HeaderAlign::Right) << ' ';
-        if (opt_.show_owner()) {
-            std::cout << format_header_cell(owner_header, w_owner, HeaderAlign::Left) << ' ';
-        }
-        if (opt_.show_group()) {
-            std::cout << format_header_cell(group_header, w_group, HeaderAlign::Left) << ' ';
-        }
-        std::cout << format_header_cell(size_header, w_size, HeaderAlign::Right) << ' ';
-        std::cout << format_header_cell(time_header, w_time, HeaderAlign::Left) << ' ';
-        if (opt_.git_status()) {
-            std::cout << format_header_cell(git_header, w_git, HeaderAlign::Left) << ' ';
-        }
-        std::cout << format_simple_header(name_header) << "\n";
+    std::string perm = permission_formatter_.Format(entry.info);
+    std::cout << permission_formatter_.Colorize(perm, opt_.no_color()) << ' ';
 
-        if (opt_.show_inode()) {
-            std::cout << std::string(inode_width, '-') << ' ';
-        }
-        if (opt_.show_block_size()) {
-            std::cout << std::string(w_blocks, '-') << ' ';
-        }
-        std::cout << std::string(perm_width, '-') << ' ';
-        std::cout << std::string(w_nlink, '-') << ' ';
-        if (opt_.show_owner()) std::cout << std::string(w_owner, '-') << ' ';
-        if (opt_.show_group()) std::cout << std::string(w_group, '-') << ' ';
-        std::cout << std::string(w_size, '-') << ' ';
-        std::cout << std::string(w_time, '-') << ' ';
-        if (opt_.git_status()) std::cout << std::string(w_git, '-') << ' ';
-        std::cout << std::string(name_header.size(), '-') << "\n";
+    std::cout << std::right;
+    if (!links_color.empty()) std::cout << links_color;
+    std::cout << std::setw(static_cast<int>(columns.nlink_width)) << entry.info.nlink;
+    if (!links_color.empty()) std::cout << theme.reset;
+    std::cout << ' ';
+
+    if (opt_.show_owner()) {
+        std::string owner_text = OwnerDisplay(entry);
+        if (!owner_color.empty()) std::cout << owner_color;
+        std::cout << std::left << std::setw(static_cast<int>(columns.owner_width)) << owner_text;
+        if (!owner_color.empty()) std::cout << theme.reset;
+        std::cout << ' ';
     }
+    if (opt_.show_group()) {
+        std::string group_text = GroupDisplay(entry);
+        if (!group_color.empty()) std::cout << group_color;
+        std::cout << std::left << std::setw(static_cast<int>(columns.group_width)) << group_text;
+        if (!group_color.empty()) std::cout << theme.reset;
+        std::cout << ' ';
+    }
+
+    std::string size_str = FormatSizeValue(entry.info.size);
+    std::string size_col = opt_.no_color() ? std::string() : SizeColor(entry.info.size, theme);
+    if (!size_col.empty()) std::cout << size_col;
+    std::cout << std::right << std::setw(static_cast<int>(columns.size_width)) << size_str;
+    if (!size_col.empty()) std::cout << theme.reset;
+    std::cout << ' ';
+
+    std::string time_str = time_formatter_.Format(entry.info.mtime);
+    std::string time_col = opt_.no_color() ? std::string() : AgeColor(entry.info.mtime, theme);
+    if (!time_col.empty()) std::cout << time_col;
+    if (opt_.header()) {
+        std::cout << std::left << std::setw(static_cast<int>(columns.time_width)) << time_str;
+    } else {
+        std::cout << time_str;
+    }
+    if (!time_col.empty()) std::cout << theme.reset;
+    std::cout << ' ';
+
+    if (opt_.git_status()) {
+        if (opt_.header()) {
+            std::cout << entry.info.git_prefix;
+            size_t git_width = PrintableWidth(entry.info.git_prefix);
+            if (columns.git_width > git_width) {
+                std::cout << std::string(columns.git_width - git_width, ' ');
+            }
+            std::cout << ' ';
+        } else if (!entry.info.git_prefix.empty()) {
+            std::cout << entry.info.git_prefix << ' ';
+        }
+    }
+
+    std::cout << StyledName(entry);
+
+    if (entry.info.is_symlink) {
+        std::string target_str;
+        if (entry.info.has_symlink_target) {
+            target_str = entry.info.symlink_target.string();
+        } else {
+            std::error_code target_ec;
+            auto target = fs::read_symlink(entry.info.path, target_ec);
+            if (!target_ec) target_str = target.string();
+        }
+        if (!target_str.empty()) {
+            target_str = ApplyControlCharHandling(target_str);
+            target_str = ApplyQuoting(target_str);
+            const char* arrow = "  \xE2\x87\x92 ";
+            bool broken = entry.info.is_broken_symlink;
+            bool use_color = !opt_.no_color();
+            std::string link_color;
+            if (use_color) {
+                link_color = broken ? theme.get("dead_link") : theme.get("link");
+                if (link_color.empty()) use_color = false;
+            }
+
+            if (use_color) std::cout << link_color;
+            std::cout << arrow;
+            std::cout << target_str;
+            if (broken) {
+                std::cout << " [Dead link]";
+            }
+            if (use_color) std::cout << theme.reset;
+        }
+    }
+}
+
+void Renderer::PrintLong(const std::vector<Entry>& entries,
+                         size_t inode_width,
+                         size_t block_width) const {
+    LongFormatColumns columns = ComputeLongColumns(entries, inode_width, block_width);
+    PrintLongHeader(columns);
 
     for (const auto& entry : entries) {
-        if (opt_.show_inode()) {
-            std::cout << std::right;
-            if (!inode_color.empty()) std::cout << inode_color;
-            std::cout << std::setw(static_cast<int>(inode_width)) << entry.info.inode;
-            if (!inode_color.empty()) std::cout << theme.reset;
-            std::cout << ' ';
-        }
-        if (opt_.show_block_size()) {
-            std::string block = BlockDisplay(entry);
-            std::cout << std::right << std::setw(static_cast<int>(w_blocks)) << block << ' ';
-        }
-
-        std::string perm = permission_formatter_.Format(entry.info);
-        std::cout << permission_formatter_.Colorize(perm, opt_.no_color()) << ' ';
-
-        std::cout << std::right;
-        if (!links_color.empty()) std::cout << links_color;
-        std::cout << std::setw(static_cast<int>(w_nlink)) << entry.info.nlink;
-        if (!links_color.empty()) std::cout << theme.reset;
-        std::cout << ' ';
-
-        if (opt_.show_owner()) {
-            std::string owner_text = owner_display(entry);
-            if (!owner_color.empty()) std::cout << owner_color;
-            std::cout << std::left << std::setw(static_cast<int>(w_owner)) << owner_text;
-            if (!owner_color.empty()) std::cout << theme.reset;
-            std::cout << ' ';
-        }
-        if (opt_.show_group()) {
-            std::string group_text = group_display(entry);
-            if (!group_color.empty()) std::cout << group_color;
-            std::cout << std::left << std::setw(static_cast<int>(w_group)) << group_text;
-            if (!group_color.empty()) std::cout << theme.reset;
-            std::cout << ' ';
-        }
-
-        std::string size_str = FormatSizeValue(entry.info.size);
-        std::string size_col = opt_.no_color() ? std::string() : SizeColor(entry.info.size, theme);
-        if (!size_col.empty()) std::cout << size_col;
-        std::cout << std::right << std::setw(static_cast<int>(w_size)) << size_str;
-        if (!size_col.empty()) std::cout << theme.reset;
-        std::cout << ' ';
-
-        std::string time_str = time_formatter_.Format(entry.info.mtime);
-        std::string time_col = opt_.no_color() ? std::string() : AgeColor(entry.info.mtime, theme);
-        if (!time_col.empty()) std::cout << time_col;
-        if (opt_.header()) {
-            std::cout << std::left << std::setw(static_cast<int>(w_time)) << time_str;
-        } else {
-            std::cout << time_str;
-        }
-        if (!time_col.empty()) std::cout << theme.reset;
-        std::cout << ' ';
-
-        if (opt_.git_status()) {
-            if (opt_.header()) {
-                std::cout << entry.info.git_prefix;
-                size_t git_width = PrintableWidth(entry.info.git_prefix);
-                if (w_git > git_width) {
-                    std::cout << std::string(w_git - git_width, ' ');
-                }
-                std::cout << ' ';
-            } else if (!entry.info.git_prefix.empty()) {
-                std::cout << entry.info.git_prefix << ' ';
-            }
-        }
-
-        std::cout << StyledName(entry);
-
-        if (entry.info.is_symlink) {
-            std::string target_str;
-            if (entry.info.has_symlink_target) {
-                target_str = entry.info.symlink_target.string();
-            } else {
-                std::error_code target_ec;
-                auto target = fs::read_symlink(entry.info.path, target_ec);
-                if (!target_ec) target_str = target.string();
-            }
-            if (!target_str.empty()) {
-                target_str = ApplyControlCharHandling(target_str);
-                target_str = ApplyQuoting(target_str);
-                const char* arrow = "  \xE2\x87\x92 ";
-                bool broken = entry.info.is_broken_symlink;
-                bool use_color = !opt_.no_color();
-                std::string link_color;
-                if (use_color) {
-                    link_color = broken ? theme.get("dead_link") : theme.get("link");
-                    if (link_color.empty()) use_color = false;
-                }
-
-                if (use_color) std::cout << link_color;
-                std::cout << arrow;
-                std::cout << target_str;
-                if (broken) {
-                    std::cout << " [Dead link]";
-                }
-                if (use_color) std::cout << theme.reset;
-            }
-        }
-
+        PrintLongEntry(entry, columns);
         TerminateLine();
     }
 }
