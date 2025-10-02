@@ -43,7 +43,7 @@ int App::run(int argc, char** argv) {
             scheme = ColorScheme::Dark;
             break;
     }
-    Theme::instance().initialize(scheme);
+    Theme::instance().initialize(scheme, options().theme_name());
 
     scanner_ = std::make_unique<FileScanner>(options(), ownership_resolver_, symlink_resolver_);
     renderer_ = std::make_unique<Renderer>(options());

@@ -79,6 +79,38 @@ ctest --preset msys-clang-test
 ```
 You will see the informational message from CMake until tests are added.【F:CMakeLists.txt†L159-L170】
 
+## Configuration files and themes
+`nls` loads its colour themes and icon maps from YAML files. The search order is:
+
+1. A directory specified via the `NLS_DATA_DIR` environment variable (highest priority).
+2. `./yaml/` relative to the current working directory.
+3. `yaml/` next to the executable and its parent directory.
+4. System-wide defaults:
+   - Linux/macOS: `/etc/dm17ryk/nicels/yaml`
+   - Windows: the directory that contains the installed executable
+5. Per-user overrides:
+   - Linux/macOS: `~/.nicels/yaml`
+   - Windows: `%APPDATA%\.nicels\yaml` (falling back to `%USERPROFILE%` if needed)
+
+When both a global and a user YAML file exist for the same resource, `nls`
+loads the global configuration first and then applies the user entries on top,
+allowing per-user customisation without modifying the installation. If
+`NLS_DATA_DIR` is set, files from that directory take precedence and suppress
+user overrides for matching resources. Missing YAML files are silently ignored;
+compiled-in defaults remain in effect.【F:src/resources.cpp†L9-L116】【F:src/theme.cpp†L360-L505】
+
+Palette definitions (`colors.yaml`, `dark_theme.yaml`, and `light_theme.yaml`)
+support per-user overrides for the existing keys so you can tweak individual
+colours without copying the full files; new keys are ignored. Icon maps
+(`files.yaml`, `folders.yaml`, and their alias files) accept additional entries
+in user overrides, letting you introduce new file and folder icons or aliases
+alongside the bundled defaults.
+
+To create additional colour schemes, add a `<name>_theme.yaml` file to any of
+the configuration directories above. Launch `nls` with `--theme=<name>` to load
+it; the program reports an error and falls back to the default theme when the
+named file is missing.
+
 ## CLI usage
 ### Quick start
 `nls` mirrors the GNU `ls` workflow. Listing the current directory with Git
@@ -169,6 +201,7 @@ what the executable reports.
 | `--color` | `WHEN` | `auto` | colorize the output: auto, always, never (default: auto) |
 | `--light` | `—` | `—` | use light color scheme |
 | `--dark` | `—` | `—` | use dark color scheme |
+| `--theme` | `NAME` | `—` | load theme NAME from `NAME_theme.yaml` |
 | `-q, --hide-control-chars` | `—` | `—` | print ? instead of nongraphic characters |
 | `--show-control-chars` | `—` | `—` | show nongraphic characters as-is |
 | `--time-style` | `FORMAT` | `—` | use time display format: default, locale, long-iso, full-iso, iso, iso8601, +FORMAT (default: locale) |
@@ -204,8 +237,9 @@ what the executable reports.
   `--report short` summary when scripting.
 - On Windows presets, the link options statically link libgcc/libstdc++/winpthread
   so the produced `nls.exe` is self-contained.【F:CMakeLists.txt†L109-L149】
-- Theme YAML files under `yaml/` hold light/dark palettes and can be extended to
-  match your terminal.【F:yaml/light_colors.yaml†L1-L200】
+- Theme YAML files under `yaml/` hold light/dark palettes. Copy the entries you
+  want to adjust into your per-user directory to change colours, and add new
+  icon or alias rows to extend icon coverage.【F:yaml/light_theme.yaml†L1-L200】
 
 ## ASCII screenshots
 ### Linux (ANSI colours with inode, owner/group, Git status)

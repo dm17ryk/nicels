@@ -7,8 +7,10 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <filesystem>
 #include <format>
 #include <optional>
+#include <iostream>
 #include <sstream>
 #include <string_view>
 #include <unordered_map>
@@ -44,6 +46,8 @@ public:
         theme.set("file_small", "");
         theme.set("report", "");
         theme.set("user", "");
+        theme.set("owned", "");
+        theme.set("group", "");
         theme.set("tree", "\x1b[36m");
         theme.set("empty", "\x1b[33m");
         theme.set("error", "\x1b[31m");
@@ -137,6 +141,21 @@ public:
     static std::string ToUtf8(std::u8string_view text)
     {
         return {reinterpret_cast<const char*>(text.data()), text.size()};
+    }
+
+    static bool IsPathWithin(const std::filesystem::path& path, const std::filesystem::path& base)
+    {
+        if (path.empty() || base.empty()) return false;
+        auto normalized_path = path.lexically_normal();
+        auto normalized_base = base.lexically_normal();
+
+        auto path_it = normalized_path.begin();
+        for (auto base_it = normalized_base.begin(); base_it != normalized_base.end(); ++base_it, ++path_it) {
+            if (path_it == normalized_path.end() || *path_it != *base_it) {
+                return false;
+            }
+        }
+        return true;
     }
 
 private:
@@ -270,30 +289,44 @@ private:
 
     static std::unordered_map<std::string, std::array<int, 3>> LoadColorMapFromYaml()
     {
-        std::unordered_map<std::string, std::array<int, 3>> result;
-        auto path = ResourceManager::find("colors.yaml");
-        if (path.empty()) {
-            return result;
-        }
-        auto yaml_map = YamlLoader::LoadSimpleMap(path, true);
-        for (auto& kv : yaml_map) {
-            auto rgb = ParseColorTriplet(kv.second);
-            if (rgb) {
-                result.emplace(kv.first, *rgb);
+        auto result = MakeDefaultColorMap();
+        auto apply = [&](const std::filesystem::path& path) {
+            if (path.empty()) return;
+            auto yaml_map = YamlLoader::LoadSimpleMap(path, true);
+            for (auto& kv : yaml_map) {
+                auto rgb = ParseColorTriplet(kv.second);
+                if (rgb) {
+                    auto lower = StringUtils::ToLower(kv.first);
+                    auto it = result.find(lower);
+                    if (it != result.end()) {
+                        it->second = *rgb;
+                    }
+                }
+            }
+        };
+
+        auto primary_path = ResourceManager::find("colors.yaml");
+        apply(primary_path);
+
+        const auto user_dir = ResourceManager::userConfigDir();
+        const auto env_dir = ResourceManager::envOverrideDir();
+        const bool primary_from_env = ThemeSupport::IsPathWithin(primary_path, env_dir);
+        if (!user_dir.empty() && (!primary_from_env || primary_path.empty())) {
+            std::filesystem::path user_path = user_dir / "colors.yaml";
+            if (user_path != primary_path) {
+                std::error_code ec;
+                if (std::filesystem::exists(user_path, ec) && !ec) {
+                    apply(user_path);
+                }
             }
         }
+
         return result;
     }
 
     static const std::unordered_map<std::string, std::array<int, 3>>& ColorMap()
     {
-        static const std::unordered_map<std::string, std::array<int, 3>> map = [] {
-            auto loaded = LoadColorMapFromYaml();
-            if (!loaded.empty()) {
-                return loaded;
-            }
-            return MakeDefaultColorMap();
-        }();
+        static const std::unordered_map<std::string, std::array<int, 3>> map = LoadColorMapFromYaml();
         return map;
     }
 };
@@ -326,9 +359,41 @@ Theme& Theme::instance()
     return instance;
 }
 
-void Theme::initialize(ColorScheme scheme)
+void Theme::initialize(ColorScheme scheme, std::optional<std::string> custom_theme)
 {
     ensure_loaded();
+
+    custom_theme_name_.reset();
+
+    if (custom_theme && !custom_theme->empty()) {
+        std::string name = StringUtils::Trim(*custom_theme);
+        auto ends_with = [](std::string_view value, std::string_view suffix) {
+            return value.size() >= suffix.size()
+                && value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+        };
+
+        if (ends_with(name, ".yaml")) {
+            name.erase(name.size() - 5);
+        }
+        if (ends_with(name, "_theme")) {
+            name.erase(name.size() - 6);
+        }
+
+        bool has_separator = name.find('/') != std::string::npos || name.find('\\') != std::string::npos;
+        if (name.empty() || has_separator) {
+            std::cerr << "nls: error: theme '" << *custom_theme << "' not found\n";
+        } else {
+            bool found = false;
+            ThemeColors loaded = load_theme_file(name + "_theme.yaml", &found);
+            if (!found) {
+                std::cerr << "nls: error: theme '" << *custom_theme << "' not found\n";
+            } else {
+                custom_theme_name_ = std::move(name);
+                custom_theme_ = std::move(loaded);
+            }
+        }
+    }
+
     set_active_scheme(scheme);
 }
 
@@ -346,12 +411,18 @@ ColorScheme Theme::active_scheme() const
 const ThemeColors& Theme::colors()
 {
     ensure_loaded();
+    if (custom_theme_name_) {
+        return custom_theme_;
+    }
     return active_scheme_ == ColorScheme::Light ? light_ : dark_;
 }
 
 const ThemeColors& Theme::colors(ColorScheme scheme)
 {
     ensure_loaded();
+    if (custom_theme_name_) {
+        return custom_theme_;
+    }
     return scheme == ColorScheme::Light ? light_ : dark_;
 }
 
@@ -391,24 +462,47 @@ void Theme::ensure_loaded()
     if (loaded_) return;
     loaded_ = true;
     fallback_ = ThemeSupport::MakeFallbackTheme();
-    dark_ = load_theme_file("dark_colors.yaml");
-    light_ = load_theme_file("light_colors.yaml");
+    dark_ = load_theme_file("dark_theme.yaml");
+    light_ = load_theme_file("light_theme.yaml");
     load_icons();
 }
 
-ThemeColors Theme::load_theme_file(const std::string& filename)
+ThemeColors Theme::load_theme_file(const std::string& filename, bool* found)
 {
     ThemeColors theme = fallback_;
-    auto path = ResourceManager::find(filename);
-    if (path.empty()) {
-        return theme;
-    }
-    auto map = YamlLoader::LoadSimpleMap(path, true);
-    for (auto& kv : map) {
-        auto parsed = ThemeSupport::ParseColorName(kv.second);
-        if (parsed) {
-            theme.set(kv.first, *parsed);
+    bool loaded_any = false;
+    auto apply = [&](const std::filesystem::path& path) {
+        if (path.empty()) return;
+        loaded_any = true;
+        auto map = YamlLoader::LoadSimpleMap(path, true);
+        for (auto& kv : map) {
+            if (theme.values.find(kv.first) == theme.values.end()) {
+                continue;
+            }
+            auto parsed = ThemeSupport::ParseColorName(kv.second);
+            if (parsed) {
+                theme.set(kv.first, *parsed);
+            }
         }
+    };
+
+    auto primary_path = ResourceManager::find(filename);
+    apply(primary_path);
+
+    const auto user_dir = ResourceManager::userConfigDir();
+    const auto env_dir = ResourceManager::envOverrideDir();
+    const bool primary_from_env = ThemeSupport::IsPathWithin(primary_path, env_dir);
+    if (!user_dir.empty() && (!primary_from_env || primary_path.empty())) {
+        std::filesystem::path user_path = user_dir / filename;
+        if (user_path != primary_path) {
+            std::error_code ec;
+            if (std::filesystem::exists(user_path, ec) && !ec) {
+                apply(user_path);
+            }
+        }
+    }
+    if (found) {
+        *found = loaded_any;
     }
     return theme;
 }
@@ -417,23 +511,33 @@ void Theme::load_icons()
 {
     icons_ = ThemeSupport::MakeFallbackIcons();
 
-    auto files_path = ResourceManager::find("files.yaml");
-    if (!files_path.empty()) {
-        ThemeSupport::MergeMap(icons_.files, YamlLoader::LoadSimpleMap(files_path, true));
-    }
-    auto file_alias_path = ResourceManager::find("file_aliases.yaml");
-    if (!file_alias_path.empty()) {
-        ThemeSupport::MergeMap(icons_.file_aliases, YamlLoader::LoadSimpleMap(file_alias_path, true), true);
-    }
+    const auto user_dir = ResourceManager::userConfigDir();
+    const auto env_dir = ResourceManager::envOverrideDir();
 
-    auto folders_path = ResourceManager::find("folders.yaml");
-    if (!folders_path.empty()) {
-        ThemeSupport::MergeMap(icons_.folders, YamlLoader::LoadSimpleMap(folders_path, true));
-    }
-    auto folder_alias_path = ResourceManager::find("folder_aliases.yaml");
-    if (!folder_alias_path.empty()) {
-        ThemeSupport::MergeMap(icons_.folder_aliases, YamlLoader::LoadSimpleMap(folder_alias_path, true), true);
-    }
+    auto merge_with_overrides = [&](const std::string& name,
+                                    auto& target,
+                                    bool lowercase_values) {
+        auto primary_path = ResourceManager::find(name);
+        if (!primary_path.empty()) {
+            ThemeSupport::MergeMap(target, YamlLoader::LoadSimpleMap(primary_path, true), lowercase_values);
+        }
+
+        const bool primary_from_env = ThemeSupport::IsPathWithin(primary_path, env_dir);
+        if (!user_dir.empty() && (!primary_from_env || primary_path.empty())) {
+            std::filesystem::path user_path = user_dir / name;
+            if (user_path != primary_path) {
+                std::error_code ec;
+                if (std::filesystem::exists(user_path, ec) && !ec) {
+                    ThemeSupport::MergeMap(target, YamlLoader::LoadSimpleMap(user_path, true), lowercase_values);
+                }
+            }
+        }
+    };
+
+    merge_with_overrides("files.yaml", icons_.files, false);
+    merge_with_overrides("file_aliases.yaml", icons_.file_aliases, true);
+    merge_with_overrides("folders.yaml", icons_.folders, false);
+    merge_with_overrides("folder_aliases.yaml", icons_.folder_aliases, true);
 
     if (icons_.files.find("file") == icons_.files.end()) {
         icons_.files["file"] = ThemeSupport::ToUtf8(u8"\uf15b");

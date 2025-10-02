@@ -161,6 +161,13 @@ public:
         actions_.emplace_back([theme](Config& cfg) { cfg.set_color_theme(theme); });
     }
 
+    void SetThemeName(std::string theme)
+    {
+        actions_.emplace_back([theme = std::move(theme)](Config& cfg) mutable {
+            cfg.set_theme_name(std::optional<std::string>(std::move(theme)));
+        });
+    }
+
     void SetHideControlChars(bool value)
     {
         actions_.emplace_back([value](Config& cfg) { cfg.set_hide_control_chars(value); });
@@ -642,6 +649,37 @@ never (default: auto))");
     color_option->type_name("WHEN");
     color_option->transform(CLI::CheckedTransformer(color_map, CLI::ignore_case).description(""));
     color_option->default_str("auto");
+
+    auto theme_option = appearance->add_option_function<std::string>("--theme",
+        [&](const std::string& raw_theme) {
+            std::string theme = StringUtils::Trim(raw_theme);
+            if (theme.empty()) {
+                throw CLI::ValidationError("--theme", "theme name cannot be empty");
+            }
+
+            auto ends_with = [](const std::string& value, std::string_view suffix) {
+                return value.size() >= suffix.size()
+                    && value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+            };
+
+            if (ends_with(theme, ".yaml")) {
+                theme.erase(theme.size() - 5);
+            }
+            if (ends_with(theme, "_theme")) {
+                theme.erase(theme.size() - 6);
+            }
+
+            if (theme.empty()) {
+                throw CLI::ValidationError("--theme", "theme name cannot be empty");
+            }
+            if (theme.find('/') != std::string::npos || theme.find('\\') != std::string::npos) {
+                throw CLI::ValidationError("--theme", "theme name must not contain path separators");
+            }
+
+            builder.SetThemeName(std::move(theme));
+        },
+        "use theme NAME (loads NAME_theme.yaml)");
+    theme_option->type_name("NAME");
 
     appearance->add_flag_callback("--light", [&]() { builder.SetColorTheme(Config::ColorTheme::Light); },
         "use light color scheme");

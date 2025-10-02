@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -36,7 +37,7 @@ class Theme {
 public:
     static Theme& instance();
 
-    void initialize(ColorScheme scheme);
+    void initialize(ColorScheme scheme, std::optional<std::string> custom_theme = std::nullopt);
 
     void set_active_scheme(ColorScheme scheme);
     ColorScheme active_scheme() const;
@@ -59,7 +60,7 @@ private:
     Theme() = default;
 
     void ensure_loaded();
-    ThemeColors load_theme_file(const std::string& filename);
+    ThemeColors load_theme_file(const std::string& filename, bool* found = nullptr);
     void load_icons();
 
     IconResult folder_icon(std::string_view name);
@@ -70,6 +71,8 @@ private:
     ThemeColors fallback_;
     ThemeColors dark_;
     ThemeColors light_;
+    ThemeColors custom_theme_;
+    std::optional<std::string> custom_theme_name_;
     IconTheme icons_;
 };
 

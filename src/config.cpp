@@ -43,6 +43,8 @@ void Config::Reset() {
     show_block_size_ = false;
     perf_logging_ = false;
 
+    theme_name_.reset();
+
     tree_depth_.reset();
     output_width_.reset();
 
@@ -150,6 +152,9 @@ void Config::set_show_block_size(bool value) { show_block_size_ = value; }
 
 bool Config::perf_logging() const { return perf_logging_; }
 void Config::set_perf_logging(bool value) { perf_logging_ = value; }
+
+const std::optional<std::string>& Config::theme_name() const { return theme_name_; }
+void Config::set_theme_name(std::optional<std::string> value) { theme_name_ = std::move(value); }
 
 const std::optional<std::size_t>& Config::tree_depth() const { return tree_depth_; }
 void Config::set_tree_depth(std::optional<std::size_t> value) { tree_depth_ = std::move(value); }

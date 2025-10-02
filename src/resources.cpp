@@ -1,6 +1,7 @@
 #include "resources.h"
 
 #include <cstdlib>
+#include <filesystem>
 
 namespace nls {
 
@@ -13,10 +14,14 @@ public:
         initialized_ = true;
 
         directories_.clear();
+        user_config_dir_.clear();
+        env_override_dir_.clear();
 
         if (const char* env = std::getenv("NLS_DATA_DIR")) {
             if (env[0] != '\0') {
-                addDir(Path(env));
+                auto normalized = normalize(Path(env));
+                addNormalizedDir(normalized);
+                env_override_dir_ = std::move(normalized);
             }
         }
 
@@ -41,6 +46,38 @@ public:
                 addDir(exe_dir.parent_path() / "yaml");
             }
         }
+
+#ifdef _WIN32
+        Path user_dir;
+        if (const char* appdata = std::getenv("APPDATA")) {
+            if (appdata[0] != '\0') {
+                user_dir = Path(appdata) / ".nicels" / "yaml";
+            }
+        }
+        if (user_dir.empty()) {
+            if (const char* profile = std::getenv("USERPROFILE")) {
+                if (profile[0] != '\0') {
+                    user_dir = Path(profile) / ".nicels" / "yaml";
+                }
+            }
+        }
+        if (!user_dir.empty()) {
+            auto normalized = normalize(user_dir);
+            addNormalizedDir(normalized);
+            user_config_dir_ = std::move(normalized);
+        }
+#else
+        addDir(Path("/etc/dm17ryk/nicels/yaml"));
+
+        if (const char* home = std::getenv("HOME")) {
+            if (home[0] != '\0') {
+                Path user_dir = Path(home) / ".nicels" / "yaml";
+                auto normalized = normalize(user_dir);
+                addNormalizedDir(normalized);
+                user_config_dir_ = std::move(normalized);
+            }
+        }
+#endif
     }
 
     [[nodiscard]] std::filesystem::path find(const std::string& name) const {
@@ -55,13 +92,20 @@ public:
     }
 
     void addDir(const Path& dir) {
-        if (dir.empty()) return;
-        Path normalized;
+        addNormalizedDir(normalize(dir));
+    }
+
+    Path normalize(const Path& dir) const {
+        if (dir.empty()) return {};
         std::error_code ec;
-        normalized = std::filesystem::weakly_canonical(dir, ec);
+        Path normalized = std::filesystem::weakly_canonical(dir, ec);
         if (ec) {
             normalized = dir.lexically_normal();
         }
+        return normalized;
+    }
+
+    void addNormalizedDir(Path normalized) {
         if (normalized.empty()) return;
 
         for (const auto& existing : directories_) {
@@ -70,9 +114,14 @@ public:
         directories_.push_back(std::move(normalized));
     }
 
+    Path userConfigDir() const { return user_config_dir_; }
+    Path envOverrideDir() const { return env_override_dir_; }
+
 private:
     std::vector<Path> directories_{};
     bool initialized_ = false;
+    Path user_config_dir_{};
+    Path env_override_dir_{};
 };
 
 ResourceManager::Impl& ResourceManager::instance() {
@@ -90,6 +139,14 @@ std::filesystem::path ResourceManager::find(const std::string& name) {
 
 void ResourceManager::addDir(const Path& dir) {
     instance().addDir(dir);
+}
+
+std::filesystem::path ResourceManager::userConfigDir() {
+    return instance().userConfigDir();
+}
+
+std::filesystem::path ResourceManager::envOverrideDir() {
+    return instance().envOverrideDir();
 }
 
 } // namespace nls
