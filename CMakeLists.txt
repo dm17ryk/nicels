@@ -411,14 +411,26 @@ install(TARGETS nls
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+if(WIN32)
+  set(_nls_yaml_install_destination "yaml")
+elseif(UNIX AND NOT APPLE)
+  set(_nls_yaml_install_destination "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
+else()
+  set(_nls_yaml_install_destination "${CMAKE_INSTALL_DATADIR}/nicels/yaml")
+endif()
+
 foreach(_nls_yaml IN LISTS _nls_yaml_files)
-  set(_nls_yaml_install_path "${NLS_GLOBAL_CONFIG_INSTALL_DIR}/${_nls_yaml}")
-  list(APPEND _nls_yaml_install_paths "${_nls_yaml_install_path}")
+  if(UNIX AND NOT APPLE)
+    set(_nls_yaml_install_path "${NLS_GLOBAL_CONFIG_INSTALL_DIR}/${_nls_yaml}")
+    list(APPEND _nls_yaml_install_paths "${_nls_yaml_install_path}")
+  endif()
+
   install(FILES "${_nls_yaml_source_dir}/${_nls_yaml}"
-    DESTINATION "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
+    DESTINATION "${_nls_yaml_install_destination}")
 endforeach()
 unset(_nls_yaml)
 unset(_nls_yaml_install_path)
+unset(_nls_yaml_install_destination)
 unset(_nls_yaml_files)
 unset(_nls_yaml_source_dir)
 
