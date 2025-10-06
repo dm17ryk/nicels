@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <iostream>
 #include <optional>
+#include <system_error>
 
 #include "file_ownership_resolver.h"
 #include "git_status.h"
@@ -22,6 +23,31 @@ int App::run(int argc, char** argv) {
     ResourceManager::initPaths(argc > 0 ? argv[0] : nullptr);
 
     config_ = &parser_.Parse(argc, argv);
+
+    if (config_->copy_config_only()) {
+        ResourceManager::CopyResult copy_result;
+        std::error_code copy_ec = ResourceManager::copyDefaultsToUserConfig(copy_result);
+        if (copy_ec) {
+            std::cerr << "nls: error: failed to copy configuration files: " << copy_ec.message() << "\n";
+            config_ = nullptr;
+            return 1;
+        }
+
+        if (copy_result.copied.empty() && copy_result.skipped.empty()) {
+            std::cout << "nls: no configuration files found to copy\n";
+        } else {
+            for (const auto& path : copy_result.copied) {
+                std::cout << "nls: copied " << path << "\n";
+            }
+            for (const auto& path : copy_result.skipped) {
+                std::cout << "nls: skipped (already exists) " << path << "\n";
+            }
+        }
+
+        config_ = nullptr;
+        return 0;
+    }
+
     perf::Manager& perf_manager = perf::Manager::Instance();
     perf_manager.set_enabled(config_->perf_logging());
     std::optional<perf::Timer> run_timer;

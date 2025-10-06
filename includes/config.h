@@ -133,6 +133,9 @@ public:
     bool perf_logging() const;
     void set_perf_logging(bool value);
 
+    bool copy_config_only() const;
+    void set_copy_config_only(bool value);
+
     const std::optional<std::string>& theme_name() const;
     void set_theme_name(std::optional<std::string> value);
 
@@ -209,6 +212,7 @@ private:
     bool zero_terminate_ = false;
     bool show_block_size_ = false;
     bool perf_logging_ = false;
+    bool copy_config_only_ = false;
 
     std::optional<std::string> theme_name_{};
 

@@ -1,0 +1,648 @@
+diff --git a/includes/config.h b/includes/config.h
+index 873e57f572a01661bc32e30d9827a6a891a3774c..6c89d2667b739bc0ea8c1d357fedda69f79f2c99 100644
+--- a/includes/config.h
++++ b/includes/config.h
+@@ -111,50 +111,53 @@ public:
+ 
+     bool tree() const;
+     void set_tree(bool value);
+ 
+     bool numeric_uid_gid() const;
+     void set_numeric_uid_gid(bool value);
+ 
+     bool dereference() const;
+     void set_dereference(bool value);
+ 
+     bool ignore_backups() const;
+     void set_ignore_backups(bool value);
+ 
+     bool hide_control_chars() const;
+     void set_hide_control_chars(bool value);
+ 
+     bool zero_terminate() const;
+     void set_zero_terminate(bool value);
+ 
+     bool show_block_size() const;
+     void set_show_block_size(bool value);
+ 
+     bool perf_logging() const;
+     void set_perf_logging(bool value);
+ 
++    bool copy_config_only() const;
++    void set_copy_config_only(bool value);
++
+     const std::optional<std::string>& theme_name() const;
+     void set_theme_name(std::optional<std::string> value);
+ 
+     const std::optional<std::size_t>& tree_depth() const;
+     void set_tree_depth(std::optional<std::size_t> value);
+     void clear_tree_depth();
+ 
+     const std::optional<int>& output_width() const;
+     void set_output_width(std::optional<int> value);
+     void clear_output_width();
+ 
+     const std::string& time_style() const;
+     void set_time_style(std::string value);
+ 
+     const std::vector<std::string>& hide_patterns() const;
+     std::vector<std::string>& mutable_hide_patterns();
+     void set_hide_patterns(std::vector<std::string> value);
+ 
+     const std::vector<std::string>& ignore_patterns() const;
+     std::vector<std::string>& mutable_ignore_patterns();
+     void set_ignore_patterns(std::vector<std::string> value);
+ 
+     const std::vector<std::string>& paths() const;
+     std::vector<std::string>& mutable_paths();
+     void set_paths(std::vector<std::string> value);
+@@ -187,44 +190,45 @@ private:
+     bool all_ = false;
+     bool almost_all_ = false;
+     bool git_status_ = false;
+     bool group_dirs_first_ = false;
+     bool sort_files_first_ = false;
+     bool dots_first_ = false;
+     bool no_icons_ = false;
+     bool no_color_ = false;
+     bool reverse_ = false;
+     bool bytes_ = false;
+     bool dirs_only_ = false;
+     bool files_only_ = false;
+     bool show_inode_ = false;
+     bool show_owner_ = true;
+     bool show_group_ = true;
+     bool hyperlink_ = false;
+     bool header_ = false;
+     bool tree_ = false;
+     bool numeric_uid_gid_ = false;
+     bool dereference_ = false;
+     bool ignore_backups_ = false;
+     bool hide_control_chars_ = false;
+     bool zero_terminate_ = false;
+     bool show_block_size_ = false;
+     bool perf_logging_ = false;
++    bool copy_config_only_ = false;
+ 
+     std::optional<std::string> theme_name_{};
+ 
+     std::optional<std::size_t> tree_depth_;
+     std::optional<int> output_width_;
+ 
+     std::string time_style_;
+     std::vector<std::string> hide_patterns_;
+     std::vector<std::string> ignore_patterns_;
+     std::vector<std::string> paths_;
+ 
+     int tab_size_ = 8;
+     uintmax_t block_size_ = 0;
+     bool block_size_specified_ = false;
+     bool block_size_show_suffix_ = false;
+     std::string block_size_suffix_;
+ };
+ 
+ } // namespace nls
+diff --git a/includes/resources.h b/includes/resources.h
+index 612fc07efb364f9199c957fd6f65bc3099f57c20..6e52d601c56ebfd777b6afef1042845c623dbca5 100644
+--- a/includes/resources.h
++++ b/includes/resources.h
+@@ -1,28 +1,36 @@
+ #pragma once
+ 
+ #include <filesystem>
+ #include <string>
++#include <system_error>
+ #include <vector>
+ 
+ namespace nls {
+ 
+ // ResourceManager encapsulates the search path management for YAML resources.
+ // Call initPaths() early during application startup (App::run does this) so
+ // that subsequent calls to find() can locate bundled or user-provided files.
+ class ResourceManager {
+ public:
+     static void initPaths(const char* argv0);
+     static std::filesystem::path find(const std::string& name);
+     static std::filesystem::path userConfigDir();
+     static std::filesystem::path envOverrideDir();
+ 
++    struct CopyResult {
++        std::vector<std::filesystem::path> copied;
++        std::vector<std::filesystem::path> skipped;
++    };
++
++    static std::error_code copyDefaultsToUserConfig(CopyResult& result, bool overwrite_existing = false);
++
+ private:
+     using Path = std::filesystem::path;
+ 
+     class Impl;
+ 
+     static Impl& instance();
+     static void addDir(const Path& dir);
+ };
+ 
+ } // namespace nls
+diff --git a/src/app.cpp b/src/app.cpp
+index 455a323fa482a410da93154cc8dc2d22727cd63b..8f9432e99609dfe68e8dca1ceb2626395d6d5630 100644
+--- a/src/app.cpp
++++ b/src/app.cpp
+@@ -1,49 +1,75 @@
+ #include "app.h"
+ 
+ #include <filesystem>
+ #include <iostream>
+ #include <optional>
++#include <system_error>
+ 
+ #include "file_ownership_resolver.h"
+ #include "git_status.h"
+ #include "path_processor.h"
+ #include "perf.h"
+ #include "platform.h"
+ #include "resources.h"
+ #include "symlink_resolver.h"
+ #include "theme.h"
+ 
+ namespace fs = std::filesystem;
+ 
+ namespace nls {
+ 
+ int App::run(int argc, char** argv) {
+     const bool virtual_terminal_enabled = Platform::enableVirtualTerminal();
+     ResourceManager::initPaths(argc > 0 ? argv[0] : nullptr);
+ 
+     config_ = &parser_.Parse(argc, argv);
++
++    if (config_->copy_config_only()) {
++        ResourceManager::CopyResult copy_result;
++        std::error_code copy_ec = ResourceManager::copyDefaultsToUserConfig(copy_result);
++        if (copy_ec) {
++            std::cerr << "nls: error: failed to copy configuration files: " << copy_ec.message() << "\n";
++            config_ = nullptr;
++            return 1;
++        }
++
++        if (copy_result.copied.empty() && copy_result.skipped.empty()) {
++            std::cout << "nls: no configuration files found to copy\n";
++        } else {
++            for (const auto& path : copy_result.copied) {
++                std::cout << "nls: copied " << path << "\n";
++            }
++            for (const auto& path : copy_result.skipped) {
++                std::cout << "nls: skipped (already exists) " << path << "\n";
++            }
++        }
++
++        config_ = nullptr;
++        return 0;
++    }
++
+     perf::Manager& perf_manager = perf::Manager::Instance();
+     perf_manager.set_enabled(config_->perf_logging());
+     std::optional<perf::Timer> run_timer;
+     if (perf_manager.enabled()) {
+         run_timer.emplace("app::run");
+     }
+     if (!virtual_terminal_enabled) {
+         config_->set_no_color(true);
+     }
+ 
+     ColorScheme scheme = ColorScheme::Dark;
+     switch (options().color_theme()) {
+         case Config::ColorTheme::Light:
+             scheme = ColorScheme::Light;
+             break;
+         case Config::ColorTheme::Dark:
+         case Config::ColorTheme::Default:
+         default:
+             scheme = ColorScheme::Dark;
+             break;
+     }
+     Theme::instance().initialize(scheme, options().theme_name());
+ 
+     scanner_ = std::make_unique<FileScanner>(options(), ownership_resolver_, symlink_resolver_);
+     renderer_ = std::make_unique<Renderer>(options());
+diff --git a/src/command_line_parser.cpp b/src/command_line_parser.cpp
+index 64905bec8e90229fa9d69d524472b9b1bb7c36a3..8f35275edcfbe6f9746adb29489e99378fc78835 100644
+--- a/src/command_line_parser.cpp
++++ b/src/command_line_parser.cpp
+@@ -197,50 +197,55 @@ public:
+     void SetShowOwner(bool value)
+     {
+         actions_.emplace_back([value](Config& cfg) { cfg.set_show_owner(value); });
+     }
+ 
+     void SetNumericUidGid(bool value)
+     {
+         actions_.emplace_back([value](Config& cfg) { cfg.set_numeric_uid_gid(value); });
+     }
+ 
+     void SetBytes(bool value)
+     {
+         actions_.emplace_back([value](Config& cfg) { cfg.set_bytes(value); });
+     }
+ 
+     void SetShowBlockSize(bool value)
+     {
+         actions_.emplace_back([value](Config& cfg) { cfg.set_show_block_size(value); });
+     }
+ 
+     void SetPerfLogging(bool value)
+     {
+         actions_.emplace_back([value](Config& cfg) { cfg.set_perf_logging(value); });
+     }
+ 
++    void SetCopyConfig(bool value)
++    {
++        actions_.emplace_back([value](Config& cfg) { cfg.set_copy_config_only(value); });
++    }
++
+     void SetBlockSize(uintmax_t value, bool specified, bool show_suffix, std::string suffix)
+     {
+         actions_.emplace_back([value, specified, show_suffix, suffix = std::move(suffix)](Config& cfg) {
+             cfg.set_block_size(value);
+             cfg.set_block_size_specified(specified);
+             cfg.set_block_size_show_suffix(show_suffix);
+             cfg.set_block_size_suffix(suffix);
+         });
+     }
+ 
+     void SetDereference(bool value)
+     {
+         actions_.emplace_back([value](Config& cfg) { cfg.set_dereference(value); });
+     }
+ 
+     void SetGitStatus(bool value)
+     {
+         actions_.emplace_back([value](Config& cfg) { cfg.set_git_status(value); });
+     }
+ 
+     Config& Build()
+     {
+         Config& cfg = Config::Instance();
+         cfg.Reset();
+         cfg.set_paths(paths_);
+@@ -420,50 +425,53 @@ Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.)", "nl
+     program.footer(R"(The SIZE argument is an integer and optional unit (example: 10K is 10*1024).
+ Units are K,M,G,T,P,E,Z,Y,R,Q (powers of 1024) or KB,MB,... (powers of 1000).
+ Binary prefixes can be used, too: KiB=K, MiB=M, and so on.
+ 
+ The TIME_STYLE argument can be full-iso, long-iso, iso, locale, or +FORMAT.
+ FORMAT is interpreted like in date(1). If FORMAT is FORMAT1<newline>FORMAT2,
+ then FORMAT1 applies to non-recent files and FORMAT2 to recent files.
+ TIME_STYLE prefixed with 'posix-' takes effect only outside the POSIX locale.
+ Also the TIME_STYLE environment variable sets the default style to use.
+ 
+ The WHEN argument defaults to 'always' and can also be 'auto' or 'never'.
+ 
+ Using color to distinguish file types is disabled both by default and
+ with --color=never. With --color=auto, ls emits color codes only when
+ standard output is connected to a terminal. The LS_COLORS environment
+ variable can change the settings. Use the dircolors(1) command to set it.
+ 
+ Exit status:
+  0  if OK,
+  1  if minor problems (e.g., cannot access subdirectory),
+  2  if serious trouble (e.g., cannot access command-line argument).)"
+     );
+ 
+     program.add_option("paths", builder.paths(), "paths to list")->type_name("PATH");
+ 
++    program.add_flag_callback("--copy-config", [&]() { builder.SetCopyConfig(true); },
++        "copy default configuration files to the user configuration directory and exit");
++
+     const std::map<std::string, Config::Format> format_map{
+         {"long", Config::Format::Long},
+         {"l", Config::Format::Long},
+         {"single-column", Config::Format::SingleColumn},
+         {"single", Config::Format::SingleColumn},
+         {"1", Config::Format::SingleColumn},
+         {"across", Config::Format::ColumnsHorizontal},
+         {"horizontal", Config::Format::ColumnsHorizontal},
+         {"x", Config::Format::ColumnsHorizontal},
+         {"vertical", Config::Format::ColumnsVertical},
+         {"columns", Config::Format::ColumnsVertical},
+         {"column", Config::Format::ColumnsVertical},
+         {"c", Config::Format::ColumnsVertical},
+         {"comma", Config::Format::CommaSeparated},
+         {"commas", Config::Format::CommaSeparated},
+         {"m", Config::Format::CommaSeparated},
+     };
+ 
+     const std::map<std::string, Config::Sort> sort_map{
+         {"none", Config::Sort::None},
+         {"name", Config::Sort::Name},
+         {"time", Config::Sort::Time},
+         {"mtime", Config::Sort::Time},
+         {"size", Config::Sort::Size},
+         {"extension", Config::Sort::Extension},
+diff --git a/src/config.cpp b/src/config.cpp
+index e382284ae248e62635cb0984361cd99f0aceadfa..3ef4ee586df6d11fc3634d787cd88ff53499e412 100644
+--- a/src/config.cpp
++++ b/src/config.cpp
+@@ -20,50 +20,51 @@ void Config::Reset() {
+     all_ = false;
+     almost_all_ = false;
+     git_status_ = false;
+     group_dirs_first_ = false;
+     sort_files_first_ = false;
+     dots_first_ = false;
+     no_icons_ = false;
+     no_color_ = false;
+     reverse_ = false;
+     bytes_ = false;
+     dirs_only_ = false;
+     files_only_ = false;
+     show_inode_ = false;
+     show_owner_ = true;
+     show_group_ = true;
+     hyperlink_ = false;
+     header_ = false;
+     tree_ = false;
+     numeric_uid_gid_ = false;
+     dereference_ = false;
+     ignore_backups_ = false;
+     hide_control_chars_ = false;
+     zero_terminate_ = false;
+     show_block_size_ = false;
+     perf_logging_ = false;
++    copy_config_only_ = false;
+ 
+     theme_name_.reset();
+ 
+     tree_depth_.reset();
+     output_width_.reset();
+ 
+     time_style_ = "local";
+     hide_patterns_.clear();
+     ignore_patterns_.clear();
+     paths_.clear();
+ 
+     tab_size_ = 8;
+     block_size_ = 0;
+     block_size_specified_ = false;
+     block_size_show_suffix_ = false;
+     block_size_suffix_.clear();
+ }
+ 
+ Config::Format Config::format() const { return format_; }
+ void Config::set_format(Format value) { format_ = value; }
+ 
+ Config::IndicatorStyle Config::indicator() const { return indicator_; }
+ void Config::set_indicator(IndicatorStyle value) { indicator_ = value; }
+ 
+ Config::ColorTheme Config::color_theme() const { return color_theme_; }
+@@ -131,50 +132,53 @@ void Config::set_header(bool value) { header_ = value; }
+ 
+ bool Config::tree() const { return tree_; }
+ void Config::set_tree(bool value) { tree_ = value; }
+ 
+ bool Config::numeric_uid_gid() const { return numeric_uid_gid_; }
+ void Config::set_numeric_uid_gid(bool value) { numeric_uid_gid_ = value; }
+ 
+ bool Config::dereference() const { return dereference_; }
+ void Config::set_dereference(bool value) { dereference_ = value; }
+ 
+ bool Config::ignore_backups() const { return ignore_backups_; }
+ void Config::set_ignore_backups(bool value) { ignore_backups_ = value; }
+ 
+ bool Config::hide_control_chars() const { return hide_control_chars_; }
+ void Config::set_hide_control_chars(bool value) { hide_control_chars_ = value; }
+ 
+ bool Config::zero_terminate() const { return zero_terminate_; }
+ void Config::set_zero_terminate(bool value) { zero_terminate_ = value; }
+ 
+ bool Config::show_block_size() const { return show_block_size_; }
+ void Config::set_show_block_size(bool value) { show_block_size_ = value; }
+ 
+ bool Config::perf_logging() const { return perf_logging_; }
+ void Config::set_perf_logging(bool value) { perf_logging_ = value; }
+ 
++bool Config::copy_config_only() const { return copy_config_only_; }
++void Config::set_copy_config_only(bool value) { copy_config_only_ = value; }
++
+ const std::optional<std::string>& Config::theme_name() const { return theme_name_; }
+ void Config::set_theme_name(std::optional<std::string> value) { theme_name_ = std::move(value); }
+ 
+ const std::optional<std::size_t>& Config::tree_depth() const { return tree_depth_; }
+ void Config::set_tree_depth(std::optional<std::size_t> value) { tree_depth_ = std::move(value); }
+ void Config::clear_tree_depth() { tree_depth_.reset(); }
+ 
+ const std::optional<int>& Config::output_width() const { return output_width_; }
+ void Config::set_output_width(std::optional<int> value) { output_width_ = std::move(value); }
+ void Config::clear_output_width() { output_width_.reset(); }
+ 
+ const std::string& Config::time_style() const { return time_style_; }
+ void Config::set_time_style(std::string value) { time_style_ = std::move(value); }
+ 
+ const std::vector<std::string>& Config::hide_patterns() const { return hide_patterns_; }
+ std::vector<std::string>& Config::mutable_hide_patterns() { return hide_patterns_; }
+ void Config::set_hide_patterns(std::vector<std::string> value) { hide_patterns_ = std::move(value); }
+ 
+ const std::vector<std::string>& Config::ignore_patterns() const { return ignore_patterns_; }
+ std::vector<std::string>& Config::mutable_ignore_patterns() { return ignore_patterns_; }
+ void Config::set_ignore_patterns(std::vector<std::string> value) { ignore_patterns_ = std::move(value); }
+ 
+ const std::vector<std::string>& Config::paths() const { return paths_; }
+ std::vector<std::string>& Config::mutable_paths() { return paths_; }
+ void Config::set_paths(std::vector<std::string> value) { paths_ = std::move(value); }
+diff --git a/src/resources.cpp b/src/resources.cpp
+index dc9af1f1b899c3073d857266a9033f5610b98ad0..ff0445bfa4a95954f0eea53b8e2adaf4a15cd92f 100644
+--- a/src/resources.cpp
++++ b/src/resources.cpp
+@@ -1,29 +1,30 @@
+ #include "resources.h"
+ 
+ #include <cstdlib>
+ #include <filesystem>
++#include <system_error>
+ 
+ namespace nls {
+ 
+ class ResourceManager::Impl {
+ public:
+     void initPaths(const char* argv0) {
+         if (initialized_) {
+             return;
+         }
+         initialized_ = true;
+ 
+         directories_.clear();
+         user_config_dir_.clear();
+         env_override_dir_.clear();
+ 
+         if (const char* env = std::getenv("NLS_DATA_DIR")) {
+             if (env[0] != '\0') {
+                 auto normalized = normalize(Path(env));
+                 addNormalizedDir(normalized);
+                 env_override_dir_ = std::move(normalized);
+             }
+         }
+ 
+         std::error_code ec;
+         Path cwd = std::filesystem::current_path(ec);
+@@ -94,59 +95,163 @@ public:
+     void addDir(const Path& dir) {
+         addNormalizedDir(normalize(dir));
+     }
+ 
+     Path normalize(const Path& dir) const {
+         if (dir.empty()) return {};
+         std::error_code ec;
+         Path normalized = std::filesystem::weakly_canonical(dir, ec);
+         if (ec) {
+             normalized = dir.lexically_normal();
+         }
+         return normalized;
+     }
+ 
+     void addNormalizedDir(Path normalized) {
+         if (normalized.empty()) return;
+ 
+         for (const auto& existing : directories_) {
+             if (existing == normalized) return;
+         }
+         directories_.push_back(std::move(normalized));
+     }
+ 
+     Path userConfigDir() const { return user_config_dir_; }
+     Path envOverrideDir() const { return env_override_dir_; }
++    Path defaultConfigDir() const
++    {
++        if (!env_override_dir_.empty()) {
++            return env_override_dir_;
++        }
++        auto colors = find("colors.yaml");
++        if (!colors.empty()) {
++            return colors.parent_path();
++        }
++        return {};
++    }
+ 
+ private:
+     std::vector<Path> directories_{};
+     bool initialized_ = false;
+     Path user_config_dir_{};
+     Path env_override_dir_{};
+ };
+ 
+ ResourceManager::Impl& ResourceManager::instance() {
+     static Impl impl;
+     return impl;
+ }
+ 
+ void ResourceManager::initPaths(const char* argv0) {
+     instance().initPaths(argv0);
+ }
+ 
+ std::filesystem::path ResourceManager::find(const std::string& name) {
+     return instance().find(name);
+ }
+ 
+ void ResourceManager::addDir(const Path& dir) {
+     instance().addDir(dir);
+ }
+ 
+ std::filesystem::path ResourceManager::userConfigDir() {
+     return instance().userConfigDir();
+ }
+ 
+ std::filesystem::path ResourceManager::envOverrideDir() {
+     return instance().envOverrideDir();
+ }
+ 
++std::error_code ResourceManager::copyDefaultsToUserConfig(CopyResult& result, bool overwrite_existing)
++{
++    result.copied.clear();
++    result.skipped.clear();
++
++    Impl& impl = instance();
++
++    Path user_dir = impl.userConfigDir();
++    if (user_dir.empty()) {
++        return std::make_error_code(std::errc::no_such_file_or_directory);
++    }
++
++    std::error_code ec;
++    bool user_exists = std::filesystem::exists(user_dir, ec);
++    if (ec) {
++        return ec;
++    }
++    if (!user_exists) {
++        std::filesystem::create_directories(user_dir, ec);
++        if (ec) {
++            return ec;
++        }
++    } else {
++        bool is_dir = std::filesystem::is_directory(user_dir, ec);
++        if (ec) {
++            return ec;
++        }
++        if (!is_dir) {
++            return std::make_error_code(std::errc::not_a_directory);
++        }
++    }
++
++    Path source_dir = impl.defaultConfigDir();
++    if (source_dir.empty()) {
++        return std::make_error_code(std::errc::no_such_file_or_directory);
++    }
++
++    std::filesystem::directory_iterator iter(source_dir, ec);
++    if (ec) {
++        return ec;
++    }
++    const std::filesystem::directory_iterator end;
++    for (; iter != end; iter.increment(ec)) {
++        if (ec) {
++            return ec;
++        }
++        const auto& entry = *iter;
++        bool is_regular = entry.is_regular_file(ec);
++        if (ec) {
++            return ec;
++        }
++        if (!is_regular) {
++            continue;
++        }
++
++        if (entry.path().extension() != ".yaml") {
++            continue;
++        }
++
++        Path destination = user_dir / entry.path().filename();
++        bool destination_exists = std::filesystem::exists(destination, ec);
++        if (ec) {
++            return ec;
++        }
++        if (destination_exists) {
++            bool same = std::filesystem::equivalent(entry.path(), destination, ec);
++            if (ec) {
++                return ec;
++            }
++            if (same) {
++                result.skipped.push_back(destination);
++                continue;
++            }
++            if (!overwrite_existing) {
++                result.skipped.push_back(destination);
++                continue;
++            }
++        }
++
++        std::filesystem::copy_options options = overwrite_existing
++            ? std::filesystem::copy_options::overwrite_existing
++            : std::filesystem::copy_options::none;
++        std::filesystem::copy_file(entry.path(), destination, options, ec);
++        if (ec) {
++            return ec;
++        }
++
++        result.copied.push_back(destination);
++    }
++
++    return {};
++}
++
+ } // namespace nls

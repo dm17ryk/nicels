@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <system_error>
 
 namespace nls {
 
@@ -116,6 +117,17 @@ public:
 
     Path userConfigDir() const { return user_config_dir_; }
     Path envOverrideDir() const { return env_override_dir_; }
+    Path defaultConfigDir() const
+    {
+        if (!env_override_dir_.empty()) {
+            return env_override_dir_;
+        }
+        auto colors = find("colors.yaml");
+        if (!colors.empty()) {
+            return colors.parent_path();
+        }
+        return {};
+    }
 
 private:
     std::vector<Path> directories_{};
@@ -147,6 +159,99 @@ std::filesystem::path ResourceManager::userConfigDir() {
 
 std::filesystem::path ResourceManager::envOverrideDir() {
     return instance().envOverrideDir();
+}
+
+std::error_code ResourceManager::copyDefaultsToUserConfig(CopyResult& result, bool overwrite_existing)
+{
+    result.copied.clear();
+    result.skipped.clear();
+
+    Impl& impl = instance();
+
+    Path user_dir = impl.userConfigDir();
+    if (user_dir.empty()) {
+        return std::make_error_code(std::errc::no_such_file_or_directory);
+    }
+
+    std::error_code ec;
+    bool user_exists = std::filesystem::exists(user_dir, ec);
+    if (ec) {
+        return ec;
+    }
+    if (!user_exists) {
+        std::filesystem::create_directories(user_dir, ec);
+        if (ec) {
+            return ec;
+        }
+    } else {
+        bool is_dir = std::filesystem::is_directory(user_dir, ec);
+        if (ec) {
+            return ec;
+        }
+        if (!is_dir) {
+            return std::make_error_code(std::errc::not_a_directory);
+        }
+    }
+
+    Path source_dir = impl.defaultConfigDir();
+    if (source_dir.empty()) {
+        return std::make_error_code(std::errc::no_such_file_or_directory);
+    }
+
+    std::filesystem::directory_iterator iter(source_dir, ec);
+    if (ec) {
+        return ec;
+    }
+    const std::filesystem::directory_iterator end;
+    for (; iter != end; iter.increment(ec)) {
+        if (ec) {
+            return ec;
+        }
+        const auto& entry = *iter;
+        bool is_regular = entry.is_regular_file(ec);
+        if (ec) {
+            return ec;
+        }
+        if (!is_regular) {
+            continue;
+        }
+
+        if (entry.path().extension() != ".yaml") {
+            continue;
+        }
+
+        Path destination = user_dir / entry.path().filename();
+        bool destination_exists = std::filesystem::exists(destination, ec);
+        if (ec) {
+            return ec;
+        }
+        if (destination_exists) {
+            bool same = std::filesystem::equivalent(entry.path(), destination, ec);
+            if (ec) {
+                return ec;
+            }
+            if (same) {
+                result.skipped.push_back(destination);
+                continue;
+            }
+            if (!overwrite_existing) {
+                result.skipped.push_back(destination);
+                continue;
+            }
+        }
+
+        std::filesystem::copy_options options = overwrite_existing
+            ? std::filesystem::copy_options::overwrite_existing
+            : std::filesystem::copy_options::none;
+        std::filesystem::copy_file(entry.path(), destination, options, ec);
+        if (ec) {
+            return ec;
+        }
+
+        result.copied.push_back(destination);
+    }
+
+    return {};
 }
 
 } // namespace nls

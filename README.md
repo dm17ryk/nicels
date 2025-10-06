@@ -180,6 +180,7 @@ what the executable reports.
 | --- | --- | --- | --- |
 | `-h, --help` | `—` | `—` | Print this help message and exit |
 | `--version` | `—` | `—` | Display program version information and exit |
+| `--copy-config` | `—` | `—` | copy default configuration files to the user configuration directory and exit |
 
 #### Layout options
 

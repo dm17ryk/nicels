@@ -219,6 +219,11 @@ public:
         actions_.emplace_back([value](Config& cfg) { cfg.set_perf_logging(value); });
     }
 
+    void SetCopyConfig(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_copy_config_only(value); });
+    }
+
     void SetBlockSize(uintmax_t value, bool specified, bool show_suffix, std::string suffix)
     {
         actions_.emplace_back([value, specified, show_suffix, suffix = std::move(suffix)](Config& cfg) {
@@ -441,6 +446,9 @@ Exit status:
     );
 
     program.add_option("paths", builder.paths(), "paths to list")->type_name("PATH");
+
+    program.add_flag_callback("--copy-config", [&]() { builder.SetCopyConfig(true); },
+        "copy default configuration files to the user configuration directory and exit");
 
     const std::map<std::string, Config::Format> format_map{
         {"long", Config::Format::Long},
