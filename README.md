@@ -10,6 +10,15 @@ lain state can all be surfaced in a single listing, while CMake presets keep
 builds reproducible across Linux and Windows (msys2,pwsh,cmd) targets.【F:CMakeLists.txt†L39-L122】【F:src/git_status.cpp†L1-L116】
 
 ## Installation
+### Windows installer
+Download the latest `nicels` setup program from the project's releases (or
+generate one locally with `cpack -G NSIS`). The installer supports
+per-machine and per-user installs, offers an "Add nls to PATH" checkbox, and
+places the bundled YAML themes in `<install dir>\\yaml`. Restart any open
+shells after installation so the updated PATH takes effect. User overrides are
+still loaded from `%APPDATA%\\.nicels\\yaml`, letting you keep local changes
+separate from the shared defaults.【F:CMakeLists.txt†L206-L228】【F:cmake/NSIS/NicelsNSISTemplate.in†L809-L877】
+
 ### Linux
 1. Install toolchain dependencies:
    ```sh
@@ -60,6 +69,15 @@ cmake --build --preset linux-clang-debug
 cmake --build --preset msys-clang-release
 cmake --build --preset msys-clang-debug
 ```
+
+#### Package (Windows)
+After building the release configuration, create the installer with CPack:
+
+```sh
+cmake --build --preset msys-clang-release
+cpack -G NSIS --config build/msys-clang-release/CPackConfig.cmake
+```
+The resulting `.exe` sits next to the build tree inside `build/msys-clang-release`.
 
 The `nls` executable appears under `build/<preset>/<config>/`. Run it directly
 from the build tree or after `cmake --install` to stage an install tree under

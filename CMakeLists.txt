@@ -370,7 +370,45 @@ install(TARGETS nls
   RUNTIME DESTINATION bin
 )
 
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/yaml/
+  DESTINATION yaml
+  FILES_MATCHING PATTERN "*.yaml"
+)
+
 include(CTest)
 if(BUILD_TESTING)
   message(STATUS "No tests have been defined yet. Add them under the test/ directory.")
 endif()
+
+set(CPACK_PACKAGE_NAME "nicels")
+set(CPACK_PACKAGE_VENDOR "nicels Project")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Next generation ls clone")
+set(CPACK_PACKAGE_CONTACT "https://github.com/nicels")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "nicels")
+set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "nicels")
+set(CPACK_PACKAGE_VERSION ${NLS_VERSION_STRING})
+set(CPACK_PACKAGE_VERSION_MAJOR ${NLS_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${NLS_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${NLS_VERSION_MAINTENANCE})
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+
+if(WIN32)
+  set(CPACK_GENERATOR "NSIS")
+  set(CPACK_NSIS_PACKAGE_NAME "nicels")
+  set(CPACK_NSIS_DISPLAY_NAME "nicels")
+  set(CPACK_NSIS_HELP_LINK "https://github.com/nicels/nicels")
+  set(CPACK_NSIS_URL_INFO_ABOUT "https://github.com/nicels/nicels")
+  set(CPACK_NSIS_CONTACT "https://github.com/nicels/nicels/issues")
+  set(CPACK_NSIS_MODIFY_PATH ON)
+  set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+  set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES")
+  # Escape the executable name to avoid NSIS interpreting the "\n" in
+  # "nls.exe" as a literal newline when generating the script.  Without the
+  # doubled backslash the resulting installer aborts while writing the
+  # DisplayIcon registry entry.
+  set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\nls.exe")
+  set(CPACK_NSIS_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NSIS/NicelsNSISTemplate.in")
+  set(CPACK_NSIS_INSTALL_OPTIONS_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NSIS/NicelsInstallOptions.ini.in")
+endif()
+
+include(CPack)
