@@ -106,6 +106,22 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 include(CheckIPOSupported)
+include(GNUInstallDirs)
+
+cmake_path(NORMAL_PATH "${CMAKE_BINARY_DIR}/install" OUTPUT_VARIABLE _nls_buildtree_install_prefix)
+cmake_path(NORMAL_PATH "${CMAKE_INSTALL_PREFIX}" OUTPUT_VARIABLE _nls_current_install_prefix)
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT OR
+   _nls_current_install_prefix STREQUAL _nls_buildtree_install_prefix)
+  set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Install prefix" FORCE)
+endif()
+unset(_nls_buildtree_install_prefix)
+unset(_nls_current_install_prefix)
+
+set(NLS_GLOBAL_CONFIG_INSTALL_DIR "/etc/dm17ryk/nicels/yaml"
+  CACHE PATH "Install location for nicels global YAML configuration files")
+if(NOT IS_ABSOLUTE "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
+  message(FATAL_ERROR "NLS_GLOBAL_CONFIG_INSTALL_DIR must be an absolute path")
+endif()
 
 option(NLS_ENABLE_LIBGIT2 "Enable libgit2 integration" ON)
 option(NLS_ENABLE_IPO "Enable interprocedural optimisations when available" ON)
@@ -384,15 +400,26 @@ if(WIN32 AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STR
 endif()
 
 
+set(_nls_yaml_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/yaml")
+file(GLOB _nls_yaml_files RELATIVE "${_nls_yaml_source_dir}" "${_nls_yaml_source_dir}/*.yaml")
+set(_nls_yaml_install_paths)
+
 install(TARGETS nls
-  FILE_SET HEADERS DESTINATION include/nls
-  RUNTIME DESTINATION bin
+  FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nls
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/yaml/
-  DESTINATION yaml
-  FILES_MATCHING PATTERN "*.yaml"
-)
+foreach(_nls_yaml IN LISTS _nls_yaml_files)
+  cmake_path(SET _nls_yaml_install_path "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
+  cmake_path(APPEND _nls_yaml_install_path "${_nls_yaml}")
+  list(APPEND _nls_yaml_install_paths "${_nls_yaml_install_path}")
+  install(FILES "${_nls_yaml_source_dir}/${_nls_yaml}"
+    DESTINATION "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
+endforeach()
+unset(_nls_yaml)
+unset(_nls_yaml_install_path)
+unset(_nls_yaml_files)
+unset(_nls_yaml_source_dir)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -410,6 +437,8 @@ set(CPACK_PACKAGE_VERSION_MAJOR ${NLS_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${NLS_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${NLS_VERSION_MAINTENANCE})
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/nicels/nicels")
+set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 
 if(WIN32)
   set(CPACK_GENERATOR "NSIS")
@@ -432,6 +461,54 @@ if(WIN32)
   set(CPACK_NSIS_MUI_UNIICON "${_nls_app_icon}")
   set(CPACK_NSIS_INSTALLER_ICON "${_nls_app_icon}")
   set(CPACK_NSIS_UNINSTALLER_ICON "${_nls_app_icon}")
+elseif(UNIX AND NOT APPLE)
+  set(CPACK_GENERATOR "DEB;RPM")
+  set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+  set(CPACK_DEBIAN_PACKAGE_MAINTAINER "nicels maintainers")
+  set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/nicels/nicels")
+  set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
+    "nicels is a feature-rich replacement for ls that adds icons, git status, and modern defaults.")
+  set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+  set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
+  set(CPACK_RPM_PACKAGE_URL "https://github.com/nicels/nicels")
+  set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
+  set(CPACK_RPM_PACKAGE_DESCRIPTION
+    "nicels is a feature-rich replacement for ls that adds icons, git status, and modern defaults.")
+
+  if(_nls_yaml_install_paths)
+    set(_nls_cpack_aux_dir "${CMAKE_CURRENT_BINARY_DIR}/cpack")
+    file(MAKE_DIRECTORY "${_nls_cpack_aux_dir}")
+
+    set(_nls_debian_conffiles "${_nls_cpack_aux_dir}/conffiles")
+    string(JOIN "\n" _nls_debian_conffiles_contents ${_nls_yaml_install_paths})
+    file(WRITE "${_nls_debian_conffiles}" "${_nls_debian_conffiles_contents}\n")
+    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${_nls_debian_conffiles}")
+
+    set(_nls_rpm_config_entries)
+    foreach(_nls_yaml_path IN LISTS _nls_yaml_install_paths)
+      list(APPEND _nls_rpm_config_entries "%config(noreplace) ${_nls_yaml_path}")
+    endforeach()
+    string(JOIN "\n" CPACK_RPM_USER_FILELIST ${_nls_rpm_config_entries})
+    unset(_nls_rpm_config_entries)
+    unset(_nls_debian_conffiles_contents)
+    unset(_nls_debian_conffiles)
+  endif()
 endif()
+unset(_nls_cpack_aux_dir)
+
+set(CPACK_SOURCE_GENERATOR "TGZ")
+set(CPACK_SOURCE_IGNORE_FILES
+  "/\\.git/"
+  "/\\.github/"
+  "/\\.gitignore"
+  "/\\.gitmodules"
+  "/build/"
+  "_CPack_Packages/"
+  "CPackConfig.cmake"
+  "CPackSourceConfig.cmake"
+  "/cmake-build-"
+  "/third-party/libgit2/\\.git"
+)
 
 include(CPack)
+unset(_nls_yaml_install_paths)

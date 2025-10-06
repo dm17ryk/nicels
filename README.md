@@ -19,7 +19,51 @@ shells after installation so the updated PATH takes effect. User overrides are
 still loaded from `%APPDATA%\\.nicels\\yaml`, letting you keep local changes
 separate from the shared defaults.【F:CMakeLists.txt†L206-L228】【F:cmake/NSIS/NicelsNSISTemplate.in†L809-L877】
 
-### Linux
+### Linux packages
+
+Download the appropriate archive from the releases page or generate packages
+locally with CPack (see [Package (Linux)](#package-linux)).
+
+**Debian / Ubuntu (`.deb`)**
+
+```sh
+sudo dpkg -i nicels_<version>_amd64.deb
+# Resolve any missing dependencies reported by dpkg:
+sudo apt-get install -f
+```
+
+This installs `nls` to `/usr/bin/nls` and places the default YAML files in
+`/etc/dm17ryk/nicels/yaml`. Future upgrades or downgrades can reuse the same
+command; Debian's `conffile` handling preserves local edits in `/etc` by
+prompting before overwriting.【F:CMakeLists.txt†L177-L231】【F:CMakeLists.txt†L232-L306】
+
+**Fedora / RHEL (`.rpm`)**
+
+```sh
+sudo rpm -Uvh nicels-<version>-1.x86_64.rpm
+# Or, with dnf:
+sudo dnf install ./nicels-<version>-1.x86_64.rpm
+```
+
+The package installs the binary under `/usr/bin` and marks
+`/etc/dm17ryk/nicels/yaml/*.yaml` as `%config(noreplace)` so administrator
+changes survive upgrades.【F:CMakeLists.txt†L232-L306】
+
+**User-local install (no root)**
+
+If you cannot use the system package manager, run the helper script to stage a
+per-user installation:
+
+```sh
+./tools/install_nls_user.sh --binary /path/to/nls --configs /path/to/yaml
+```
+
+The script copies the executable to `~/.local/bin/nls`, installs defaults into
+`~/.nicels/yaml`, and automatically backs up an existing `~/.nicels/yaml`
+directory before replacing it. It prints a reminder if `~/.local/bin` is not on
+your `PATH` and supports a `--dry-run` mode for verification.【F:tools/install_nls_user.sh†L1-L179】
+
+### Linux (build from source)
 1. Install toolchain dependencies:
    ```sh
    sudo apt update
@@ -78,6 +122,22 @@ cmake --build --preset msys-clang-release
 cpack -G NSIS --config build/msys-clang-release/CPackConfig.cmake
 ```
 The resulting `.exe` sits next to the build tree inside `build/msys-clang-release`.
+
+#### Package (Linux)
+Build the release binaries, then ask CPack for the DEB, RPM, and source
+archives:
+
+```sh
+cmake --build --preset linux-clang-release
+cpack -G DEB -G RPM --config build/linux-clang-release/CPackConfig.cmake
+cpack -G TGZ --config build/linux-clang-release/CPackSourceConfig.cmake
+```
+
+The generated files appear in `build/linux-clang-release/` under names such as
+`nicels-<version>-Linux.deb`, `nicels-<version>-Linux.rpm`, and
+`nicels-<version>-Source.tar.gz`. Debian packages automatically derive shared
+library dependencies with `dpkg-shlibdeps`, and the RPM marks the YAML files as
+`%config(noreplace)` so upgrades respect local edits.【F:CMakeLists.txt†L177-L306】
 
 The `nls` executable appears under `build/<preset>/<config>/`. Run it directly
 from the build tree or after `cmake --install` to stage an install tree under
