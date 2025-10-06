@@ -1,0 +1,78 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8d5ffa868f28c420ad94700e5342f5101af5409c..ee4788ddca13d01a7a86da88cf03aaa5662a7581 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -389,58 +389,70 @@ if(WIN32 AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STR
+   if(NOT _nls_winpthread_static)
+     message(FATAL_ERROR "Unable to locate the static libwinpthread archive. Install the MinGW static runtime packages or adjust the search hints.")
+   else()
+     message(STATUS "Found static winpthread: ${_nls_winpthread_static}")
+   endif()
+ 
+   set(CMAKE_FIND_LIBRARY_SUFFIXES "${_nls_prev_library_suffixes}")
+   unset(_nls_prev_library_suffixes)
+   unset(_nls_compiler_bindir)
+   unset(_nls_toolchain_prefix)
+ 
+   target_link_libraries(nls PRIVATE "${_nls_winpthread_static}")
+   unset(_nls_winpthread_static CACHE)
+ endif()
+ 
+ 
+ set(_nls_yaml_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/yaml")
+ file(GLOB _nls_yaml_files RELATIVE "${_nls_yaml_source_dir}" "${_nls_yaml_source_dir}/*.yaml")
+ set(_nls_yaml_install_paths)
+ 
+ install(TARGETS nls
+   FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nls
+   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+ )
+ 
++if(WIN32)
++  set(_nls_yaml_install_destination "yaml")
++elseif(UNIX AND NOT APPLE)
++  set(_nls_yaml_install_destination "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
++else()
++  set(_nls_yaml_install_destination "${CMAKE_INSTALL_DATADIR}/nicels/yaml")
++endif()
++
+ foreach(_nls_yaml IN LISTS _nls_yaml_files)
+-  set(_nls_yaml_install_path "${NLS_GLOBAL_CONFIG_INSTALL_DIR}/${_nls_yaml}")
+-  list(APPEND _nls_yaml_install_paths "${_nls_yaml_install_path}")
++  if(UNIX AND NOT APPLE)
++    set(_nls_yaml_install_path "${NLS_GLOBAL_CONFIG_INSTALL_DIR}/${_nls_yaml}")
++    list(APPEND _nls_yaml_install_paths "${_nls_yaml_install_path}")
++  endif()
++
+   install(FILES "${_nls_yaml_source_dir}/${_nls_yaml}"
+-    DESTINATION "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
++    DESTINATION "${_nls_yaml_install_destination}")
+ endforeach()
+ unset(_nls_yaml)
+ unset(_nls_yaml_install_path)
++unset(_nls_yaml_install_destination)
+ unset(_nls_yaml_files)
+ unset(_nls_yaml_source_dir)
+ 
+ include(CTest)
+ if(BUILD_TESTING)
+   message(STATUS "No tests have been defined yet. Add them under the test/ directory.")
+ endif()
+ 
+ set(CPACK_PACKAGE_NAME "nicels")
+ set(CPACK_PACKAGE_VENDOR "nicels Project")
+ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Next generation ls clone")
+ set(CPACK_PACKAGE_CONTACT "https://github.com/nicels")
+ set(CPACK_PACKAGE_INSTALL_DIRECTORY "nicels")
+ set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "nicels")
+ set(CPACK_PACKAGE_VERSION ${NLS_VERSION_STRING})
+ set(CPACK_PACKAGE_VERSION_MAJOR ${NLS_VERSION_MAJOR})
+ set(CPACK_PACKAGE_VERSION_MINOR ${NLS_VERSION_MINOR})
+ set(CPACK_PACKAGE_VERSION_PATCH ${NLS_VERSION_MAINTENANCE})
+ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+ set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/nicels/nicels")
+ set(CPACK_PACKAGING_INSTALL_PREFIX "/")
+ 
+ if(WIN32)
+   set(CPACK_GENERATOR "NSIS")
+   set(CPACK_NSIS_PACKAGE_NAME "nicels")

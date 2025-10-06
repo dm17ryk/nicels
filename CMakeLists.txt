@@ -412,8 +412,7 @@ install(TARGETS nls
 )
 
 foreach(_nls_yaml IN LISTS _nls_yaml_files)
-  cmake_path(SET _nls_yaml_install_path "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
-  cmake_path(APPEND _nls_yaml_install_path "${_nls_yaml}")
+  set(_nls_yaml_install_path "${NLS_GLOBAL_CONFIG_INSTALL_DIR}/${_nls_yaml}")
   list(APPEND _nls_yaml_install_paths "${_nls_yaml_install_path}")
   install(FILES "${_nls_yaml_source_dir}/${_nls_yaml}"
     DESTINATION "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
