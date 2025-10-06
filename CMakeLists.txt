@@ -108,8 +108,10 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 include(CheckIPOSupported)
 include(GNUInstallDirs)
 
-cmake_path(NORMAL_PATH "${CMAKE_BINARY_DIR}/install" OUTPUT_VARIABLE _nls_buildtree_install_prefix)
-cmake_path(NORMAL_PATH "${CMAKE_INSTALL_PREFIX}" OUTPUT_VARIABLE _nls_current_install_prefix)
+set(_nls_buildtree_install_prefix "${CMAKE_BINARY_DIR}/install")
+cmake_path(NORMAL_PATH _nls_buildtree_install_prefix OUTPUT_VARIABLE _nls_buildtree_install_prefix)
+set(_nls_current_install_prefix "${CMAKE_INSTALL_PREFIX}")
+cmake_path(NORMAL_PATH _nls_current_install_prefix OUTPUT_VARIABLE _nls_current_install_prefix)
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT OR
    _nls_current_install_prefix STREQUAL _nls_buildtree_install_prefix)
   set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Install prefix" FORCE)
