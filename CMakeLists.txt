@@ -192,6 +192,25 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/includes" FILES ${_nls_headers})
 unset(_nls_sources)
 unset(_nls_headers)
 
+if(WIN32)
+  set(_nls_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/icons/nls.ico")
+  if(NOT EXISTS "${_nls_app_icon}")
+    message(FATAL_ERROR "Application icon not found at ${_nls_app_icon}")
+  endif()
+
+  set(_nls_rc_file "${CMAKE_CURRENT_BINARY_DIR}/nls.rc")
+  file(TO_NATIVE_PATH "${_nls_app_icon}" _nls_app_icon_native)
+  string(REPLACE "\\" "\\\\" _nls_app_icon_native "${_nls_app_icon_native}")
+  set(NLS_ICON_PATH "${_nls_app_icon_native}")
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/nls.rc.in"
+    "${_nls_rc_file}"
+    @ONLY
+  )
+  unset(NLS_ICON_PATH)
+  target_sources(nls PRIVATE "${_nls_rc_file}")
+endif()
+
 set_target_properties(nls PROPERTIES
   OUTPUT_NAME nls
   CXX_STANDARD 23
@@ -409,6 +428,10 @@ if(WIN32)
   set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\nls.exe")
   set(CPACK_NSIS_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NSIS/NicelsNSISTemplate.in")
   set(CPACK_NSIS_INSTALL_OPTIONS_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NSIS/NicelsInstallOptions.ini.in")
+  set(CPACK_NSIS_MUI_ICON "${_nls_app_icon}")
+  set(CPACK_NSIS_MUI_UNIICON "${_nls_app_icon}")
+  set(CPACK_NSIS_INSTALLER_ICON "${_nls_app_icon}")
+  set(CPACK_NSIS_UNINSTALLER_ICON "${_nls_app_icon}")
 endif()
 
 include(CPack)
