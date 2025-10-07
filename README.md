@@ -81,7 +81,7 @@ your `PATH` and supports a `--dry-run` mode for verification.【F:tools/install_
    ```sh
    pacman -S --needed \
        git \
-       mingw-w64-ucrt-x86_64-{git,cmake,clang,ninja,python,llvm,llvm-libs,lld,toolchain}
+       mingw-w64-ucrt-x86_64-{git,cmake,clang,ninja,python,llvm,llvm-libs,lld,toolchain,nsis}
    ```
 2. Clone the sources and initialise submodules:
    ```sh
@@ -119,9 +119,9 @@ After building the release configuration, create the installer with CPack:
 
 ```sh
 cmake --build --preset msys-clang-release
-cpack -G NSIS --config build/msys-clang-release/CPackConfig.cmake
+cpack -G NSIS --config build/msys-clang/CPackConfig.cmake
 ```
-The resulting `.exe` sits next to the build tree inside `build/msys-clang-release`.
+The resulting `.exe` sits next to the build tree inside `build/msys-clang`.
 
 #### Package (Linux)
 Build the release binaries, then ask CPack for the DEB, RPM, and source
