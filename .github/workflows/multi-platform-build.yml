@@ -5,6 +5,12 @@ on:
     # Запускать workflow только при пуше тега (любой тег)
     tags:
       - "*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Manual version override (optional)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
