@@ -100,10 +100,10 @@ jobs:
           if-no-files-found: error
 
   linux-rpm:
-    name: CentOS Stream 9 (→ .rpm)
-    runs-on: ubuntu-latest
+    name: CentOS Stream 10 (→ .rpm)
+    runs-on: CentOS-latest
     container:
-      image: rockylinux/rockylinux:9
+      image: rockylinux/rockylinux:10
     steps:
       # Checkout требует git в контейнере
       - name: Install git (for checkout)
