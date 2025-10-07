@@ -13,6 +13,8 @@ builds reproducible across Linux and Windows (msys2,pwsh,cmd) targets.【F:CMake
 
 ![Windows pwsh](images/social-media-preview-0.png)
 
+![Windows pwsh](images/terminals.png)
+
 ## Installation
 ### Windows installer
 Download the latest `nicels` setup program from the project's releases (or
