@@ -100,14 +100,24 @@ jobs:
           if-no-files-found: error
 
   linux-rpm:
-    name: CentOS Stream 10 (→ .rpm)
-    runs-on: CentOS-latest
+    name: CentOS Stream 10 (→ .rpm, CMake ≥ 3.28)
+    runs-on: ubuntu-latest
+    # Используем официальный образ CentOS Stream 10
     container:
-      image: rockylinux/rockylinux:10
+      image: quay.io/centos/centos:stream10
     steps:
-      # Checkout требует git в контейнере
-      - name: Install git (for checkout)
-        run: dnf install -y -q git
+      # --- DNF wrapper (dnf5 в EL10) + базовые инструменты для checkout ---
+      - name: Prepare package manager & git
+        shell: bash
+        run: |
+          set -e
+          if command -v dnf5 >/dev/null 2>&1; then
+            DNF=dnf5
+          else
+            DNF=dnf
+          fi
+          echo "DNF_CMD=$DNF" >> $GITHUB_ENV
+          sudo $DNF -y -q install git which
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -115,39 +125,48 @@ jobs:
           submodules: true
 
       - name: Read version from VERSION
+        shell: bash
         run: |
           echo "VERSION=$(tr -d '\n' < VERSION)" >> $GITHUB_ENV
           echo "Using VERSION=$VERSION"
 
-      # --- FIX for "No match for argument: ninja-build" ---
-      # В RHEL/Rocky 9 ninja часто в репозитории CRB или EPEL.
-      # Включаем CRB, пробуем ninja-build, если не найден — ставим через pip как fallback.
-      - name: Enable CRB/EPEL and install build deps
+      # --- Установка зависимостей (CMake >=3.28 есть в Stream 10) ---
+      - name: Install build dependencies
+        shell: bash
         run: |
           set -e
-          dnf -y -q install dnf-plugins-core
-          dnf -y -q config-manager --set-enabled crb || true
-          dnf -y -q install epel-release || true
-          dnf -y -q makecache
-          # Основные зависимости
-          dnf -y install cmake clang llvm lld pkgconf-pkg-config openssl-devel rpm-build
-          # Ninja из реп (CRB/EPEL)
-          if ! dnf -y install ninja-build; then
-            echo "ninja-build not found in repos, installing via pip..."
-            dnf -y install python3-pip
+          if command -v dnf5 >/dev/null 2>&1; then
+            DNF=dnf5
+          else
+            DNF=dnf
+          fi
+          sudo $DNF -y -q install dnf-plugins-core || true
+          # Включаем CRB (если есть) и EPEL10 (если доступен), затем обновляем метаданные
+          sudo $DNF -y -q config-manager --set-enabled crb || true
+          sudo $DNF -y -q install epel-release || true
+          sudo $DNF -y -q makecache
+          # Основные инструменты
+          sudo $DNF -y install cmake ninja-build clang llvm lld pkgconf-pkg-config openssl-devel rpm-build
+          # Fallback на случай отсутствия ninja-build в репозиториях
+          if ! command -v ninja >/dev/null 2>&1; then
+            echo "ninja-build not found; installing via pip as fallback..."
+            sudo $DNF -y install python3-pip
             pip3 install --upgrade pip
             pip3 install ninja
-            ln -sf /usr/local/bin/ninja /usr/bin/ninja || true
+            sudo ln -sf /usr/local/bin/ninja /usr/bin/ninja || true
           fi
           echo "cmake: $(cmake --version | head -1)"
           echo "ninja: $(ninja --version || true)"
+          echo "clang: $(clang --version | head -1 || true)"
 
       - name: Configure & Build
+        shell: bash
         run: |
           cmake --preset linux-clang
           cmake --build --preset linux-clang-release
 
       - name: Package (.rpm)
+        shell: bash
         run: |
           cpack -G RPM --config build/linux-clang/CPackConfig.cmake
           ls -la _CPack_Packages/Linux/RPM || true
