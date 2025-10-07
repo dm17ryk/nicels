@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<HEAD>
+<meta charset="utf-8">
+</HEAD><BODY>
+<OBJECT type="text/site properties">
+	<param name="ImageType" value="Folder">
+</OBJECT>
+
+<UL>
+  <LI> <OBJECT type="text/sitemap">
+        <param name="Name" value="Overview">
+        <param name="Local" value="topics\nls.html#overview">
+       </OBJECT>
+  <LI> <OBJECT type="text/sitemap">
+        <param name="Name" value="Usage">
+        <param name="Local" value="topics\nls.html#usage">
+       </OBJECT>
+  <LI> <OBJECT type="text/sitemap">
+        <param name="Name" value="Options">
+        <param name="Local" value="topics\nls.html#options">
+       </OBJECT>
+  <LI> <OBJECT type="text/sitemap">
+        <param name="Name" value="Environment">
+        <param name="Local" value="topics\nls.html#environment">
+       </OBJECT>
+  <LI> <OBJECT type="text/sitemap">
+        <param name="Name" value="Examples">
+        <param name="Local" value="topics\nls.html#examples">
+       </OBJECT>
+  <LI> <OBJECT type="text/sitemap">
+        <param name="Name" value="Contact">
+        <param name="Local" value="topics\nls.html#contact">
+       </OBJECT>
+</UL>
+</BODY></HTML>

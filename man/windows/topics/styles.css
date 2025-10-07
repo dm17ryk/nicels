@@ -1,0 +1,5 @@
+body { font-family: Segoe UI, Tahoma, sans-serif; line-height: 1.45; }
+h1, h2, h3 { color: #003366; }
+code, pre { font-family: Consolas, "Courier New", monospace; }
+pre { background: #f4f4f4; padding: .5em; border: 1px solid #ddd; }
+ul { margin-top: .2em; }

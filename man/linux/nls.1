@@ -1,0 +1,267 @@
+.TH nls 1 "October 2025" "nicels 0.0" "User Commands"
+.SH NAME
+nls \- modern directory listing with extended features (replacement for ls)
+
+.SH SYNOPSIS
+.nf
+\fBnls\fR [\fIOPTION\fR]... [\fIPATH\fR]...
+.fi
+
+.SH DESCRIPTION
+\fBnls\fR (nicels) is a modern replacement for the \fBls\fR command. It lists information about files and directories with enriched output including icons, colors, Git status, and configurable themes:contentReference[oaicite:1]{index=1}. By default, \fBnls\fR behaves like \fBls\fR, listing the current directory if no \fIPATH\fR is given, and sorting entries alphabetically unless otherwise specified:contentReference[oaicite:2]{index=2}:contentReference[oaicite:3]{index=3}. Additional features include optional Git integration (showing status of files under version control), tree-view directory listings, and customizable output format and color schemes.
+
+.SH OPTIONS
+The command-line options are grouped by functionality as below. Short (single-letter) options can be combined (e.g. \fB-la\fR for long format with all files). For full effect, ensure your terminal supports the needed colors and symbols.
+
+.SS Layout Options
+.TP 
+.B "\-l, \-\-long"
+Use a long listing format (detailed view with columns for permissions, owners, size, date, etc.):contentReference[oaicite:4]{index=4}.
+.TP 
+.B "\-1, \-\-one-per-line"
+List one file per line (single-column output):contentReference[oaicite:5]{index=5}.
+.TP 
+.B \-x
+List entries by lines instead of by columns (horizontal sorting across rows):contentReference[oaicite:6]{index=6}.
+.TP 
+.B \-C
+List entries by columns (vertical columns, the default behavior):contentReference[oaicite:7]{index=7}.
+.TP 
+\fB\-\-format=\fIWORD\fR
+Explicitly use a given output format. \fIWORD\fR can be one of **vertical**, **horizontal**, **long**, **single-column**, or **comma** (you may also use abbreviations like **-x**, **-l**, **-1**, **-m** here):contentReference[oaicite:8]{index=8}:contentReference[oaicite:9]{index=9}. For example, `--format=long` is equivalent to `-l`. Default format is **vertical** (columns).
+.TP 
+.B \-\-header
+Print a header with directory name and column labels in long listings. By default, a directory heading is shown only if multiple paths are listed; this option forces a header (including column titles like "Mode", "Owner", etc.) even for single directories:contentReference[oaicite:10]{index=10}:contentReference[oaicite:11]{index=11}.
+.TP 
+.B \-m
+Fill the width with a comma-separated list of entries (stream output separated by commas):contentReference[oaicite:12]{index=12}:contentReference[oaicite:13]{index=13}.
+.TP 
+\fB\-T, \-\-tabsize\fR \fICOLS\fR
+Assume tab stops every \fICOLS\fR columns (default 8) when aligning output:contentReference[oaicite:14]{index=14}. Useful for aligning tab-separated fields in long listings. \fICOLS\fR must be non-negative.
+.TP 
+\fB\-w, \-\-width\fR \fICOLS\fR
+Set the output width to \fICOLS\fR columns. By default, \fBnls\fR detects the terminal width; use \fB--width=0\fR for no limit:contentReference[oaicite:15]{index=15}.
+.TP 
+\fB\-\-tree[=\fIDEPTH\fR]\fR
+Recursively list directories in a tree view. Optionally limit recursion to \fIDEPTH\fR levels (0 means no limit):contentReference[oaicite:16]{index=16}:contentReference[oaicite:17]{index=17}. For example, \fB--tree=2\fR lists two levels deep. If \fIDEFTH\fR is not provided, it defaults to 0 (fully recursive).
+.TP 
+\fB\-\-report[=\fIWORD\fR]\fR
+Show a summary report after listing. \fIWORD\fR can be **short** or **long**, defaulting to **long** if omitted:contentReference[oaicite:18]{index=18}:contentReference[oaicite:19]{index=19}. A "short" report might include just totals (e.g. number of files and directories), whereas "long" could provide more detailed summary. If this option is given without a value, it defaults to long report.
+.TP 
+.B \-\-zero
+End each output line with a null character (ASCII 0) instead of a newline:contentReference[oaicite:20]{index=20}. Useful for piping output into programs that expect NUL-separated names.
+
+.SS Filtering Options
+.TP 
+.B "\-a, \-\-all"
+Do not ignore entries starting with ‘.’ (include hidden files):contentReference[oaicite:21]{index=21}.
+.TP 
+.B "\-A, \-\-almost-all"
+Include hidden entries except for ‘.’ and ‘..’:contentReference[oaicite:22]{index=22}.
+.TP 
+.B "\-d, \-\-dirs"
+Show only directories, not regular files:contentReference[oaicite:23]{index=23}.
+.TP 
+.B "\-f, \-\-files"
+Show only files, not directories:contentReference[oaicite:24]{index=24}.
+.TP 
+.B "\-B, \-\-ignore-backups"
+Omit entries ending with ‘~’ (backup files):contentReference[oaicite:25]{index=25}.
+.TP 
+\fB\-\-hide\fR \fIPATTERN\fR...
+Do not list entries that match the shell wildcard \fIPATTERN\fR:contentReference[oaicite:26]{index=26}. Patterns apply to filenames (e.g. `--hide="*.bak"`). This is overridden by \fB-a\fR or \fB-A\fR (which show all files).
+.TP 
+\fB\-I, \-\-ignore\fR \fIPATTERN\fR...
+Like \fB--hide\fR, but specifically ignore entries matching \fIPATTERN\fR:contentReference[oaicite:27]{index=27}. Multiple patterns can be provided. (Note: In GNU ls, `-I` ignores patterns even with `-a`, but here `-a`/`-A` will show all files regardless.)
+
+.SS Sorting Options
+.TP 
+.B \-t 
+Sort by modification time (newest first):contentReference[oaicite:28]{index=28}.
+.TP 
+.B \-S 
+Sort by file size (largest first):contentReference[oaicite:29]{index=29}.
+.TP 
+.B \-X 
+Sort by file extension (alphabetically by extension):contentReference[oaicite:30]{index=30}.
+.TP 
+.B \-U 
+Do not sort; list entries in directory order (unsorted):contentReference[oaicite:31]{index=31}.
+.TP 
+.B "\-r, \-\-reverse"
+Reverse the sorting order (e.g. list smallest or oldest first instead):contentReference[oaicite:32]{index=32}.
+.TP 
+\fB\-\-sort=\fIWORD\fR
+Sort by the specified criterion \fIWORD\fR instead of name:contentReference[oaicite:33]{index=33}. Valid \fIWORD\fR values are **name**, **time** (modification time), **size**, **extension**, or **none** (for no sorting). Defaults to **name** if this option isn’t used.
+.TP 
+.B "\-\-sd, \-\-sort-dirs, \-\-group-directories-first"
+Sort directories before files:contentReference[oaicite:34]{index=34}. Directories will be listed first in each listing, then files.
+.TP 
+.B "\-\-sf, \-\-sort-files"
+Sort files first (the inverse of the above):contentReference[oaicite:35]{index=35}, listing regular files before directories.
+.TP 
+.B "\-\-df, \-\-dots-first"
+Sort "dot" files (and dot directories) first:contentReference[oaicite:36]{index=36}. Entries beginning with '.' will appear before other names in each directory.
+
+.SS Appearance Options
+.TP 
+.B "\-b, \-\-escape"
+Print C-style escape sequences for nongraphic characters:contentReference[oaicite:37]{index=37}. (For example, newline as `\n`, tab as `\t`, etc., to make control characters visible.)
+.TP 
+.B "\-N, \-\-literal"
+Output entry names without quoting or escaping:contentReference[oaicite:38]{index=38}. All characters are output as-is (this is the default quoting style in nls).
+.TP 
+.B "\-Q, \-\-quote-name"
+Enclose each entry name in double quotes:contentReference[oaicite:39]{index=39}. This is equivalent to `--quoting-style=c` (C language style quoting).
+.TP 
+\fB\-\-quoting-style=\fIWORD\fR
+Use quoting style \fIWORD\fR for entry names:contentReference[oaicite:40]{index=40}. Supported styles: **literal** (no quotes, no escaping – same as `-N`), **locale** (locale-specific quoting), **shell** (escape characters for shell, quote if whitespace), **shell-always**, **shell-escape**, **shell-escape-always**, **c** (C-style like `-Q`), or **escape** (escape non-graphic chars). Default is **literal**:contentReference[oaicite:41]{index=41}:contentReference[oaicite:42]{index=42}. The environment variable `QUOTING_STYLE` can also set a default style on startup.
+.TP 
+.B \-p
+Append a `/' indicator to directory names:contentReference[oaicite:43]{index=43} (marks directories with a trailing slash).
+.TP 
+\fB\-\-indicator-style=\fISTYLE\fR
+Append file-type indicators to names using style \fISTYLE\fR:contentReference[oaicite:44]{index=44}. Valid styles: **none** (no indicator), **slash** (directories only, marked with `/` – same as `-p`). Default is **slash**.
+.TP 
+.B "\-\-no-icons, \-\-without-icons"
+Disable icons in output:contentReference[oaicite:45]{index=45}. By default, nls may display file-type icons or symbols; this option turns that off (useful if your font or environment doesn’t support the icons).
+.TP 
+.B \-\-no-color
+Produce output with no ANSI color codes:contentReference[oaicite:46]{index=46}. This forces monochrome output (same as `--color=never`).
+.TP 
+\fB\-\-color=\fIWHEN\fR
+Colorize the output according to file type or extension. \fIWHEN\fR can be **auto**, **always**, or **never**:contentReference[oaicite:47]{index=47}. **auto** (default) means color output only if the output is a terminal (tty) and not disabled by `NO_COLOR` env var:contentReference[oaicite:48]{index=48}; **always** forces color codes even if output is piped; **never** disables color entirely:contentReference[oaicite:49]{index=49}. (See **Environment** below for `LS_COLORS` usage.)
+.TP 
+\fB\-\-theme\fR \fINAME\fR
+Use theme \fINAME\fR for colors and icons:contentReference[oaicite:50]{index=50}:contentReference[oaicite:51]{index=51}. Themes are defined in YAML files named `<NAME>_theme.yaml`. The program will load the specified theme file (case-sensitive name). If the name ends in “_theme” or “.yaml”, that part is optional (e.g. `--theme=light` loads `light_theme.yaml`). An error is reported if the theme file is not found:contentReference[oaicite:52]{index=52}:contentReference[oaicite:53]{index=53}.
+.TP 
+.B \-\-light
+Use the light color scheme:contentReference[oaicite:54]{index=54}. This sets the default theme to a light background variant (overriding auto-detection).
+.TP 
+.B \-\-dark
+Use the dark color scheme:contentReference[oaicite:55]{index=55}. Forces dark theme (if not set, the default theme is applied or auto-detected).
+.TP 
+.B "\-q, \-\-hide-control-chars"
+Show `?` instead of non-graphic (control) characters in file names:contentReference[oaicite:56]{index=56}. This makes unprintable characters visible as question marks.
+.TP 
+.B \-\-show-control-chars
+Display non-printable characters as-is (opposite of `-q`):contentReference[oaicite:57]{index=57}. By default, nls will **not** hide control chars (unless POSIX mode or `-q` is used).
+.TP 
+\fB\-\-time-style=\fIFORMAT\fR
+Use specified \fIFORMAT\fR for displaying timestamps:contentReference[oaicite:58]{index=58}. Recognized formats include **full-iso**, **long-iso**, **iso**, **locale**, **local** (a variant of locale; default), or a custom format starting with `+` as in the \fBdate(1)\fR command:contentReference[oaicite:59]{index=59}:contentReference[oaicite:60]{index=60}. If a custom format contains a newline, the part after newline is used for recent dates. Prefixing a style with `posix-` applies it only when not in the POSIX locale:contentReference[oaicite:61]{index=61}. (The `TIME_STYLE` environment variable can also set a default format:contentReference[oaicite:62]{index=62}.) Default is **local** time format.
+.TP 
+.B \-\-full-time
+Combination of `-l --time-style=full-iso`:contentReference[oaicite:63]{index=63}. Displays time in full ISO 8601 format (down to seconds and timezone) in a long listing.
+.TP 
+.B \-\-hyperlink
+Output file names as clickable hyperlinks (OSC 8 ANSI hyperlinks) in supporting terminals:contentReference[oaicite:64]{index=64}:contentReference[oaicite:65]{index=65}. This encodes each file path so that clicking it in a compatible terminal opens the file or directory.
+
+.SS Information Options
+.TP 
+.B "\-i, \-\-inode"
+Show each file’s inode number in the listing:contentReference[oaicite:66]{index=66}.
+.TP 
+.B \-o 
+Use a long listing format like `-l`, but omit the group information:contentReference[oaicite:67]{index=67}. (Equivalent to `-l --no-group` in effect.)
+.TP 
+.B \-g 
+Like `-l`, but omit the owner information:contentReference[oaicite:68]{index=68}. (This is a legacy BSD `ls` option; note `-g` alone is not “group directories first” here.)
+.TP 
+.B "\-G, \-\-no-group"
+Do not show group information in long format listings:contentReference[oaicite:69]{index=69}.
+.TP 
+.B "\-n, \-\-numeric-uid-gid"
+Like `-l`, but list numeric UIDs and GIDs instead of names:contentReference[oaicite:70]{index=70}.
+.TP 
+.B "\-\-bytes, \-\-non-human-readable"
+Display file sizes in bytes, without any scaling or unit suffix:contentReference[oaicite:71]{index=71}. By default, in long format, file sizes are human-readable (using KB, MB, etc., or block counts if `--block-size` is used). This option forces raw byte counts.
+.TP 
+.B "\-s, \-\-size"
+Show the allocated size of each file in blocks:contentReference[oaicite:72]{index=72} (alongside the file name or in the long listing). This prints a block count column (`ls -s` style). The default block size is 1KiB (1024 bytes) unless overridden (see `--block-size`).
+.TP 
+\fB\-\-block-size=\fISIZE\fR
+Scale file sizes to \fISIZE\fR units when printing them:contentReference[oaicite:73]{index=73}. Only affects long listings (and possibly the `-s` size column). \fISIZE\fR can be specified with a suffix: e.g. **K**, **M**, **G** (powers of 1024) or **KB**, **MB** (powers of 1000). You may also use binary prefixes like **KiB**, **MiB**, etc.:contentReference[oaicite:74]{index=74}:contentReference[oaicite:75]{index=75}. For example, `--block-size=1M` will show sizes in units of 1,048,576 bytes. (If \fISIZE\fR is 0 or not a number, an error is reported.) This option overrides any BLOCK_SIZE environment variable (if applicable).
+.TP 
+.B "\-L, \-\-dereference"
+For symbolic links, list information for the file they reference (the target), rather than the link itself:contentReference[oaicite:76]{index=76}. (Same as \fBls -L\fR.)
+.TP 
+.B "\-\-gs, \-\-git-status"
+Show Git status alongside each file:contentReference[oaicite:77]{index=77}. If the directory is a Git repository, this adds a column or indicator for Git modification state (e.g. modified, untracked, etc.). This feature requires libgit2 support:contentReference[oaicite:78]{index=78}.
+.TP 
+.B "\-\-perf-debug"
+Enable performance diagnostics (debugging mode):contentReference[oaicite:79]{index=79}. This may log timing information about internal operations to stderr for troubleshooting.
+
+.PP 
+All of the above options can be combined to tailor the output. For example, using \fB--color=always\fR together with \fB--hyperlink\fR is supported. The **--help** option (or \fB-h\fR) will display a usage summary similar to the above, and **--version** will show the program version.
+
+.SH ENVIRONMENT
+The following environment variables affect \fBnls\fR:
+
+.TP 
+.B NLS_DATA_DIR 
+If set, specifies a directory to search for configuration files (themes, icon mappings) before any other default locations:contentReference[oaicite:80]{index=80}. This allows using custom theme files or configurations from an alternate location. When \fBNLS_DATA_DIR\fR is set, per-user overrides are ignored for resources found in that directory:contentReference[oaicite:81]{index=81}.
+.TP 
+.B LS_COLORS 
+Defines color codes for file types, as used by GNU ls and dircolors:contentReference[oaicite:82]{index=82}. \fBnls\fR will use this if \fB--color\fR is enabled (or auto) to apply file type colors:contentReference[oaicite:83]{index=83}. Set via the \fBdircolors(1)\fR command or manually, it is a colon-separated list of file pattern color mappings. If not set, \fBnls\fR uses its built-in theme YAML settings for colors.
+.TP 
+.B NO_COLOR 
+If this variable is present in the environment, \fBnls\fR will disable colored output entirely:contentReference[oaicite:84]{index=84}. This overrides \fB--color=auto\fR (effectively treating it as “never”). This is a standard convention to respect users who prefer no color in output.
+.TP 
+.B TIME_STYLE 
+If set, provides a default time display style (format) for listings:contentReference[oaicite:85]{index=85}. Its value should match one of the formats accepted by \fB--time-style\fR (e.g. "full-iso", "long-iso", or a custom `+FORMAT`). If not specified, nls uses "local" time style by default:contentReference[oaicite:86]{index=86}. (Note: `posix-` prefix in this variable’s value will be honored outside the POSIX locale:contentReference[oaicite:87]{index=87}.)
+.TP 
+.B QUOTING_STYLE 
+Sets the default quoting style for filenames:contentReference[oaicite:88]{index=88}. Valid values are the same as for the \fB--quoting-style\fR option (e.g. "literal", "shell", "c", etc.). If this variable is set, nls will apply the specified quoting style unless overridden by command-line options.
+.TP 
+.B POSIXLY_CORRECT 
+If set, \fBnls\fR may enable POSIX compatibility modes for certain behaviors. For example, when this is present, time styles prefixed with "posix-" will be in effect (unless the locale is POSIX/C). It may also influence sorting or quoting to adhere strictly to POSIX `ls` rules. (Note: This variable is recognized for compatibility; its exact effects in nls are minimal and primarily pertain to time style handling:contentReference[oaicite:89]{index=89}.)
+
+.PP 
+On Windows, \fBnls\fR additionally looks for configuration files under `%APPDATA%\\nicels\\yaml` (for per-user config) and the installation directory’s “yaml” subfolder, unless overridden by \fBNLS_DATA_DIR\fR:contentReference[oaicite:90]{index=90}. The `%USERPROFILE%` is used as a fallback if `%APPDATA%` is not defined. These environment specifics are mainly for locating config files and do not typically require manual intervention.
+
+.SH EXAMPLES
+.PP 
+The following examples illustrate common usage of \fBnls\fR:
+
+.IP "\fB1.\fR"
+List all files (including hidden) in the current directory, using a long listing with Git status and a summary report:
+.RS
+.nf
+$ nls \-laA \-\-gs \-\-header \-\-report=long
+.fi
+.RE
+This will produce a detailed, colored listing of the current directory (including dotfiles), with an extra column showing Git status for each file, a header line with column labels, and a summary at the end:contentReference[oaicite:91]{index=91}.
+
+.IP "2."
+Recursively list a directory in tree form, limiting depth to 2:
+.RS
+.nf
+$ nls \-\-tree=2 ~/projects
+.fi
+.RE
+This will display the contents of `~/projects` and its subdirectories up to two levels deep, in a tree layout where subdirectories are indented. Deeper levels are not expanded (they would be indicated with a marker if applicable).
+
+.IP "3."
+Use filtering options to list only directories (no files) in the current directory:
+.RS
+.nf
+$ nls \-d .
+.fi
+.RE
+Combining flags can refine output. For example, \fBnls -d -lA\fR would list only directories in long format, including hidden ones (but omitting “.” and “..”).
+
+.IP "4."
+Copy the default configuration files to your user config directory:
+.RS
+.nf
+$ nls \-\-copy-config
+.fi
+.RE
+This will populate your `~/.nicels/yaml` (on Linux/macOS) or `%APPDATA%\\nicels\\yaml` (on Windows) with the default theme and icon configuration files, if they do not already exist. It prints which files were copied or skipped and then exits:contentReference[oaicite:92]{index=92}:contentReference[oaicite:93]{index=93}.
+
+.SH AUTHOR
+\fBnls\fR was developed by Dmitry K. (GitHub user **dm17ryk**). It is an open-source project available on GitHub. Feedback, bug reports, and contributions are welcome via the project’s issue tracker.
+
+.SH SEE\ ALSO
+\fBls(1)\fR, \fBtree(1)\fR, \fBgit(1)\fR (especially “git status”), \fBdate(1)\fR (for time format strings), \fBdircolors(1)\fR. 
+.\" (The nls tool integrates aspects of these commands: it is largely a drop-in replacement for ls with additional features inspired by tree and git.)

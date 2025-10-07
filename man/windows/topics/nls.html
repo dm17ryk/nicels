@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>nls Command Reference</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<h1 id="overview">nls – Nicels Command-Line Utility</h1>
+<p><b>nls</b> is a modern, cross-platform directory listing tool that serves as a drop-in replacement for <code>ls</code>. It provides richly formatted output with icons, color themes, Git status integration, and configurable layouts. Use nls to list files and directories with more information and better visuals than traditional <code>ls</code>.</p>
+
+<h2 id="usage">Usage</h2>
+<pre><code>nls [OPTIONS] [PATH...]</code></pre>
+<p>If no <i>PATH</i> is given, nls lists the current directory.</p>
+
+<h2 id="options">Command-Line Options</h2>
+
+<h3>Layout</h3>
+<ul>
+  <li><code>-l, --long</code> – long listing format.</li>
+  <li><code>-1, --one-per-line</code> – one entry per line.</li>
+  <li><code>-x</code> – list across, by rows.</li>
+  <li><code>-C</code> – list by columns (default).</li>
+  <li><code>--format=&lt;WORD&gt;</code> – vertical|horizontal|long|single-column|comma.</li>
+  <li><code>--header</code> – force header (dir name/column labels in long format).</li>
+  <li><code>-m</code> – comma-separated stream output.</li>
+  <li><code>-T, --tabsize COLS</code> – tab stops every COLS (default 8).</li>
+  <li><code>-w, --width COLS</code> – wrap to width (0 = no limit).</li>
+  <li><code>--tree[=DEPTH]</code> – recursive tree view; optional depth (0 = unlimited).</li>
+  <li><code>--report[=short|long]</code> – summary report (long if omitted).</li>
+  <li><code>--zero</code> – NUL-terminate entries.</li>
+</ul>
+
+<h3>Filtering</h3>
+<ul>
+  <li><code>-a, --all</code> – include dotfiles.</li>
+  <li><code>-A, --almost-all</code> – include dotfiles except <code>.</code> and <code>..</code>.</li>
+  <li><code>-d, --dirs</code> – only directories.</li>
+  <li><code>-f, --files</code> – only files.</li>
+  <li><code>-B, --ignore-backups</code> – ignore <code>*~</code>.</li>
+  <li><code>--hide PATTERN</code> – hide names matching PATTERN.</li>
+  <li><code>-I, --ignore PATTERN</code> – ignore names matching PATTERN.</li>
+</ul>
+
+<h3>Sorting</h3>
+<ul>
+  <li><code>-t</code> – sort by mtime (newest first).</li>
+  <li><code>-S</code> – sort by size (largest first).</li>
+  <li><code>-X</code> – sort by extension.</li>
+  <li><code>-U</code> – unsorted (directory order).</li>
+  <li><code>-r, --reverse</code> – reverse sort order.</li>
+  <li><code>--sort=&lt;name|time|size|extension|none&gt;</code></li>
+  <li><code>--sd, --sort-dirs, --group-directories-first</code></li>
+  <li><code>--sf, --sort-files</code></li>
+  <li><code>--df, --dots-first</code></li>
+</ul>
+
+<h3>Appearance</h3>
+<ul>
+  <li><code>-b, --escape</code> – C-style escapes for nongraphic chars.</li>
+  <li><code>-N, --literal</code> – literal names (no quoting).</li>
+  <li><code>-Q, --quote-name</code> – quote names with double quotes.</li>
+  <li><code>--quoting-style=&lt;WORD&gt;</code> – literal|locale|shell|…|c|escape.</li>
+  <li><code>-p</code> – append <code>/</code> to directories.</li>
+  <li><code>--indicator-style=&lt;slash|none&gt;</code></li>
+  <li><code>--no-icons, --without-icons</code></li>
+  <li><code>--no-color</code> / <code>--color=auto|always|never</code></li>
+  <li><code>--theme NAME</code>, <code>--light</code>, <code>--dark</code></li>
+  <li><code>-q, --hide-control-chars</code> / <code>--show-control-chars</code></li>
+  <li><code>--time-style=FORMAT</code>, <code>--full-time</code></li>
+  <li><code>--hyperlink</code></li>
+</ul>
+
+<h3>Information</h3>
+<ul>
+  <li><code>-i, --inode</code></li>
+  <li><code>-o</code> (long without group), <code>-g</code> (long without owner), <code>-G, --no-group</code></li>
+  <li><code>-n, --numeric-uid-gid</code></li>
+  <li><code>--bytes, --non-human-readable</code>, <code>-s, --size</code>, <code>--block-size=SIZE</code></li>
+  <li><code>-L, --dereference</code></li>
+  <li><code>--gs, --git-status</code></li>
+  <li><code>--perf-debug</code></li>
+  <li><code>--copy-config</code></li>
+</ul>
+
+<h2 id="environment">Environment</h2>
+<ul>
+  <li><code>NLS_DATA_DIR</code> – path to themes/icons config.</li>
+  <li><code>LS_COLORS</code> – color rules (GNU dircolors style).</li>
+  <li><code>NO_COLOR</code> – disable color.</li>
+  <li><code>TIME_STYLE</code> – default time style.</li>
+  <li><code>QUOTING_STYLE</code> – default quoting style.</li>
+  <li><code>POSIXLY_CORRECT</code> – stricter POSIX behavior in some cases.</li>
+</ul>
+
+<h2 id="examples">Examples</h2>
+<pre><code># Long + all + git + header + report
+nls -la --gs --header --report=long
+
+# Tree up to depth 2
+nls --tree=2 ~/projects
+
+# Only directories (long)
+nls -dl
+
+# Copy default config
+nls --copy-config
+</code></pre>
+
+<h2 id="contact">Contact & See Also</h2>
+<p>Author: Dmitry K. (dm17ryk) – issues and contributions via the project’s GitHub.</p>
+<p>See also: <code>ls</code>, <code>tree</code>, <code>git</code>, <code>date</code>, <code>dircolors</code>.</p>
+
+</body>
+</html>

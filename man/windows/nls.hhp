@@ -1,0 +1,21 @@
+[OPTIONS]
+Binary TOC=Yes
+Compat=1.1 or later
+Compiled File=..\nls.chm
+Contents File=nls.hhc
+Default Window=main
+Default topic=topics\nls.html
+Display compile progress=No
+Enhanced decompilation=Yes
+Full-text search=Yes
+Language=0x409 English (United States)
+Title=nls Command Reference
+
+[WINDOWS]
+main="nls Help","nls.hhc","nls.hhk","topics\nls.html","topics\nls.html",,,,,0x23520,220,0x104E,[0,0,900,700],,,,,,,0
+
+[FILES]
+topics\nls.html
+topics\styles.css
+
+[INFOTYPES]
