@@ -2,10 +2,13 @@
 
 #include "string_utils.h"
 
+#include "perf.h"
+
 #include <cctype>
 #include <fstream>
 #include <sstream>
 #include <string_view>
+#include <optional>
 
 namespace nls {
 int YamlLoader::HexValue(char ch) noexcept {
@@ -164,14 +167,24 @@ std::string YamlLoader::Unquote(const std::string& value) {
 std::unordered_map<std::string, std::string> YamlLoader::LoadSimpleMap(
     const std::filesystem::path& path,
     bool lowercase_keys) {
+    auto& perf_manager = perf::Manager::Instance();
+    const bool perf_enabled = perf_manager.enabled();
+    std::optional<perf::Timer> timer;
+    if (perf_enabled) {
+        timer.emplace("yaml_loader::load_simple_map");
+    }
+
     std::unordered_map<std::string, std::string> result;
     std::ifstream file(path);
     if (!file.is_open()) {
         return result;
     }
 
+    std::size_t lines_read = 0;
+    std::size_t entries_loaded = 0;
     std::string raw;
     while (std::getline(file, raw)) {
+        ++lines_read;
         std::string line = StripComments(raw);
         std::string trimmed_line = StringUtils::Trim(line);
         if (trimmed_line.empty()) continue;
@@ -183,6 +196,11 @@ std::unordered_map<std::string, std::string> YamlLoader::LoadSimpleMap(
         value = Unquote(value);
         if (lowercase_keys) key = StringUtils::ToLower(key);
         result[std::move(key)] = std::move(value);
+        ++entries_loaded;
+    }
+    if (perf_enabled) {
+        perf_manager.IncrementCounter("yaml_loader::lines_read", lines_read);
+        perf_manager.IncrementCounter("yaml_loader::entries_loaded", entries_loaded);
     }
     return result;
 }

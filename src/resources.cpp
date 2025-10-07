@@ -2,7 +2,10 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <optional>
 #include <system_error>
+
+#include "perf.h"
 
 namespace nls {
 
@@ -12,11 +15,20 @@ public:
         if (initialized_) {
             return;
         }
+        auto& perf_manager = perf::Manager::Instance();
+        const bool perf_enabled = perf_manager.enabled();
+        std::optional<perf::Timer> timer;
+        if (perf_enabled) {
+            timer.emplace("resources::init_paths");
+            perf_manager.IncrementCounter("resources::init_paths_calls");
+        }
         initialized_ = true;
 
         directories_.clear();
         user_config_dir_.clear();
         env_override_dir_.clear();
+
+        const auto initial_directories = directories_.size();
 
         if (const char* env = std::getenv("NLS_DATA_DIR")) {
             if (env[0] != '\0') {
@@ -79,15 +91,38 @@ public:
             }
         }
 #endif
+        if (perf_enabled) {
+            perf_manager.IncrementCounter("resources::directories_registered",
+                                          directories_.size() - initial_directories);
+            if (!user_config_dir_.empty()) {
+                perf_manager.IncrementCounter("resources::user_config_available");
+            }
+            if (!env_override_dir_.empty()) {
+                perf_manager.IncrementCounter("resources::env_override_available");
+            }
+        }
     }
 
     [[nodiscard]] std::filesystem::path find(const std::string& name) const {
+        auto& perf_manager = perf::Manager::Instance();
+        const bool perf_enabled = perf_manager.enabled();
+        std::optional<perf::Timer> timer;
+        if (perf_enabled) {
+            timer.emplace("resources::find");
+            perf_manager.IncrementCounter("resources::find_calls");
+        }
         for (const auto& dir : directories_) {
             std::filesystem::path candidate = dir / name;
             std::error_code ec;
             if (std::filesystem::exists(candidate, ec)) {
+                if (perf_enabled) {
+                    perf_manager.IncrementCounter("resources::find_hits");
+                }
                 return candidate;
             }
+        }
+        if (perf_enabled) {
+            perf_manager.IncrementCounter("resources::find_misses");
         }
         return {};
     }
@@ -113,6 +148,10 @@ public:
             if (existing == normalized) return;
         }
         directories_.push_back(std::move(normalized));
+        auto& perf_manager = perf::Manager::Instance();
+        if (perf_manager.enabled()) {
+            perf_manager.IncrementCounter("resources::directories_tracked");
+        }
     }
 
     Path userConfigDir() const { return user_config_dir_; }
@@ -171,6 +210,14 @@ std::error_code ResourceManager::copyDefaultsToUserConfig(CopyResult& result, bo
     Path user_dir = impl.userConfigDir();
     if (user_dir.empty()) {
         return std::make_error_code(std::errc::no_such_file_or_directory);
+    }
+
+    auto& perf_manager = perf::Manager::Instance();
+    const bool perf_enabled = perf_manager.enabled();
+    std::optional<perf::Timer> timer;
+    if (perf_enabled) {
+        timer.emplace("resources::copy_defaults_to_user_config");
+        perf_manager.IncrementCounter("resources::copy_defaults_calls");
     }
 
     std::error_code ec;
@@ -232,10 +279,16 @@ std::error_code ResourceManager::copyDefaultsToUserConfig(CopyResult& result, bo
             }
             if (same) {
                 result.skipped.push_back(destination);
+                if (perf_enabled) {
+                    perf_manager.IncrementCounter("resources::yaml_files_skipped");
+                }
                 continue;
             }
             if (!overwrite_existing) {
                 result.skipped.push_back(destination);
+                if (perf_enabled) {
+                    perf_manager.IncrementCounter("resources::yaml_files_skipped");
+                }
                 continue;
             }
         }
@@ -249,6 +302,9 @@ std::error_code ResourceManager::copyDefaultsToUserConfig(CopyResult& result, bo
         }
 
         result.copied.push_back(destination);
+        if (perf_enabled) {
+            perf_manager.IncrementCounter("resources::yaml_files_copied");
+        }
     }
 
     return {};

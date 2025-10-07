@@ -4,6 +4,8 @@
 #include "string_utils.h"
 #include "yaml_loader.h"
 
+#include "perf.h"
+
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -460,6 +462,14 @@ IconResult Theme::get_icon(std::string_view name, bool is_dir, bool is_executabl
 void Theme::ensure_loaded()
 {
     if (loaded_) return;
+    auto& perf_manager = perf::Manager::Instance();
+    const bool perf_enabled = perf_manager.enabled();
+    std::optional<perf::Timer> timer;
+    if (perf_enabled) {
+        timer.emplace("theme::ensure_loaded");
+        perf_manager.IncrementCounter("theme::ensure_loaded_calls");
+    }
+
     loaded_ = true;
     fallback_ = ThemeSupport::MakeFallbackTheme();
     dark_ = load_theme_file("dark_theme.yaml");
@@ -469,19 +479,33 @@ void Theme::ensure_loaded()
 
 ThemeColors Theme::load_theme_file(const std::string& filename, bool* found)
 {
+    auto& perf_manager = perf::Manager::Instance();
+    const bool perf_enabled = perf_manager.enabled();
+    std::optional<perf::Timer> timer;
+    if (perf_enabled) {
+        timer.emplace("theme::load_theme_file");
+        perf_manager.IncrementCounter("theme::load_theme_file_calls");
+    }
+
     ThemeColors theme = fallback_;
     bool loaded_any = false;
+    std::size_t sources_considered = 0;
+    std::size_t entries_processed = 0;
+    std::size_t colors_applied = 0;
     auto apply = [&](const std::filesystem::path& path) {
         if (path.empty()) return;
+        ++sources_considered;
         loaded_any = true;
         auto map = YamlLoader::LoadSimpleMap(path, true);
         for (auto& kv : map) {
+            ++entries_processed;
             if (theme.values.find(kv.first) == theme.values.end()) {
                 continue;
             }
             auto parsed = ThemeSupport::ParseColorName(kv.second);
             if (parsed) {
                 theme.set(kv.first, *parsed);
+                ++colors_applied;
             }
         }
     };
@@ -504,22 +528,43 @@ ThemeColors Theme::load_theme_file(const std::string& filename, bool* found)
     if (found) {
         *found = loaded_any;
     }
+    if (perf_enabled) {
+        perf_manager.IncrementCounter("theme::theme_sources", sources_considered);
+        perf_manager.IncrementCounter("theme::theme_entries_processed", entries_processed);
+        perf_manager.IncrementCounter("theme::theme_colors_applied", colors_applied);
+    }
     return theme;
 }
 
 void Theme::load_icons()
 {
+    auto& perf_manager = perf::Manager::Instance();
+    const bool perf_enabled = perf_manager.enabled();
+    std::optional<perf::Timer> timer;
+    if (perf_enabled) {
+        timer.emplace("theme::load_icons");
+        perf_manager.IncrementCounter("theme::load_icons_calls");
+    }
+
     icons_ = ThemeSupport::MakeFallbackIcons();
 
     const auto user_dir = ResourceManager::userConfigDir();
     const auto env_dir = ResourceManager::envOverrideDir();
+
+    std::size_t icon_sources = 0;
+    std::size_t icon_entries = 0;
 
     auto merge_with_overrides = [&](const std::string& name,
                                     auto& target,
                                     bool lowercase_values) {
         auto primary_path = ResourceManager::find(name);
         if (!primary_path.empty()) {
-            ThemeSupport::MergeMap(target, YamlLoader::LoadSimpleMap(primary_path, true), lowercase_values);
+            auto map = YamlLoader::LoadSimpleMap(primary_path, true);
+            if (perf_enabled) {
+                ++icon_sources;
+                icon_entries += map.size();
+            }
+            ThemeSupport::MergeMap(target, map, lowercase_values);
         }
 
         const bool primary_from_env = ThemeSupport::IsPathWithin(primary_path, env_dir);
@@ -528,7 +573,12 @@ void Theme::load_icons()
             if (user_path != primary_path) {
                 std::error_code ec;
                 if (std::filesystem::exists(user_path, ec) && !ec) {
-                    ThemeSupport::MergeMap(target, YamlLoader::LoadSimpleMap(user_path, true), lowercase_values);
+                    auto map = YamlLoader::LoadSimpleMap(user_path, true);
+                    if (perf_enabled) {
+                        ++icon_sources;
+                        icon_entries += map.size();
+                    }
+                    ThemeSupport::MergeMap(target, map, lowercase_values);
                 }
             }
         }
@@ -544,6 +594,10 @@ void Theme::load_icons()
     }
     if (icons_.folders.find("folder") == icons_.folders.end()) {
         icons_.folders["folder"] = ThemeSupport::ToUtf8(u8"\uf07b");
+    }
+    if (perf_enabled) {
+        perf_manager.IncrementCounter("theme::icon_sources", icon_sources);
+        perf_manager.IncrementCounter("theme::icon_entries_processed", icon_entries);
     }
 }
 

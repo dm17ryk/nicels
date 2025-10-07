@@ -1,5 +1,8 @@
 #include "config.h"
 
+#include "perf.h"
+
+#include <optional>
 #include <utility>
 
 namespace nls {
@@ -10,6 +13,14 @@ Config& Config::Instance() {
 }
 
 void Config::Reset() {
+    auto& perf_manager = perf::Manager::Instance();
+    const bool perf_enabled = perf_manager.enabled();
+    std::optional<perf::Timer> timer;
+    if (perf_enabled) {
+        timer.emplace("config::reset");
+        perf_manager.IncrementCounter("config::reset_calls");
+    }
+
     format_ = Format::ColumnsVertical;
     indicator_ = IndicatorStyle::Slash;
     color_theme_ = ColorTheme::Default;
