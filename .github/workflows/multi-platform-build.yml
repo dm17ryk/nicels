@@ -168,12 +168,13 @@ jobs:
         run: |
           cpack -G RPM --config build/linux-clang/CPackConfig.cmake
           ls -la _CPack_Packages/Linux/RPM || true
+          ls -la _CPack_Packages/Linux/RPM/RPMS || true
 
       - name: Upload RPM package artifact
         uses: actions/upload-artifact@v4
         with:
           name: RPM_package
-          path: ${{ github.workspace }}/_CPack_Packages/Linux/RPM/nicels-${{ env.VERSION }}-Linux.rpm
+          path: ${{ github.workspace }}/_CPack_Packages/Linux/RPM/RPMS/nicels-${{ env.VERSION }}-Linux.rpm
           if-no-files-found: error
 
   release:
