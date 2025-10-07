@@ -1,5 +1,7 @@
 # nicels
 
+![Windows pwsh](images/social-media-preview-1.png)
+
 ## Project overview and goals
 nicels is a modern, cross-platform reimagining of `ls` that emphasises rich,
 customisable output, first-class Git awareness, and predictable builds. The
@@ -8,6 +10,8 @@ for its command-line interface, and links against libgit2 when Git status
 information is requested. Icons, colour themes, file metadata, and Git porce-
 lain state can all be surfaced in a single listing, while CMake presets keep
 builds reproducible across Linux and Windows (msys2,pwsh,cmd) targets.【F:CMakeLists.txt†L39-L122】【F:src/git_status.cpp†L1-L116】
+
+![Windows pwsh](images/social-media-preview-0.png)
 
 ## Installation
 ### Windows installer
