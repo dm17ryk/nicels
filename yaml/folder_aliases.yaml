@@ -22,3 +22,13 @@ my videos:    videos
 start menu:   windows
 recent:       history
 tmp:          temp
+vscode-remote-wsl: vscode
+vscode-scm:   vscode
+vscode-extensions: vscode
+vscode-user-data: vscode
+vs-kubernetes: vscode
+vimfiles: vim
+sources: src
+source: src
+printhood: print
+nethood: net
