@@ -428,6 +428,14 @@ foreach(_nls_yaml IN LISTS _nls_yaml_files)
   install(FILES "${_nls_yaml_source_dir}/${_nls_yaml}"
     DESTINATION "${_nls_yaml_install_destination}")
 endforeach()
+
+if(WIN32)
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/man/nls.chm"
+    DESTINATION "man")
+elseif(UNIX AND NOT APPLE)
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/man/linux/nls.1"
+    DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
+endif()
 unset(_nls_yaml)
 unset(_nls_yaml_install_path)
 unset(_nls_yaml_install_destination)
