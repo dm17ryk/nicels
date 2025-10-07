@@ -102,22 +102,23 @@ jobs:
   linux-rpm:
     name: CentOS Stream 10 (→ .rpm, CMake ≥ 3.28)
     runs-on: ubuntu-latest
-    # Используем официальный образ CentOS Stream 10
     container:
       image: quay.io/centos/centos:stream10
     steps:
-      # --- DNF wrapper (dnf5 в EL10) + базовые инструменты для checkout ---
-      - name: Prepare package manager & git
+      # Контейнер запускается под root, sudo отсутствует — НЕ используем sudo.
+      - name: Prepare package manager & git (no sudo)
         shell: bash
         run: |
           set -e
           if command -v dnf5 >/dev/null 2>&1; then
             DNF=dnf5
-          else
+          elif command -v dnf >/dev/null 2>&1; then
             DNF=dnf
+          else
+            DNF=microdnf
           fi
-          echo "DNF_CMD=$DNF" >> $GITHUB_ENV
-          sudo $DNF -y -q install git which
+          echo "DNF=$DNF" >> $GITHUB_ENV
+          $DNF -y -q install git || $DNF -y install git
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -130,30 +131,27 @@ jobs:
           echo "VERSION=$(tr -d '\n' < VERSION)" >> $GITHUB_ENV
           echo "Using VERSION=$VERSION"
 
-      # --- Установка зависимостей (CMake >=3.28 есть в Stream 10) ---
-      - name: Install build dependencies
+      - name: Install build dependencies (no sudo)
         shell: bash
         run: |
           set -e
-          if command -v dnf5 >/dev/null 2>&1; then
-            DNF=dnf5
-          else
-            DNF=dnf
-          fi
-          sudo $DNF -y -q install dnf-plugins-core || true
-          # Включаем CRB (если есть) и EPEL10 (если доступен), затем обновляем метаданные
-          sudo $DNF -y -q config-manager --set-enabled crb || true
-          sudo $DNF -y -q install epel-release || true
-          sudo $DNF -y -q makecache
+          DNF=${DNF:-dnf5}
           # Основные инструменты
-          sudo $DNF -y install cmake ninja-build clang llvm lld pkgconf-pkg-config openssl-devel rpm-build
-          # Fallback на случай отсутствия ninja-build в репозиториях
-          if ! command -v ninja >/dev/null 2>&1; then
-            echo "ninja-build not found; installing via pip as fallback..."
-            sudo $DNF -y install python3-pip
+          $DNF -y -q install cmake clang llvm lld pkgconf-pkg-config openssl-devel rpm-build python3-pip || \
+          $DNF -y install cmake clang llvm lld pkgconf-pkg-config openssl-devel rpm-build python3-pip
+          # Ninja из репозитория; если нет — ставим через pip
+          $DNF -y -q install ninja-build || $DNF -y install ninja-build || {
             pip3 install --upgrade pip
             pip3 install ninja
-            sudo ln -sf /usr/local/bin/ninja /usr/bin/ninja || true
+            ln -sf /usr/local/bin/ninja /usr/bin/ninja || true
+          }
+          # Гарантируем CMake >= 3.28 (если в репозитории версия ниже — ставим из pip)
+          CMAKE_VER=$(cmake --version 2>/dev/null | head -1 | awk '{print $3}')
+          MAJOR=${CMAKE_VER%%.*}; REST=${CMAKE_VER#*.}; MINOR=${REST%%.*}
+          if [ -z "$CMAKE_VER" ] || [ "$MAJOR" -lt 3 ] || { [ "$MAJOR" -eq 3 ] && [ "$MINOR" -lt 28 ]; }; then
+            echo "Installing newer CMake via pip..."
+            pip3 install cmake
+            hash -r
           fi
           echo "cmake: $(cmake --version | head -1)"
           echo "ninja: $(ninja --version || true)"
