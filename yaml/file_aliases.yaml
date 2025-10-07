@@ -1,3 +1,34 @@
+asp:        html
+aspx:       html
+cxx:        cpp
+cc:         c
+# h:          c
+hpp:        cpp
+war:        java
+ear:        java
+odt:        doc
+ods:        xls
+odp:        ppt
+sty:        tex
+dll:        windows
+msi:        windows
+ps1:        windows
+7z:         zip
+bz2:        zip
+xz:         zip
+log:        txt
+txt~:       txt
+bak~:       bak
+in:         cmake
+o:         bin
+out:       bin
+obj:       bin
+ninja_deps: ninja
+ninja_log:  ninja
+tcl:       code
+tk:       code
+exact:     code
+wslconfig: wsl
 apk:              android
 gradle:           android
 ds_store:         apple
@@ -11,12 +42,12 @@ wav:              audio
 h:                c
 editorconfig:     conf
 chh:              cpp
-cxx:              cpp
-hpp:              cpp
+# cxx:              cpp
+# hpp:              cpp
 scss:             css
 docx:             doc
 gdoc:             doc
-odt:              doc
+# odt:              doc
 dockerfile:       docker
 mobi:             ebook
 eot:              font
@@ -34,6 +65,12 @@ gitignore_global: git
 gitkeep:          git
 gitmodules:       git
 gitreflog:        git
+gitreview:        git
+index:            git
+head:             git
+master:           git
+main:             git
+tag:              git
 wget-hsts:        history
 lhs:              hs
 avif:             image
@@ -54,6 +91,8 @@ jar:              java
 mjs:              js
 properties:       json
 tsx:              jsx
+javascript:       js
+json:             json
 lesshst:          less
 depend:           makefile
 make:             makefile
@@ -63,8 +102,13 @@ markdown:         md
 mkd:              md
 rdoc:             md
 readme:           md
+authors:          md
+contributors:     md
+code_of_conduct:  md
+copying:          md
+version:          md
 gslides:          ppt
-odp:              ppt
+# odp:              ppt
 pptx:             ppt
 ipynb:            py
 pxd:              py
@@ -139,15 +183,15 @@ exe:              windows
 ini:              windows
 csv:              xls
 gsheet:           xls
-ods:              xls
+# ods:              xls
 xlsx:             xls
 xul:              xml
 yaml:             yml
-7z:               zip
+# 7z:               zip
 bz:               zip
-bz2:              zip
+# bz2:              zip
 gz:               zip
 rar:              zip
 tar:              zip
 tgz:              zip
-xz:               zip
+# xz:               zip

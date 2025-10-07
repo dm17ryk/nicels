@@ -1,6 +1,24 @@
-.oh-my-bash: .bash
-.oh-my-vim: .vim
+oh-my-bash: bash
+oh-my-vim: vim
 bin: config
 build: config
 include: config
-.nvm: node_modules
+nvm: node_modules
+onedrive:     cloud
+favorites:    star
+links:        link
+searches:     search
+saved games:  game
+appdata:      windows
+application data: windows
+local settings: windows
+users:        windows
+program files: windows
+program files (x86): windows
+my documents: documents
+my music:     music
+my pictures:  pictures
+my videos:    videos
+start menu:   windows
+recent:       history
+tmp:          temp
