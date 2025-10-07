@@ -54,6 +54,28 @@
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install",
         "NLS_ENABLE_IPO": "OFF"
       }
+    },
+    {
+      "name": "linux-arm-cross",
+      "displayName": "Linux ARM cross-compilation",
+      "description": "Cross-compiles nicels for Linux ARM (32-bit) targets using clang.",
+      "inherits": "base-clang",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/linux-clang-arm.cmake",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install",
+        "NLS_ENABLE_IPO": "OFF"
+      }
+    },
+    {
+      "name": "linux-x86-cross",
+      "displayName": "Linux x86 cross-compilation",
+      "description": "Cross-compiles nicels for Linux x86 (32-bit) targets using clang.",
+      "inherits": "base-clang",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/linux-clang-x86.cmake",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install",
+        "NLS_ENABLE_IPO": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -80,6 +102,16 @@
     {
       "name": "linux-arm64-cross-release",
       "configurePreset": "linux-arm64-cross",
+      "configuration": "Release"
+    },
+    {
+      "name": "linux-arm-cross-release",
+      "configurePreset": "linux-arm-cross",
+      "configuration": "Release"
+    },
+    {
+      "name": "linux-x86-cross-release",
+      "configurePreset": "linux-x86-cross",
       "configuration": "Release"
     }
   ],

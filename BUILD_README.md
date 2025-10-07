@@ -121,17 +121,27 @@ preset keeps the workflow ready:
 
 ## Cross compilation
 
-An ARM64 cross-compilation preset is provided as an example.  It assumes an
-LLVM-based toolchain targeting `aarch64-linux-gnu` and optionally a sysroot.
+ARM64, ARM, and x86 cross-compilation presets are provided as examples. They
+assume LLVM-based toolchains targeting the respective GNU triples and
+optionally a sysroot.
 
 ```sh
+# ARM64
 cmake --preset linux-arm64-cross -DCMAKE_SYSROOT=/path/to/sysroot
 cmake --build --preset linux-arm64-cross-release
+
+# ARM (32-bit)
+cmake --preset linux-arm-cross -DCMAKE_SYSROOT=/path/to/sysroot
+cmake --build --preset linux-arm-cross-release
+
+# x86 (32-bit)
+cmake --preset linux-x86-cross -DCMAKE_SYSROOT=/path/to/sysroot
+cmake --build --preset linux-x86-cross-release
 ```
 
 Adjust the `CMAKE_SYSROOT` and other cache variables for your toolchain.
-Additional presets/toolchain files can be added following the example in
-`cmake/toolchains/linux-clang-aarch64.cmake`.
+Additional presets/toolchain files can be added following the examples in
+`cmake/toolchains/linux-clang-*.cmake`.
 
 ## Customisation
 

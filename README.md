@@ -140,10 +140,12 @@ cpack -G TGZ --config build/linux-clang/CPackSourceConfig.cmake
 ```
 
 The generated files appear in `build/linux-clang/` under names such as
-`nicels-<version>-Linux.deb`, `nicels-<version>-Linux.rpm`, and
-`nicels-<version>-Source.tar.gz`. Debian packages automatically derive shared
-library dependencies with `dpkg-shlibdeps`, and the RPM marks the YAML files as
-`%config(noreplace)` so upgrades respect local edits.【F:CMakeLists.txt†L177-L306】
+`nicels-<version>-<arch>.deb`, `nicels-<version>-<arch>.rpm`, and
+`nicels-<version>-Source.tar.gz`. Debian and RPM archives adopt architecture
+tags like `x86_64`, `aarch64`, `x86`, or `arm` depending on the target. Debian
+packages automatically derive shared library dependencies with
+`dpkg-shlibdeps`, and the RPM marks the YAML files as `%config(noreplace)` so
+upgrades respect local edits.【F:CMakeLists.txt†L177-L328】
 
 The `nls` executable appears under `build/<preset>/<config>/`. Run it directly
 from the build tree or after `cmake --install` to stage an install tree under

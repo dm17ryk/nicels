@@ -1,4 +1,8 @@
-All changes committed, get latest from master.
-Don't forget to run, to get "submodules: git submodule update --init --recursive"
+All changes committed to master branch, get HEAD from master.
+Run:
+git clone https://github.com/dm17ryk/nicels.git
+cd nicels
+git pull origin master
+git submodule update --init --recursive
 Build and check build success.
 Use folders ./test/win for testing on Windows and ./test/lin for testing on Linux.
