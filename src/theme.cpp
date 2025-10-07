@@ -549,30 +549,53 @@ void Theme::load_icons()
 
 IconResult Theme::folder_icon(std::string_view name)
 {
-    std::string key = StringUtils::ToLower(name);
-    auto direct = icons_.folders.find(key);
-    if (direct != icons_.folders.end()) {
-        bool recognized = key != "folder";
-        return {direct->second, recognized};
-    }
-    auto alias = icons_.folder_aliases.find(key);
-    if (alias != icons_.folder_aliases.end()) {
-        auto base = icons_.folders.find(alias->second);
-        if (base != icons_.folders.end()) {
-            bool recognized = alias->second != "folder";
-            return {base->second, recognized};
+    auto find_icon_for_key = [&](std::string_view lookup_key) -> std::optional<IconResult> {
+        std::string lookup(lookup_key);
+
+        auto direct = icons_.folders.find(lookup);
+        if (direct != icons_.folders.end()) {
+            bool recognized = lookup != "folder";
+            return IconResult {direct->second, recognized};
         }
+
+        auto alias = icons_.folder_aliases.find(lookup);
+        if (alias != icons_.folder_aliases.end()) {
+            auto base = icons_.folders.find(alias->second);
+            if (base != icons_.folders.end()) {
+                bool recognized = alias->second != "folder";
+                return IconResult {base->second, recognized};
+            }
+        }
+
+        return std::nullopt;
+    };
+
+    std::string key = StringUtils::ToLower(name);
+
+    if (auto icon = find_icon_for_key(key)) {
+        return *icon;
     }
+
     if (!key.empty() && key.front() == '.') {
+        auto non_dot_pos = key.find_first_not_of('.');
+        if (non_dot_pos != std::string::npos) {
+            auto trimmed = key.substr(non_dot_pos);
+            if (auto icon = find_icon_for_key(trimmed)) {
+                return *icon;
+            }
+        }
+
         auto hidden = icons_.folders.find("hidden");
         if (hidden != icons_.folders.end()) {
             return {hidden->second, true};
         }
     }
+
     auto fallback = icons_.folders.find("folder");
     if (fallback != icons_.folders.end()) {
         return {fallback->second, false};
     }
+
     return {ThemeSupport::ToUtf8(u8"\uf07b"), false};
 }
 
