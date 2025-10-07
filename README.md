@@ -129,11 +129,11 @@ archives:
 
 ```sh
 cmake --build --preset linux-clang-release
-cpack -G DEB -G RPM --config build/linux-clang-release/CPackConfig.cmake
-cpack -G TGZ --config build/linux-clang-release/CPackSourceConfig.cmake
+cpack -G DEB -G RPM --config build/linux-clang/CPackConfig.cmake
+cpack -G TGZ --config build/linux-clang/CPackSourceConfig.cmake
 ```
 
-The generated files appear in `build/linux-clang-release/` under names such as
+The generated files appear in `build/linux-clang/` under names such as
 `nicels-<version>-Linux.deb`, `nicels-<version>-Linux.rpm`, and
 `nicels-<version>-Source.tar.gz`. Debian packages automatically derive shared
 library dependencies with `dpkg-shlibdeps`, and the RPM marks the YAML files as
