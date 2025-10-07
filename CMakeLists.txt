@@ -519,16 +519,16 @@ unset(_nls_cpack_aux_dir)
 
 set(CPACK_SOURCE_GENERATOR "TGZ")
 set(CPACK_SOURCE_IGNORE_FILES
-  "/\\.git/"
-  "/\\.github/"
-  "/\\.gitignore"
-  "/\\.gitmodules"
+  "/[.]git/"
+  "/[.]github/"
+  "/[.]gitignore"
+  "/[.]gitmodules"
   "/build/"
   "_CPack_Packages/"
   "CPackConfig.cmake"
   "CPackSourceConfig.cmake"
   "/cmake-build-"
-  "/third-party/libgit2/\\.git"
+  "/third-party/libgit2/[.]git"
 )
 
 include(CPack)
