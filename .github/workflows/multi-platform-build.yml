@@ -105,8 +105,9 @@ jobs:
     container:
       image: rockylinux/rockylinux:9
     steps:
+      # Checkout требует git в контейнере
       - name: Install git (for checkout)
-        run: dnf install -y git
+        run: dnf install -y -q git
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -118,9 +119,28 @@ jobs:
           echo "VERSION=$(tr -d '\n' < VERSION)" >> $GITHUB_ENV
           echo "Using VERSION=$VERSION"
 
-      - name: Install build dependencies
+      # --- FIX for "No match for argument: ninja-build" ---
+      # В RHEL/Rocky 9 ninja часто в репозитории CRB или EPEL.
+      # Включаем CRB, пробуем ninja-build, если не найден — ставим через pip как fallback.
+      - name: Enable CRB/EPEL and install build deps
         run: |
-          dnf install -y cmake ninja-build clang llvm lld pkgconf-pkg-config openssl-devel rpm-build
+          set -e
+          dnf -y -q install dnf-plugins-core
+          dnf -y -q config-manager --set-enabled crb || true
+          dnf -y -q install epel-release || true
+          dnf -y -q makecache
+          # Основные зависимости
+          dnf -y install cmake clang llvm lld pkgconf-pkg-config openssl-devel rpm-build
+          # Ninja из реп (CRB/EPEL)
+          if ! dnf -y install ninja-build; then
+            echo "ninja-build not found in repos, installing via pip..."
+            dnf -y install python3-pip
+            pip3 install --upgrade pip
+            pip3 install ninja
+            ln -sf /usr/local/bin/ninja /usr/bin/ninja || true
+          fi
+          echo "cmake: $(cmake --version | head -1)"
+          echo "ninja: $(ninja --version || true)"
 
       - name: Configure & Build
         run: |
