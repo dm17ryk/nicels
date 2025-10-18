@@ -1,0 +1,955 @@
+Ext.,Description,Used by,Icon,Icon-class-name,Icon-UTF-16-codes,Icon-Hex-Code
+3DS,Cartridge game format for Nintendo 3DS,Nintendo 3DS Family,,nf nf-fa-file_o,U+F016,F016
+3DSX[1],Homebrew file for Nintendo 3DS,Homebrew launcher (3ds),,nf nf-fa-file_o,U+F016,F016
+3G2[2],Mobile phone video,,,nf nf-fa-file_video_o,U+F1C8,F1C8
+3GP[3],Mobile phone video,,,nf nf-fa-file_video_o,U+F1C8,F1C8
+3GX[4],Luma3DS Plugin,Luma3DS,,nf nf-fa-file_o,U+F016,F016
+3MF[5],3D manufacturing format,3D builder,,nf nf-fa-file_o,U+F016,F016
+7z[6],"A compressed archive file format that supports several different data compression, encryption and pre-processing algorithms",7-zip,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+4TH[7],Forth language source code file,Forth development systems,,nf nf-fa-file_code_o,U+F1C9,F1C9
+A,Archive file,ar (Unix),,nf nf-fa-file_archive_o,U+F1C6,F1C6
+AAC,Advanced Audio Coding file,"iOS, Nintendo DSi, Nintendo 3DS, YouTube Music",,nf nf-fa-file_audio_o,U+F1C7,F1C7
+ACCDB[1],Microsoft Access Database,Microsoft Access Database (Open XML),,nf nf-fa-database,U+F1C0,F1C0
+ACCFT[2],Microsoft Access Data Type Template,Microsoft Access,,nf nf-fa-file_o,U+F016,F016
+ACO,Adobe color palette format (.aco)[3],Adobe Photoshop[4],,nf nf-fa-file_o,U+F016,F016
+ADT,"Abrechnungsdatentransfer, an xDT application",Healthcare providers in Germany,,nf nf-fa-file_o,U+F016,F016
+ADX,Document,Archetype Designer,,nf nf-fa-file_o,U+F016,F016
+ADZ,Amiga Disk Zipped (See Amiga Disk File),GZip,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+AGDA,Agda (programming language) source file,Agda typechecker/compiler,,nf nf-fa-file_code_o,U+F1C9,F1C9
+AGR,ArcView ASCII grid,,,nf nf-fa-file_o,U+F016,F016
+AHK,AutoHotkey script file,AutoHotkey,,nf nf-fa-file_code_o,U+F1C9,F1C9
+AI[5],Adobe Illustrator Artwork,Adobe Illustrator,,nf nf-fa-file_o,U+F016,F016
+AIFF[6],Audio Interchange File Format,professional audio processing applications and on Macintosh[7],,nf nf-fa-file_audio_o,U+F1C7,F1C7
+AIFC[6],Compressed Audio Interchange File Format,,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+AIO,APL programming language file transfer format file,,,nf nf-fa-file_o,U+F016,F016
+AMF[8][9],Additive Manufacturing File Format,Computer Aided Design Software,,nf nf-fa-file_o,U+F016,F016
+AMG,System image file,ACTOR,,nf nf-fa-file_image_o,U+F1C5,F1C5
+AML[10],AutomationML,AutomationML Group,,nf nf-fa-file_o,U+F016,F016
+AMLX[10],Compressed and packed AutomationML file,AutomationML Group,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+AMPL,AMPL source code file,AMPL,,nf nf-fa-file_code_o,U+F1C9,F1C9
+AMR,Adaptive Multi-Rate audio,,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+AMV,Actions Media Video,,,nf nf-fa-file_video_o,U+F1C8,F1C8
+ANI[11],Animation cursors for Win,Win95 - WinNT,,nf nf-fa-file_o,U+F016,F016
+ANN,Annotations of old Windows Help file,Windows 3.0 - XP,,nf nf-fa-file_o,U+F016,F016
+APE,Monkey's Audio (Lossless),audio media players,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+APK,Android application package,Android,,nf nf-fa-file_o,U+F016,F016
+APK,Alpine Linux Package,Alpine Linux and derivatives,,nf nf-fa-file_o,U+F016,F016
+ARC[12],ARC (file format),,,nf nf-fa-file_o,U+F016,F016
+ART[13],Gerber format,"Cadence Allegro, EAGLE",,nf nf-fa-file_o,U+F016,F016
+ASAX[14],ASP.NET global application file,,,nf nf-fa-file_o,U+F016,F016
+ASCX[14],ASP.NET User Control,,,nf nf-fa-file_o,U+F016,F016
+ASF[15],Advanced Streaming Format (Compressed Windows audio/video),Microsoft Corporation,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+ASHX[14],ASP.NET handler file,,,nf nf-fa-file_o,U+F016,F016
+ASM,Assembler language source,"TASM, MASM, NASM, FASM",,nf nf-fa-file_code_o,U+F1C9,F1C9
+ASPX,Active server page extended file,Microsoft Corporation,,nf nf-fa-file_o,U+F016,F016
+ASX[16],"Advanced Stream Redirector file, redirects to an ASF file (see ASF)",Microsoft Corporation,,nf nf-fa-file_o,U+F016,F016
+ATG[17],Coco/R LL(1) formal grammar,Coco/R,,nf nf-fa-file_o,U+F016,F016
+AT3[18],Atrac 3 Sound/music file,All Sony devices and programs with the Atrac 3+ specification,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+AU,audio file[19],,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+AVI[20][21],Audio Video Interleave,Video for Windows,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+AVIF,AV1 Image File Format,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+AWK,AWK script/program,"awk, GNU Awk, mawk, nawk, MKS AWK, Awka (compiler)",,nf nf-fa-file_code_o,U+F1C9,F1C9
+AX,DirectShow Filter,Microsoft Corporation (Video Players),,nf nf-fa-file_o,U+F016,F016
+AXF[22],lightweight geodatabase,ESRI ArcPad,,nf nf-fa-database,U+F1C0,F1C0
+B,BASIC language source,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+B,bc arbitrary precision calculator language file,Unix bc tool,,nf nf-fa-file_o,U+F016,F016
+B64,base64 binary-to-text encoding[23],,,nf nf-fa-file_text_o,U+F0F6,F0F6
+BAK,backup,various,,nf nf-fa-file_o,U+F016,F016
+BAR,Broker Archive. Compressed file containing number of other files for deployment.[24],IBM App Connect,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+BAS,BASIC language source,QuickBASIC - GW-BASIC - FreeBASIC - others,,nf nf-fa-file_code_o,U+F1C9,F1C9
+BAT,Batch file,"MS-DOS, RT-11, DOS-based command processors",,nf nf-fa-file_o,U+F016,F016
+BDF,"Glyph Bitmap Distribution Format, a format used to store bitmap fonts.",Adobe,,nf nf-fa-file_image_o,U+F1C5,F1C5
+BDT,"Behandlungsdatentransfer, an xDT application",Healthcare providers in Germany,,nf nf-fa-file_o,U+F016,F016
+BEAM,Executable bytecode file in fat binary format,BEAM (Erlang virtual machine)[25],,nf nf-fa-file_code_o,U+F1C9,F1C9
+BIB,Bibliography database,BibTex,,nf nf-fa-database,U+F1C0,F1C0
+BIN,binary file,Every OS,,nf nf-fa-file_o,U+F016,F016
+BLEND,Blender project file,Blender,,nf nf-fa-file_o,U+F016,F016
+BM3,UIQ3 Phone backup,,,nf nf-fa-file_o,U+F016,F016
+BMP[26],OS/2 or Win graphics format (BitMap Picture),QPeg - CorelDraw - PC Paintbrush - many,,nf nf-fa-file_image_o,U+F1C5,F1C5
+BPS,WPS backup file[27],"Microsoft Word, Microsoft Works",,nf nf-fa-file_o,U+F016,F016
+BR7,Bryce 7 project file,Bryce 7,,nf nf-fa-file_o,U+F016,F016
+BSK,Bryce 7 sky presets file,Bryce 7,,nf nf-fa-file_o,U+F016,F016
+BSON,JSON-like binary serialization[28],MongoDB,,nf nf-fa-file_o,U+F016,F016
+BSP,Binary space partitioning tree file,Quake-based game engines,,nf nf-fa-file_o,U+F016,F016
+BYU,3D geometry format[29],CAD systems,,nf nf-fa-file_o,U+F016,F016
+BZ2[30],Archive,bzip2,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+C--,C-- language source,Sphinx C--,,nf nf-fa-file_code_o,U+F1C9,F1C9
+C,C language source,"Watcom C/C++, Borland C/C++, gcc and other C compilers",,nf nf-fa-file_code_o,U+F1C9,F1C9
+,Note that on case-sensitive platforms like Unix and with the gcc compiler the uppercase .C extension indicates a C++ source file.[31],,,nf nf-fa-file_code_o,U+F1C9,F1C9
+C,Unix file archive,COMPACT,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+C++,C++ language source,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+CPP,C++ language source,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+C32,COMBOOT Executable (32-bit),SYSLINUX,,nf nf-fa-file_o,U+F016,F016
+CAB[32],Cabinet archive,"Windows 95 and later, many file archivers",,nf nf-fa-file_archive_o,U+F1C6,F1C6
+CBL[33],COBOL language source,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+CBT,COMBOOT Executable (incompatible with DOS COM files),SYSLINUX,,nf nf-fa-file_o,U+F016,F016
+CC,C++ language source,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+CD,ASP.NET class diagram file[14],,,nf nf-fa-file_o,U+F016,F016
+CDF[34],Common Data Format,,,nf nf-fa-file_o,U+F016,F016
+CDF[35],Computable Document Format,Mathematica,,nf nf-fa-file_o,U+F016,F016
+CDP[36],Trainz Railroad Simulator Content Dispatcher Pack,Trainz Railroad Simulator,,nf nf-fa-file_o,U+F016,F016
+CDR[37],Vector graphics format (drawinF,CorelDraw,,nf nf-fa-file_o,U+F016,F016
+CDXML,"MIME type: chemical/x-cdxmlXML version of the ChemDraw Exchange format, CDX.[38]",,,nf nf-fa-file_o,U+F016,F016
+CER[39],Security certificate,Microsoft Windows,,nf nf-fa-certificate,U+F0A3,F0A3
+CGM[40][41],Computer Graphics Metafile vector graphics,A&L - HG - many,,nf nf-fa-file_o,U+F016,F016
+CHM[42],Compiled Help File,"Microsoft Windows, Help Explorer Viewer",,nf nf-fa-file_o,U+F016,F016
+CHO[43],ChordPro lead sheet (lyrics and chords),ChordPro and similar tools,,nf nf-fa-file_o,U+F016,F016
+CIA,Decrypted Nintendo 3DS ROM cartridge,Nintendo 3DS,,nf nf-fa-file_o,U+F016,F016
+CIF[44][45],Crystallographic Information File,"RasMol, Jmol",,nf nf-fa-file_o,U+F016,F016
+CLASS[46],Java class file,Java,,nf nf-fa-file_o,U+F016,F016
+CLS,ooRexx class file,ooRexx,,nf nf-fa-file_o,U+F016,F016
+CMD,Command Prompt batch file,Microsoft Windows NT based operating systems,,nf nf-fa-file_o,U+F016,F016
+CMD[47],executable programs,CP/M-86 operating system,,nf nf-fa-file_o,U+F016,F016
+CML,"Chemical Markup Language, for interchange of chemical information.[48]",,,nf nf-fa-file_code_o,U+F1C9,F1C9
+CMOD[49],Celestia Model,Celestia,,nf nf-fa-file_o,U+F016,F016
+CN1[50],CNR IDL,MITRE,,nf nf-fa-file_o,U+F016,F016
+CNOFF,"3D object file format with normals (.noff, .cnoff)[51] NOFF is an acronym derived from Object File Format. Occasionally called CNOFF if color information is present.[52]",,,nf nf-fa-file_o,U+F016,F016
+COB[53],COBOL language source,GnuCOBOL,,nf nf-fa-file_code_o,U+F1C9,F1C9
+COE[54],Coefficient file,Xilinx ISE,,nf nf-fa-file_o,U+F016,F016
+COFF,"3D object file format (.off, .coff)[55] OFF is an acronym for Object File Format. Used for storing and exchanging 3D models. Occasionally called COFF if color information is present.[56]",,,nf nf-fa-file_o,U+F016,F016
+COL,DIMACS graph data format.[57],,,nf nf-fa-file_o,U+F016,F016
+COM,DOS program,DOS-,,nf nf-fa-file_o,U+F016,F016
+COMPILE[14],ASP.NET precompiled stub file,,,nf nf-fa-file_o,U+F016,F016
+CONFIG,Configuration file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+CPC[58],Compressed image,Cartesian Perceptual Compression,,nf nf-fa-file_image_o,U+F1C5,F1C5
+CPIO,cpio archive file,cpio,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+CPL[59],Control panel file,Windows 3.x,,nf nf-fa-file_o,U+F016,F016
+CPY[53],COBOL source copybook file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+CR2[60],Raw image format,Canon digital cameras,,nf nf-fa-file_image_o,U+F1C5,F1C5
+CR3[61],Raw image format,Canon R series cameras,,nf nf-fa-file_image_o,U+F1C5,F1C5
+CRAI[62],CRAM index,,,nf nf-fa-file_o,U+F016,F016
+CRAFT,Holds Spacecraft Assembly information,Kerbal Space Program,,nf nf-fa-file_o,U+F016,F016
+CRT[39],Security certificate,Microsoft Windows,,nf nf-fa-certificate,U+F0A3,F0A3
+CS[63],C# language source,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+CSPROJ[64][65],C# project file,Microsoft Visual Studio,,nf nf-fa-file_o,U+F016,F016
+CSS[66],Cascading style sheet,,,nf nf-fa-file_o,U+F016,F016
+CSO[67],"Compiled Shader Object, extension of compiled HLSL",High-Level Shading Language,,nf nf-fa-file_o,U+F016,F016
+CSV[68],Comma Separated Values text file format (ASCII),,,nf nf-fa-file_text_o,U+F0F6,F0F6
+CUB,Used by electronic structure programs to store orbital or density values on a three-dimensional grid.[69],,,nf nf-fa-file_o,U+F016,F016
+CUBE,same as .cub,,,nf nf-fa-file_o,U+F016,F016
+CUR,Non-animated cursor (extended from ICO),Windows,,nf nf-fa-file_o,U+F016,F016
+D,D Programming Language source file,DMD,,nf nf-fa-file_code_o,U+F1C9,F1C9
+D,Directory containing configuration files (informal standard),Unix,,nf nf-fa-file_code_o,U+F1C9,F1C9
+DAA,Direct Access Archive,,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+DAE,COLLADA file,,,nf nf-fa-file_o,U+F016,F016
+DAF,Data file,Digital Anchor,,nf nf-fa-file_o,U+F016,F016
+DPFHTML,Extended from HTML,DarkPurpleOF's Website Extension,,nf nf-fa-file_o,U+F016,F016
+DPFSTICKERS,JSON Sticker Pack File,DarkPurpleOF's Website,,nf nf-fa-file_o,U+F016,F016
+DART,Dart (programming language) source file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+DAT,AMPL data file,AMPL,,nf nf-fa-file_o,U+F016,F016
+DAT,"LDraw (Sub)Part File, 3D Model",LDraw,,nf nf-fa-file_o,U+F016,F016
+DAT,Data,RSNetWorx Project,,nf nf-fa-file_o,U+F016,F016
+DAT,Data file in special format or ASCII,,,nf nf-fa-file_o,U+F016,F016
+DAT,Database file,Clarion (programming language),,nf nf-fa-database,U+F1C0,F1C0
+DAT,"Norton Utilities disc image data. It saves Boot sector, part of FAT and root directory in image.DAT on same drive.",Norton Utilities,,nf nf-fa-file_image_o,U+F1C5,F1C5
+DAT,"Optical disc image (can be ISO9660, but not restricted to)","cdrdao, burnatonce",,nf nf-fa-file_image_o,U+F1C5,F1C5
+DAT,Video CD MPEG stream,,,nf nf-fa-file_video_o,U+F1C8,F1C8
+DAT,"Windows registry hive (REG.DAT Windows 3.11; USER.DAT and SYSTEM.DAT Windows 95, 98, and ME; NTUSER.DAT Windows NT/2000/XP/7)",Microsoft Windows,,nf nf-fa-file_o,U+F016,F016
+DATS,Dynamic source,ATS,,nf nf-fa-file_code_o,U+F1C9,F1C9
+DB,Database file,DB Browser for SQLite,,nf nf-fa-database,U+F1C0,F1C0
+DBA,DarkBasic source code,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+DBC,Database Connection configuration file,AbInitio,,nf nf-fa-database,U+F1C0,F1C0
+DBF,Native format of the dBASE database management application.[70],,,nf nf-fa-database,U+F1C0,F1C0
+DBG,Debugger script,DOS debug - Watcom debugger,,nf nf-fa-file_code_o,U+F1C9,F1C9
+DBG,Symbolic debugging information,Microsoft C/C++,,nf nf-fa-file_o,U+F016,F016
+DEB,deb software package,Debian Linux and derivatives,,nf nf-fa-file_o,U+F016,F016
+DEM,digital elevation model (DEM) including GTOPO30 and USGSDEM. GTOPO30 is a distribution format for a global digital elevation model (DEM) with 30-arc-second grid spacing.[71] USGSDEM is the standard format for the distribution of terrain elevation data for the United States.[72],,,nf nf-fa-file_o,U+F016,F016
+DGN,CAD Drawing,"Bentley Systems, MicroStation and Intergraph's Interactive Graphics Design System (IGDS) CAD programs",,nf nf-fa-file_o,U+F016,F016
+DICOM,Digital Imaging and Communications in Medicine (DICOM) bitmap,DICOM Software (XnView),,nf nf-fa-file_image_o,U+F1C5,F1C5
+DIF,Data Interchange Format,Visicalc,,nf nf-fa-file_o,U+F016,F016
+DIF,Output from [diff] command - script for Patch command,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+DIRED,Directory listing (ls format),Dired,,nf nf-fa-file_o,U+F016,F016
+DIVX,DivX media format,,,nf nf-fa-file_o,U+F016,F016
+DMG,Apple Disk Image,macOS (Disk Utility),,nf nf-fa-file_image_o,U+F1C5,F1C5
+DMP,memory dump file (e.g. screen or memory),,,nf nf-fa-database,U+F1C0,F1C0
+DN,Dimension model format,Adobe Dimension[73],,nf nf-fa-file_o,U+F016,F016
+DNG[74],"Digital Negative, a-publicly available archival format for the raw files generated by digital cameras","At least 30 camera models from at least 10 manufacturers, and at least 200 software products",,nf nf-fa-file_o,U+F016,F016
+DO,"Redo recipes; usually written in sh, but may be written in a different language with a shebang.",Redo[75],,nf nf-fa-file_o,U+F016,F016
+DOC[76][77][78],"A Document, or an ASCII text file with text formatting codes in with the text; used by many word processors",Microsoft Word and others,,nf nf-fa-file_word_o,U+F1C2,F1C2
+DOCM,Microsoft Word Macro-Enabled Document,Microsoft Word,,nf nf-fa-file_word_o,U+F1C2,F1C2
+DOCX[79],Microsoft Word Document,Microsoft Word,,nf nf-fa-file_word_o,U+F1C2,F1C2
+DOT[79],Microsoft Word document template,Microsoft Word,,nf nf-fa-file_word_o,U+F1C2,F1C2
+DOTX[79],Office Open XML Text document template,Microsoft Word,,nf nf-fa-file_text_o,U+F0F6,F0F6
+DPX[80][81],Digital Picture Exchange,,,nf nf-fa-file_o,U+F016,F016
+DRC,Dirac format video,,,nf nf-fa-file_video_o,U+F1C8,F1C8
+DSC[82],Celestia Deep Space Catalog file,Celestia,,nf nf-fa-file_o,U+F016,F016
+DTA,Stata database transport format.[83],Stata,,nf nf-fa-database,U+F1C0,F1C0
+DTD[84],Document Type Definition,,,nf nf-fa-file_o,U+F016,F016
+DVC[85],Data version control yaml pointer into blob storage,,,nf nf-fa-file_o,U+F016,F016
+DWF,Autodesk Design Web Format,Design Review,,nf nf-fa-file_o,U+F016,F016
+DWG[86],Drawing,"AutoCAD, IntelliCAD, PowerCAD, Drafix, DraftSight etc.",,nf nf-fa-file_o,U+F016,F016
+DX,same as JDX and JCM.,,,nf nf-fa-file_o,U+F016,F016
+DXF[87],Drawing Interchange File Format vector graphics,"AutoCAD, IntelliCAD, PowerCAD, etc.",,nf nf-fa-file_o,U+F016,F016
+E,E language source code,E,,nf nf-fa-file_code_o,U+F1C9,F1C9
+E##,EnCase Evidence File chunk,EnCase Forensic Analysis Suite entity,,nf nf-fa-file_o,U+F016,F016
+E00,ArcInfo interchange file,GIS software,,nf nf-fa-file_o,U+F016,F016
+E2D,2-dimensional vector graphics file,Editor included in JFire,,nf nf-fa-file_o,U+F016,F016
+e57,A file format developed by ASTM International for storing point clouds and images,Most software that enables viewing and/or editing of 3D point clouds,,nf nf-fa-file_image_o,U+F1C5,F1C5
+EBD,"versions of DOS system files (AUTOEXEC.BAT, COMMAND.COM, CONFIG.SYS, WINBOOT.SYS, etc.) for an emergency boot disk","Windows 98, ME",,nf nf-fa-file_code_o,U+F1C9,F1C9
+EC,Source code,eC,,nf nf-fa-file_code_o,U+F1C9,F1C9
+ECC,Error-checking file,dvdisaster,,nf nf-fa-file_o,U+F016,F016
+EDE,Ensoniq EPS disk image,AWAVE,,nf nf-fa-file_image_o,U+F1C5,F1C5
+EDF,European data format,Medical timeseries storage files,,nf nf-fa-file_o,U+F016,F016
+EFI,Extensible Firmware Interface,,,nf nf-fa-file_o,U+F016,F016
+EIS,EIS Spectrum Analyser Project,EIS Spectrum Analyser Archived 2010-03-29 at the Wayback Machine,,nf nf-fa-file_o,U+F016,F016
+EL,Emacs Lisp source code file,Emacs,,nf nf-fa-file_code_o,U+F1C9,F1C9
+ELC,Byte-compiled Emacs Lisp code,Emacs,,nf nf-fa-file_code_o,U+F1C9,F1C9
+ELF,Executable and Linkable File,Unix,,nf nf-fa-file_o,U+F016,F016
+,EurekaLog File (contains details of an exception),EurekaLog (https://www.eurekalog.com/),,nf nf-fa-file_o,U+F016,F016
+EMAIL,Outlook Express Email Message,"Windows Live Mail, Outlook Express, Microsoft Notepad",,nf nf-fa-file_o,U+F016,F016
+EMAKER,E language source code (maker),E,,nf nf-fa-file_code_o,U+F1C9,F1C9
+EMF,Microsoft Enhanced Metafile,,,nf nf-fa-file_o,U+F016,F016
+EML,Email conforming to RFC 5322;[88] Stationery Template,Email clients;Outlook Express,,nf nf-fa-file_o,U+F016,F016
+EMZ,Microsoft Enhanced Metafile compressed with ZIP,Microsoft Office suite,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+EOT,Embedded OpenType,,,nf nf-fa-file_o,U+F016,F016
+EP,GUI wireframe/prototype project,"Prikhi Pencil, Evolus Pencil",,nf nf-fa-file_o,U+F016,F016
+EPA,Award BIOS splash screen,"Award BIOS, XnView",,nf nf-fa-file_o,U+F016,F016
+EPS,Encapsulated PostScript,CorelDraw - PhotoStyler - PMView - Adobe Illustrator - Ventua Publisher,,nf nf-fa-file_image_o,U+F1C5,F1C5
+EPUB,Electronic Publication (e-Reader format),Okular (Linux) - Apple Books - Sony Reader - Adobe Digital Editions - Calibre (LMW),,nf nf-fa-file_o,U+F016,F016
+EU4,Europa Universalis 4 save game file,Europa Universalis 4,,nf nf-fa-file_o,U+F016,F016
+ERL,Erlang source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+ES6,ECMAScript 6 file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+ESCPCB,"Data file of ""esCAD pcb"", PCB Pattern Layout Design Software",esCAD pcb provided by Electro-System,,nf nf-fa-file_o,U+F016,F016
+ESCSCH,"Data file of ""esCAD sch"", Drawing Schematics Diagram Software",esCAD sch provided by Electro-System,,nf nf-fa-file_o,U+F016,F016
+ESD,Windows Imaging Format,"ImageX, DISM, 7-Zip, wimlib",,nf nf-fa-file_o,U+F016,F016
+ESF,"Electronic Theater Controls, Inc. theatrical lighting show control file",ETC Eos platform software and consoles,,nf nf-fa-file_o,U+F016,F016
+ETL,event trace log file,Microsoft[89][90],,nf nf-fa-file_o,U+F016,F016
+EVT,Windows Event log file,Microsoft Windows NT 4.0 - XP; Microsoft Event Viewer,,nf nf-fa-file_o,U+F016,F016
+EVTX,Windows Event log file XML structured,"Microsoft Windows Vista, 7, 8; Microsoft Event Viewer",,nf nf-fa-file_o,U+F016,F016
+EX,Elixir source code file,Elixir programming language running on BEAM (Erlang virtual machine)[91],,nf nf-fa-file_code_o,U+F1C9,F1C9
+EXE,Directly executable program,"DOS, OpenVMS, Microsoft Windows, Symbian or OS/2",,nf nf-fa-file_o,U+F016,F016
+EXP,Drawing File format,Drawing Express,,nf nf-fa-file_o,U+F016,F016
+EXP,Melco Embroidery Format,Embroidermodder,,nf nf-fa-file_o,U+F016,F016
+EXR,"OpenEXR raster image format (.exr).[55] Used in digital image manipulation for theatrical film production. EXR is an acronym for Extended Dynamic Range. Stores 16 bit per pixel IEEE HALF-precision floating-point color channels. Can optionally store 32-bit IEEE floating-point ""Z"" channel depth-buffer components, surface normal directions, or motion vectors.[92]",,,nf nf-fa-file_image_o,U+F1C5,F1C5
+EXS,Elixir script file,Interactive Elixir (IEx) shell[93],,nf nf-fa-file_code_o,U+F1C9,F1C9
+F,Forth language source code file,Forth development systems,,nf nf-fa-file_code_o,U+F1C9,F1C9
+F,Fortran language source code file (in fixed form),Many Fortran compilers,,nf nf-fa-file_code_o,U+F1C9,F1C9
+F01,Fax,perfectfax,,nf nf-fa-file_o,U+F016,F016
+F03,Fortran language source code file (in free form),Many Fortran compilers,,nf nf-fa-file_code_o,U+F1C9,F1C9
+F08,Fortran language source code file (in free form),Fortran compilers,,nf nf-fa-file_code_o,U+F1C9,F1C9
+F18,Fortran language source code file (in free form),Fortran compilers,,nf nf-fa-file_code_o,U+F1C9,F1C9
+F4,Fortran IV source code file,Fortran IV source code,,nf nf-fa-file_code_o,U+F1C9,F1C9
+F4V[1],A container format for Flash Video that differs from the older FLV file format (see also SWF),Adobe Flash,,nf nf-fa-file_video_o,U+F1C8,F1C8
+F77,Fortran language source code file (in fixed form),Many Fortran compilers,,nf nf-fa-file_code_o,U+F1C9,F1C9
+F90,Fortran language source code file (in free form),Many Fortran compilers,,nf nf-fa-file_code_o,U+F1C9,F1C9
+F95,Fortran language source code file (in free form),Many Fortran compilers,,nf nf-fa-file_code_o,U+F1C9,F1C9
+FA[2][3][4],FASTA format sequence file,,,nf nf-fa-file_o,U+F016,F016
+FAA[2][3][4],FASTA format amino acid,,,nf nf-fa-file_o,U+F016,F016
+FACTOR,Factor source file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+FASTA[2][3][4],FASTA format sequence file,,,nf nf-fa-file_o,U+F016,F016
+FASTQ[2][3][4],FASTQ format sequence file,,,nf nf-fa-file_o,U+F016,F016
+FB,Forth language block file,Forth development systems,,nf nf-fa-file_o,U+F016,F016
+FB2[5],FictionBook e-book 2.0 file (DRM-free XML format),e-book readers,,nf nf-fa-file_o,U+F016,F016
+FBX [6],"3D model geometry, material textures, lighting, armature, and animation sequences for inter application use/transport",Autodesk,,nf nf-fa-file_text_o,U+F0F6,F0F6
+FCHK,Gaussian-formatted checkpoint file. Used to store result of quantum chemistry calculation results.[7],,,nf nf-fa-file_o,U+F016,F016
+FCS,FCS molecular biology format.[8],,,nf nf-fa-file_o,U+F016,F016
+FEN[9],Forsyth–Edwards Notation,Chess applications -text data describes a specific position.,,nf nf-fa-file_o,U+F016,F016
+FF,Farbfeld image,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+FFAPX,FrontFace plugin file,FrontFace digital signage software,,nf nf-fa-file_o,U+F016,F016
+FFN[3][4][2],FASTA format nucleotide of gene regions,,,nf nf-fa-file_o,U+F016,F016
+Fit,CurvFit Input file format,CurvFit software,,nf nf-fa-file_o,U+F016,F016
+FITS[10][11],Flexible Image Transport System,astronomy software,,nf nf-fa-file_image_o,U+F1C5,F1C5
+FLAC[12],"Audio codec, Audio file format",,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+FLAME,Fractal configuration file,Apophysis,,nf nf-fa-file_code_o,U+F1C9,F1C9
+FLP,FL Studio project file,FL Studio,,nf nf-fa-file_o,U+F016,F016
+FLV[13],A container format for Flash Video (see also SWF),Adobe Flash,,nf nf-fa-file_video_o,U+F1C8,F1C8
+FMU,A Functional Mockup Unit (FMU) implements the Functional Mockup Interface (FMI).[14],,,nf nf-fa-file_o,U+F016,F016
+FNA[2][3][4],FASTA format nucleic acid,,,nf nf-fa-file_o,U+F016,F016
+FNI,FileNet Native Document,FileNet,,nf nf-fa-file_o,U+F016,F016
+FNX,Saved notes with formatting in markup language,FeatherNote,,nf nf-fa-file_code_o,U+F1C9,F1C9
+FODG[15],OpenDocument Flat XML Drawings and vector graphics,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_o,U+F016,F016
+FODP[15],OpenDocument Flat XML Presentations,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_powerpoint_o,U+F1C4,F1C4
+FODS[15],OpenDocument Flat XML Spreadsheets,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_o,U+F016,F016
+FODT[15],OpenDocument Flat XML Text Document,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_text_o,U+F0F6,F0F6
+FOR,Fortran language source file,many,,nf nf-fa-file_code_o,U+F1C9,F1C9
+FQL[16],Fauna Query Language source file,Fauna,,nf nf-fa-file_code_o,U+F1C9,F1C9
+Freq,Match-n-Freq (TM) Input file format,Match-n-Freq software,,nf nf-fa-file_o,U+F016,F016
+FRAG,"Fragment File, usually stored on MOVPKG files",MOVPKG,,nf nf-fa-file_o,U+F016,F016
+FRM[17],MySQL Database Metadata,MySQL,,nf nf-fa-database,U+F1C0,F1C0
+Frq7,Match-n-Freq (TM) version 7+ Input file format,Match-n-Freq software,,nf nf-fa-file_o,U+F016,F016
+FS,F# source file,F# compilers,,nf nf-fa-file_code_o,U+F1C9,F1C9
+FS,Forth language source code file (often used to distinguish from .fb),Forth development systems,,nf nf-fa-file_code_o,U+F1C9,F1C9
+FTH,Forth language source code file,Forth development systems,,nf nf-fa-file_code_o,U+F1C9,F1C9
+G4[18],ANTLR4 grammar,ANTLR4,,nf nf-fa-file_o,U+F016,F016
+G6,Graph6 graph data format. Used for storing undirected graphs.[19],,,nf nf-fa-file_o,U+F016,F016
+GB,GenBank molecular biology format.[20],,,nf nf-fa-file_o,U+F016,F016
+GBK,same as GB,,,nf nf-fa-file_o,U+F016,F016
+GBR[21],Gerber format,PCB CAD/CAM,,nf nf-fa-file_o,U+F016,F016
+GDF[22],General Data Format for Biomedical Signals,"Biomedical signal processing, Brain Computer Interfaces",,nf nf-fa-file_o,U+F016,F016
+GDSCRIPT,Godot (game engine) Script File,Godot (game engine),,nf nf-fa-file_code_o,U+F1C9,F1C9
+GDT,"Gerätedatentransfer, an xDT application",Healthcare providers in Germany,,nf nf-fa-file_o,U+F016,F016
+GED[23],GEDCOM,Genealogy data exchange,,nf nf-fa-file_o,U+F016,F016
+GEOJSON,GeoJSON is specified by RFC 7946.[24],,,nf nf-fa-file_o,U+F016,F016
+GEOTIFF,Used for archiving and exchanging aerial photography or terrain data.[25],,,nf nf-fa-file_image_o,U+F1C5,F1C5
+GGB,GeoGebra File,GeoGebra,,nf nf-fa-file_o,U+F016,F016
+GIF[26],Compuserves' Graphics Interchange Format (bitmapped graphics),QPeg - Display - CompuShow,,nf nf-fa-file_image_o,U+F1C5,F1C5
+GM9[27],Scripts for GodMode9,Godmode9,,nf nf-fa-file_code_o,U+F1C9,F1C9
+GMEZ,GameMaker Extension File,GameMaker,,nf nf-fa-file_o,U+F016,F016
+GMI,Gemtext markup language[28],Gemini (Protocol),,nf nf-fa-file_code_o,U+F1C9,F1C9
+GMK,GameMaker Project File,YoYo Games,,nf nf-fa-file_o,U+F016,F016
+GML[29],Geography Markup Language File,Geography Markup Language,,nf nf-fa-file_code_o,U+F1C9,F1C9
+GML,Used for the storage and exchange of graphs. Native format of the Graphlet graph editor software.[30],,,nf nf-fa-file_o,U+F016,F016
+GML,GameMaker Script File,GameMaker,,nf nf-fa-file_code_o,U+F1C9,F1C9
+GO,Go source code file,Go (Programming language),,nf nf-fa-file_code_o,U+F1C9,F1C9
+GODOT,Godot (game engine) Project File,Godot (game engine),,nf nf-fa-file_o,U+F016,F016
+GOHTML,Go HTML template file[31],Go (Programming language),,nf nf-fa-file_o,U+F016,F016
+GPX[32][33],GPS eXchange Format,,,nf nf-fa-file_o,U+F016,F016
+GRAPHML,"GraphML is an acronym derived from Graph Markup Language. Represents typed, attributed, directed, and undirected graphs.[34]",,,nf nf-fa-file_code_o,U+F1C9,F1C9
+GRB,Commonly used in meteorology to store historical and forecast weather data. Represents numerical weather prediction output (NWP).[35],,,nf nf-fa-file_o,U+F016,F016
+GREXLI,Uncompressed folder as a file,WinGrex/GrexliLib,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+GRIB,same as GRB,,,nf nf-fa-file_o,U+F016,F016
+GRP,Data pack files for the Build Engine,Duke Nukem 3D,,nf nf-fa-file_o,U+F016,F016
+GSF,Generic sensor format,"Used for storing bathymetry data, such as that gathered by a multibeam echosounder.",,nf nf-fa-file_o,U+F016,F016
+GTF[36],Gene transfer format,,,nf nf-fa-file_o,U+F016,F016
+GV[37],Graph Visualization,Graphviz,,nf nf-fa-file_o,U+F016,F016
+GW,"same as .lgr. See LGR below for details on LEDA (.gw, .lgr).",,,nf nf-fa-file_o,U+F016,F016
+GXL,"GXL is an acronym derived from Graph Exchange Language. Represents typed, attributed, directed, and undirected graphs.[38]",,,nf nf-fa-file_o,U+F016,F016
+GZ,gzip compressed data,gzip,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+,,,,nf nf-fa-file_o,U+F016,F016
+H!,On-line help file,Flambeaux Help! Display Engine,,nf nf-fa-file_o,U+F016,F016
+H!,Pertext database,HELP.EXE,,nf nf-fa-database,U+F1C0,F1C0
+H--,C-- language header,Sphinx C--,,nf nf-fa-file_o,U+F016,F016
+H,Header file (usually C language),Watcom C/C++,,nf nf-fa-file_code_o,U+F1C9,F1C9
+H++,Header file,C++,,nf nf-fa-file_o,U+F016,F016
+HA,Archive,HA,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+HACK,Source file for the programming language hack,The HHVM[39],,nf nf-fa-file_code_o,U+F1C9,F1C9
+HAR[40],HTTP Archive format (JSON-format web-browser log),W3C draft standard,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+HDF,General-purpose format for representing multidimensional datasets. Developed by the US National Center for Supercomputing Applications (NCSA).[41],,,nf nf-fa-file_o,U+F016,F016
+HDF5,General-purpose format for representing multidimensional datasets and images. Incompatible with HDF Version 4 and earlier.[42],,,nf nf-fa-file_image_o,U+F1C5,F1C5
+HDI,Hard Disk Image file (PC-9800 disk image file),PC-9800 emulators,,nf nf-fa-file_image_o,U+F1C5,F1C5
+HDMP,heap dumpfile,,,nf nf-fa-file_o,U+F016,F016
+HEIC,HEIF raster image and compression format. Commonly used for storing still or animated images.[43],,,nf nf-fa-file_image_o,U+F1C5,F1C5
+HEIF,same as HEIC.,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+HH,C++ header file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+HIF,HEIF format extension on Nikon cameras. Short name t imposed by DCF.,,,nf nf-fa-file_o,U+F016,F016
+HIN,"HyperChem HIN format. Used in cheminformatics applications and on the web for storing and exchanging 3D molecule models. Maintained by HyperCube, Inc.[44]",,,nf nf-fa-file_o,U+F016,F016
+HOF,Basic Configuration file,OMSI The Bus Simulator,,nf nf-fa-file_code_o,U+F1C9,F1C9
+HOI4,Hearts Of Iron 4 file,Hearts Of Iron 4 Save game,,nf nf-fa-file_o,U+F016,F016
+HPP,C++ header file,Zortech C++ - Watcom C/C++,,nf nf-fa-file_code_o,U+F1C9,F1C9
+HTA,HTML Application,Microsoft Windows,,nf nf-fa-file_o,U+F016,F016
+HTM,see HTML,,,nf nf-fa-file_o,U+F016,F016
+HTML[45],Hypertext Markup Language (WWW),Netscape - Mosaic - many,,nf nf-fa-file_code_o,U+F1C9,F1C9
+HUM,3D Model database,OMSI The Bus Simulator,,nf nf-fa-database,U+F1C0,F1C0
+HXX,C++ header file,,,nf nf-fa-file_o,U+F016,F016
+IC,Infinite Craft save file,Infinite Craft,,nf nf-fa-file_o,U+F016,F016
+ICAL,same as ICS (see below).,,,nf nf-fa-file_o,U+F016,F016
+ICC[46],ICC profile,Color Configuration for color input or output devices,,nf nf-fa-file_o,U+F016,F016
+ICE,LHA Archive,"Cracked LHA (old LHA), Total Commander",,nf nf-fa-file_archive_o,U+F1C6,F1C6
+ICL,Icon library,Microsoft Windows,,nf nf-fa-file_o,U+F016,F016
+ICNS,Macintosh icons format. Raster image file format.[47],,,nf nf-fa-file_image_o,U+F1C5,F1C5
+ICO,Icon file,ICONEDIT.EXE; Microsoft Windows,,nf nf-fa-file_image_o,U+F1C5,F1C5
+ICS,ICS iCalendar format. Used for the storage and exchange of calendar information. Commonly used in personal information management systems.[48],,,nf nf-fa-file_o,U+F016,F016
+IFB,Same as ICS (see above).,,,nf nf-fa-file_o,U+F016,F016
+IFC[49],"Industry Foundation Classes (platform neutral, open file format used by BIM software). It is registered by ISO and is an official International Standard ISO 16739-1:2018.",BIM software,,nf nf-fa-file_o,U+F016,F016
+IGC[50],Flight tracks downloaded from GPS devices in the International Gliding Commission's prescribed format,,,nf nf-fa-file_o,U+F016,F016
+IGES[51],Initial Graphics Exchange Specification,,,nf nf-fa-file_o,U+F016,F016
+IMG,Disk image,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+INFO,Texinfo hypertext document,"Texinfo, info (Unix), Emacs",,nf nf-fa-file_text_o,U+F0F6,F0F6
+INI[52],Configuration file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+IO[53],Archive,CPIO,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+IOS,Game code for GameMaker games,GameMaker,,nf nf-fa-file_code_o,U+F1C9,F1C9
+IPT,XnView IPTC template,"XnView, XnViewMP",,nf nf-fa-file_o,U+F016,F016
+IPTRACE,AIX iptrace captures[54] dualhome.iptrace (AIX iptrace) Shows Ethernet and Token Ring packets captured in the same file.[55],WireShark,,nf nf-fa-file_o,U+F016,F016
+IQBLOCKS,Main file for programming a VEX Robot,VEX Robotics,,nf nf-fa-file_o,U+F016,F016
+IRX,"""IOP Relocatable eXecutable"". Library files to dynamically link application code to the Input/Output Processor on the PS2 to communicate with devices like memory cards, USB devices, etc.",Sony PlayStation 2,,nf nf-fa-file_code_o,U+F1C9,F1C9
+ISO,ISO-9660 table,see: List of ISO image software,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+ISS,Inno Setup Script,Inno Setup,,nf nf-fa-file_code_o,U+F1C9,F1C9
+IT,Impulse Tracker music file,Impulse Tracker,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+JL,Julia script file,Julia (programming language),,nf nf-fa-file_code_o,U+F1C9,F1C9
+J2C[56],JPEG 2000 image,JPEG 2000,,nf nf-fa-file_image_o,U+F1C5,F1C5
+J2K,JPEG2000 raster image and compression format. Can store images as an array of rectangular tiles that are encoded separately.[57],,,nf nf-fa-file_image_o,U+F1C5,F1C5
+JAR[58],Java archive,"JAR, Java Games and Applications",,nf nf-fa-file_archive_o,U+F1C6,F1C6
+JAV[59],see JAVA,,,nf nf-fa-file_o,U+F016,F016
+JAVA[59],Java source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+JBEAM,A JSON-based file used in the game BeamNG.drive to define the physics skeleton of a vehicle's soft-body physics,BeamNG.drive,,nf nf-fa-file_o,U+F016,F016
+JBIG[60][61][62],Joint Bilevel Image Group,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+JCM,same as JDX (see below).,,,nf nf-fa-file_o,U+F016,F016
+JDX,Chemical spectroscopy format. JCAMP is an acronym derived from Joint Committee on Atomic and Molecular Physical Data.[63],,,nf nf-fa-file_o,U+F016,F016
+JNLP[64],Java Network Launching Protocol,Java Web Start,,nf nf-fa-file_o,U+F016,F016
+JP2[56],JPEG 2000 image,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+JPE[65],Joint Photographic Experts Group graphics file format,Minolta/Konica Minolta cameras use this for JPEGs in Adobe RGB color space,,nf nf-fa-file_image_o,U+F1C5,F1C5
+JPEG[65],Joint Photographic Experts Group graphics file format,QPeg - FullView - Display,,nf nf-fa-file_image_o,U+F1C5,F1C5
+JPG[65],Joint Photographic Group,various (Minolta/Konica Minolta cameras use this for JPEGs in sRGB color space),,nf nf-fa-file_image_o,U+F1C5,F1C5
+JS[66],JavaScript file,script in HTML pages,,nf nf-fa-file_code_o,U+F1C9,F1C9
+JSON[67][68],JSON (JavaScript Object Notation),Ajax,,nf nf-fa-file_code_o,U+F1C9,F1C9
+JSP[69],Jakarta Server Pages,Dynamic pages running Web servers using Java technology,,nf nf-fa-file_o,U+F016,F016
+JUMP,Beyond Jump save file,Cell to Singularity,,nf nf-fa-file_o,U+F016,F016
+JVX,JavaView 3D geometry format. The native format of the JavaView visualization software. Used for the visualization of 2D or 3D geometries. Can be embedded in web pages and viewed with the JavaView applet.[70],,,nf nf-fa-file_o,U+F016,F016
+JXL,JPEG XL raster graphics file,,,nf nf-fa-file_o,U+F016,F016
+,,,,nf nf-fa-file_o,U+F016,F016
+KEXTRACTION,Keka Extraction Package,Keka,,nf nf-fa-file_o,U+F016,F016
+KEY,Keynote Presentation,Keynote,,nf nf-fa-file_powerpoint_o,U+F1C4,F1C4
+KLC[71],MSKLC Source file,Microsoft Keyboard Layout Creator,,nf nf-fa-file_code_o,U+F1C9,F1C9
+KML[72][73],Keyhole Markup Language,Google Earth,,nf nf-fa-file_code_o,U+F1C9,F1C9
+KMZ[72][73],Keyhole Markup Language (Zip compressed),Google Earth,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+KO,Linux kernel module format system file,Linux,,nf nf-fa-file_o,U+F016,F016
+KRA[74],Krita image file,Krita,,nf nf-fa-file_image_o,U+F1C5,F1C5
+KRABER,Kraber source code file,Kraber Programming Language,,nf nf-fa-file_code_o,U+F1C9,F1C9
+KSH,Kornshell source file,Kornshell,,nf nf-fa-file_code_o,U+F1C9,F1C9
+KT,Kotlin source code file,Kotlin Programming Language,,nf nf-fa-file_code_o,U+F1C9,F1C9
+KV,Kivy,,,nf nf-fa-file_o,U+F016,F016
+LABEL,Dymo label file,Dymo desktop software,,nf nf-fa-file_o,U+F016,F016
+LATEX,LaTeX typesetting system and programming language. Commonly used for typesetting mathematical and scientific publications.[75][76],,,nf nf-fa-file_o,U+F016,F016
+LBR,.LBR Archive,for CP/M and MS-DOS using the LU program,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+LDB,.LDB Leveldb data file,Google key-value storage library,,nf nf-fa-file_o,U+F016,F016
+LDB,.LDB MDB Database lock file,Microsoft Access Database,,nf nf-fa-database,U+F1C0,F1C0
+LDT,"Labordatenträger, an xDT application",Healthcare providers in Germany,,nf nf-fa-file_o,U+F016,F016
+LGR,"LEDA graph data format. Commonly used exchange format for graphs. Stores a single, typed, directed, or undirected graph. Native graph file format of the LEDA graph library and the GraphWin application. LEDA is an acronym for Library of Efficient Datatypes and Algorithms.[77]",,,nf nf-fa-file_o,U+F016,F016
+LHA,LHA Archive,"LHA/LHARC, Total Commander",,nf nf-fa-file_archive_o,U+F1C6,F1C6
+LISP,LISP source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+LL,LLVM Assembly Language,llvm,,nf nf-fa-file_o,U+F016,F016
+LM,Language Model File[78],Microsoft Windows,,nf nf-fa-file_o,U+F016,F016
+LMD,FCS molecular biology format.[8],,,nf nf-fa-file_o,U+F016,F016
+LNK,Local file shortcut,Microsoft Windows,,nf nf-fa-file_o,U+F016,F016
+LOGICX,Logic Pro files,"Logic Pro (MacOS, iPadOS)",,nf nf-fa-file_o,U+F016,F016
+LRC,Lyrics file,Lyrics for karaoke-related system and program,,nf nf-fa-file_o,U+F016,F016
+LUA,Lua script file,Lua (programming language),,nf nf-fa-file_code_o,U+F1C9,F1C9
+LWO,Native format of the LightWave 3D rendering and animation software. LWO is an acronym for LightWave Object. Developed by NewTek. Stores 3D objects as a collection of polygons and their properties.[79],,,nf nf-fa-file_o,U+F016,F016
+LZ,Archive,Lzip,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+M[1],Mathematica Package File,Mathematica,,nf nf-fa-file_o,U+F016,F016
+M,MATLAB M-File,MATLAB,,nf nf-fa-file_code_o,U+F1C9,F1C9
+M,Mercury Source File,Mercury,,nf nf-fa-file_code_o,U+F1C9,F1C9
+M[2],Source code,Objective-C,,nf nf-fa-file_code_o,U+F1C9,F1C9
+M2TS,BDAV MPEG-2 transport stream,,,nf nf-fa-file_o,U+F016,F016
+M3U,MPEG Audio Layer 3 Uniform Resource Locator playlist,Media players,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+M3U8,"MPEG Audio Layer 3 Uniform Resource Locator playlist, using UTF-8 encoding",Media players,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+M3U,MPEG Audio Layer 3 Uniform Resource Locator playlist,Media players,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+M4A,MPEG-4 Part 14 audio,iTunes Store,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+M4P,DRM-encumbered MPEG-4 Part 14 media,iTunes Store (formerly),,nf nf-fa-file_o,U+F016,F016
+M4R,See M4A,Apple iPhone ringtones,,nf nf-fa-file_o,U+F016,F016
+M4V,"MPEG-4 Part 14 video, which may optionally be encumbered by FairPlay DRM","iTunes Store, Handbrake",,nf nf-fa-file_video_o,U+F1C8,F1C8
+M64,Mupen64 gameplay recording[3],Mupen64,,nf nf-fa-file_o,U+F016,F016
+MA,"Autodesk Maya scene description format. The native format of the Maya modeling, animation, and rendering software.[4]",,,nf nf-fa-file_code_o,U+F1C9,F1C9
+MAT,"MATLAB MAT-files. The native data format of the MATLAB numerical computation software. Stores numerical matrices, Boolean values, or strings. Also stores sparse arrays, nested structures, and more.[5]",MATLAB and Octave,,nf nf-fa-file_o,U+F016,F016
+MBOX,"Unix mailbox format. Holds a collection of email messages. Native archive format of email clients such as Unix mail, Thunderbird, and many others.[6]",,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+MCADDON,A zip file that contains .mcpack or .mcworld files to modify Minecraft: Bedrock Edition generally used to distribute add-ons to other users.[7],Minecraft: Bedrock Edition,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+MCMETA,A Minecraft custom resource pack configuration file.[7],Minecraft: Bedrock Edition,,nf nf-fa-file_code_o,U+F1C9,F1C9
+MCPACK,"A zipped resource or behavior pack that modifies Minecraft: Bedrock Edition, typically used to transfer resources between users.[7]",Minecraft: Bedrock Edition,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+MCPROJECT,Minecraft Bedrock Editor's filetype. Files of this type only open in Editor and are capable of containing Editor extensions.[7],Minecraft: Bedrock Edition,,nf nf-fa-file_o,U+F016,F016
+MCSTRUCTURE,"Contains a Minecraft structure such as a building or natural feature, saved using the Structure Block tool can be shared between players, allowing the sharing of each other's structures.[7]",Minecraft: Bedrock Edition,,nf nf-fa-file_o,U+F016,F016
+MCTEMPLATE,A zip archive containing the template of a world used in Minecraft.[7],Minecraft: Bedrock Edition,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+MCWORLD,"A zip archive that contains all the files needed to load a Minecraft: Bedrock Edition or Minecraft Education world, for example .dat and .txt files.[7]",Minecraft: Bedrock Edition,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+MCF[8],Multimedia Container Format (predecessor of Matroska),,,nf nf-fa-file_o,U+F016,F016
+MD[9],Markdown-formatted text file,Markdown,,nf nf-fa-file_text_o,U+F0F6,F0F6
+MDB,MDB database file. The native format of the Microsoft Access database application. Used in conjunction with the Access relational database management system and as an exchange format.[10],Microsoft Access,,nf nf-fa-database,U+F1C0,F1C0
+MDF[11],"Master Data File, a Microsoft SQL Server file type",Microsoft SQL Server,,nf nf-fa-file_o,U+F016,F016
+MDF,"Measurement Data Format, a binary file format for vector measurement data[12]","automotive industry, developed by Robert Bosch GmbH",,nf nf-fa-database,U+F1C0,F1C0
+MDI,"Document save in high-resolution, created by MSOffice to scan documents (OCR) and turn them into a .DOC",Microsoft Office,,nf nf-fa-file_o,U+F016,F016
+MDG,"Digital Geometry (Programmable CAD) file format, developed by DInsight",Digital Geometric Kernel,,nf nf-fa-file_o,U+F016,F016
+MDL,Model,3D Design Plus or Simulink,,nf nf-fa-file_o,U+F016,F016
+MDMP[13],Mcrosoft minidump file created by Windows when a program crashes,Microsoft Windows SDK,,nf nf-fa-file_o,U+F016,F016
+MDS,Midi Session,Sound Imp.,,nf nf-fa-file_o,U+F016,F016
+MEX[14],MEX file (executable command),Matlab,,nf nf-fa-file_o,U+F016,F016
+MGF,Wolfram System MGF bitmap format. Used by the Wolfram System user interface for storing raster images. MGF is an acronym for Mathematica Graphics Format.[15],,,nf nf-fa-file_image_o,U+F1C5,F1C5
+MGF[16],Materials and Geometry Format,,,nf nf-fa-file_o,U+F016,F016
+MHT,MIME encapsulation of aggregate HTML documents,Web browsers,,nf nf-fa-file_o,U+F016,F016
+MID,Standard MIDI file,"Music synthetizers, Winamp",,nf nf-fa-file_audio_o,U+F1C7,F1C7
+MKA,Matroska audio,,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+MKV,Matroska video,,,nf nf-fa-file_video_o,U+F1C8,F1C8
+mlx,MATLAB live script file,MATLAB,,nf nf-fa-file_code_o,U+F1C9,F1C9
+MM[2],Source code,Objective-C++,,nf nf-fa-file_code_o,U+F1C9,F1C9
+MML,MathML mathematical markup language. Used for integrating mathematical formulas in web documents. Rendering of embedded MathML is supported by a number of browsers and browser additions.[17],,,nf nf-fa-file_code_o,U+F1C9,F1C9
+MNT,Surface metrology or image analysis document,MountainsMap,,nf nf-fa-file_image_o,U+F1C5,F1C5
+MO,Modelica models. File format specified by the Modelica Association.[18],,,nf nf-fa-file_o,U+F016,F016
+MOBI[19],eBook,"Mobipocket, Kindle",,nf nf-fa-file_o,U+F016,F016
+MOD,AMPL model file,AMPL,,nf nf-fa-file_o,U+F016,F016
+MOD,Modula language source,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+MOD,Modula-2 source code file,Clarion Modula-2,,nf nf-fa-file_code_o,U+F1C9,F1C9
+MOD,Tracker file format created for Ultimate Soundtracker for the Amiga,MOD (file format),,nf nf-fa-file_audio_o,U+F1C7,F1C7
+MOD,MOD is recording format for use in digital tapeless camcorders.,MOD and TOD,,nf nf-fa-file_o,U+F016,F016
+MODULES,Module,GTK+,,nf nf-fa-file_o,U+F016,F016
+MOE,same as Modelica Model .mo.,,,nf nf-fa-file_o,U+F016,F016
+MOL,MDL Molfile,RasMol,,nf nf-fa-file_o,U+F016,F016
+MOL2[20][21],Tripos Sybyl MOL2 Format,"SYBYL, RasMol",,nf nf-fa-file_o,U+F016,F016
+MOP,MOPAC input file,"MOPAC, RasMol",,nf nf-fa-file_o,U+F016,F016
+MOV[22],Animation format (Mac),"QuickTime, AutoCAD AutoFlix",,nf nf-fa-file_o,U+F016,F016
+MP2[23][24],MPEG audio file,"Winamp, xing",,nf nf-fa-file_audio_o,U+F1C7,F1C7
+MP3[25][23],"MPEG audio stream, layer 3","AWAVE, CoolEdit(+PlugIn), Winamp, many others",,nf nf-fa-file_audio_o,U+F1C7,F1C7
+MP4[26],"multimedia container format, MPEG 4 Part 14",Winamp,,nf nf-fa-file_o,U+F016,F016
+MPA,"MPEG audio stream, layer 1,2,3",AWAVE,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+MPC,Musepack audio,,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+MPD,LDraw file (multi-part DAT file),LDraw,,nf nf-fa-file_o,U+F016,F016
+MPEG[27][28][29],"multimedia containter format, video, audio","MPEG Player, Winamp",,nf nf-fa-file_audio_o,U+F1C7,F1C7
+MPG,see MPEG,,,nf nf-fa-file_video_o,U+F1C8,F1C8
+MPS,MPS linear programming system format (.mps)[30] Commonly used as input format by LP solvers. MPS is an acronym for Mathematical Programming System.[31],,,nf nf-fa-file_o,U+F016,F016
+MR,A Engine Simulator engine save file[32],Engine Simulator,,nf nf-fa-file_o,U+F016,F016
+MRSH,MarsShell Script File,MarsShell (mrsh),,nf nf-fa-file_code_o,U+F1C9,F1C9
+MSC,management saved console[33],Microsoft; Microsoft MMC[34],,nf nf-fa-file_o,U+F016,F016
+MSCZ,File type used by Musescore[35] when saving a score,,,nf nf-fa-file_o,U+F016,F016
+MSAV,Mindustry map file,Mindustry,,nf nf-fa-file_o,U+F016,F016
+MSCH,Mindustry schematic file,Mindustry,,nf nf-fa-file_o,U+F016,F016
+MSDL[36],Manchester Scene Description Language,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+MSF[37][38],Multiple sequence file (Pileup format),,,nf nf-fa-file_o,U+F016,F016
+MSI,Windows Installer Package,Microsoft Windows,,nf nf-fa-file_o,U+F016,F016
+MSO,Microsoft Outlook metadata for a Microsoft Word 2000 email attachment[39],Microsoft Outlook,,nf nf-fa-file_word_o,U+F1C2,F1C2
+MSSTYLES,Windows visual style file,Microsoft Windows,,nf nf-fa-file_o,U+F016,F016
+MSU,Microsoft Update Package,Microsoft Windows,,nf nf-fa-file_o,U+F016,F016
+MTS,See M2TS,,,nf nf-fa-file_o,U+F016,F016
+MUP,MUP -- File type used by MindMup to export editable Mind Maps,,,nf nf-fa-file_o,U+F016,F016
+MM,File type used by FreeMind to export editable Mind Maps,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+MX,Wolfram Language serialized package format (.mx)[30] Wolfram Language serialized package format. Used for the distribution of Wolfram Language packages. Stores arbitrary Wolfram Language expressions in a serialized format optimized for fast loading.[40],,,nf nf-fa-file_o,U+F016,F016
+MXF[41][42],"Material exchange format (RFC 4539, SMPTE 377M)",,,nf nf-fa-file_o,U+F016,F016
+MYD,a MyISAM data file in MySQL,"MyISAM, MySQL",,nf nf-fa-file_o,U+F016,F016
+MYI,a MyISAM index file in MySQL,"MyISAM, MySQL",,nf nf-fa-file_o,U+F016,F016
+,,,,nf nf-fa-file_o,U+F016,F016
+NB,Wolfram Mathematica Notebook (see Wolfram Language),Mathematica,,nf nf-fa-file_o,U+F016,F016
+NC,Binary Data,netCDF software package,,nf nf-fa-file_o,U+F016,F016
+NC,Instructions for NC (Numerical Control) machine,CAMS,,nf nf-fa-file_o,U+F016,F016
+NC,Name code program,namec-git/namec software package,,nf nf-fa-file_code_o,U+F1C9,F1C9
+NCD,"NC Drill File (Excellon Format, printed circuit board hole definitions)",Most PCB layout software,,nf nf-fa-file_excel_o,U+F1C3,F1C3
+NDK,NDK seismologic file format. Commonly used for storage and exchange of earthquake data. Stores geographical information and wave measurements for individual seismological events.[43],,,nf nf-fa-file_o,U+F016,F016
+NDS,Nintendo DS file. Used for Homebrew and official games.,Nintendo DS consoles and emulators,,nf nf-fa-file_o,U+F016,F016
+NEF[44],Nikon RAW image format,Nikon cameras,,nf nf-fa-file_image_o,U+F1C5,F1C5
+NEO,Text file; media,,,nf nf-fa-file_text_o,U+F0F6,F0F6
+NET,Pajek graph data format (.net)[30] Pajek graph language and data format. Commonly used exchange format for graphs. The native format of the Pajek network analysis software. The format name is Slovenian for spider.[45],Pajek network analysis software,,nf nf-fa-file_o,U+F016,F016
+NEU,Pro/Engineer neutral file format,PTC Pro/Engineer,,nf nf-fa-file_o,U+F016,F016
+NEX,"NEXUS phylogenetic format (.nex, .nxs)[30] Commonly used for storage and exchange of phylogenetic data. Can store DNA and protein sequences, taxa distances, alignment scores, and phylogenetic trees.[46]",,,nf nf-fa-file_o,U+F016,F016
+NF,Instructions for NC machine made by TRUMPF,TRUMPF,,nf nf-fa-file_o,U+F016,F016
+NFO,iNFO for accompanying media files,"Kodi, Plex",,nf nf-fa-file_text_o,U+F0F6,F0F6
+NIM,Nim source code file,Nim,,nf nf-fa-file_code_o,U+F1C9,F1C9
+NMF,Node Map File,Used by SpicyNodes,,nf nf-fa-file_o,U+F016,F016
+NOFF,"3D object file format with normals (.noff, .cnoff)[30] NOFF is an acronym derived from Object File Format. Occasionally called CNOFF if color information is present.[47]",,,nf nf-fa-file_o,U+F016,F016
+NPR,Nuendo Project File,Steinberg Nuendo,,nf nf-fa-file_o,U+F016,F016
+NRO,Nintendo Switch executable file,,,nf nf-fa-file_o,U+F016,F016
+NRW[48],Nikon Coolpix RAW image,Nikon,,nf nf-fa-file_image_o,U+F1C5,F1C5
+NRX,NetRexx Script File,NetRexx,,nf nf-fa-file_code_o,U+F1C9,F1C9
+NS1,NetStumbler file,NetStumbler,,nf nf-fa-file_o,U+F016,F016
+NSA,media,Nullsoft Streaming Audio,,nf nf-fa-file_o,U+F016,F016
+NSF,NES sound format file,Transfer of NES music data[49],,nf nf-fa-file_audio_o,U+F1C7,F1C7
+NSP,Nintendo Switch eShop format,"Nintendo Switch, Ryujinx",,nf nf-fa-file_o,U+F016,F016
+NSV,media,Nullsoft Streaming Video,,nf nf-fa-file_o,U+F016,F016
+NUMBERS,Numbers spreadsheet file,Numbers,,nf nf-fa-file_o,U+F016,F016
+"NWD, NWF",Navisworks 3D drawing,Navisworks,,nf nf-fa-file_o,U+F016,F016
+NXS,"Same as NEXUS (.nex, .nxs). See NEX above for more details. NEXUS phylogenetic format (.nex, .nxs)[30]",,,nf nf-fa-file_o,U+F016,F016
+O,Object file,UNIX - Atari - GCC,,nf nf-fa-file_o,U+F016,F016
+OBJ,Compiled machine language code,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+OBJ,Object code,Intel Relocatable Object Module,,nf nf-fa-file_code_o,U+F1C9,F1C9
+OBJ,Wavefront Object,,,nf nf-fa-file_o,U+F016,F016
+OBS,Script,ObjectScript,,nf nf-fa-file_code_o,U+F1C9,F1C9
+OCX,OLE custom control,,,nf nf-fa-file_o,U+F016,F016
+ODB[50],Database front end document,"OpenDocument, LibreOffice",,nf nf-fa-database,U+F1C0,F1C0
+ODF[50],"Formula, mathematical equations","OpenDocument, LibreOffice",,nf nf-fa-file_o,U+F016,F016
+ODG[50],Drawings and vector graphics,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_o,U+F016,F016
+ODP[50],Presentations,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_powerpoint_o,U+F1C4,F1C4
+ODS[50],OpenDocument spreadsheet format (.ods)[30],"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_o,U+F016,F016
+ODT[50],Text (Word processing) documents,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_word_o,U+F1C2,F1C2
+OFF,"3D object file format (.off, .coff)[30] OFF is an acronym for Object File Format. Used for storing and exchanging 3D models.[51]",,,nf nf-fa-file_o,U+F016,F016
+OGA,Audio file in the Ogg container format,libogg,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+OGG,Vorbis audio in the Ogg container format,libogg,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+OGV,Video file in the Ogg container format,libogg,,nf nf-fa-file_video_o,U+F1C8,F1C8
+OGX,Ogg Multiplex Profile,libogg,,nf nf-fa-file_o,U+F016,F016
+OPUS,Ogg/Opus audio file,"mpv, mplayer, many others (official file format).",,nf nf-fa-file_audio_o,U+F1C7,F1C7
+ORG,Emacs Org mode,Emacs Org mode major mode,,nf nf-fa-file_o,U+F016,F016
+ORG,Older Origin Project,Origin versions 4 or earlier,,nf nf-fa-file_o,U+F016,F016
+OSB,Osu! Storyboard,Osu!,,nf nf-fa-file_o,U+F016,F016
+OSC,OpenStreetMap Changeset,OpenStreetMap,,nf nf-fa-file_o,U+F016,F016
+OSK,Osu! Skin,Osu!,,nf nf-fa-file_o,U+F016,F016
+OSM,OpenStreetMap data,OpenStreetMap,,nf nf-fa-file_o,U+F016,F016
+OSM,OpenStreetMap note,OpenStreetMap,,nf nf-fa-file_o,U+F016,F016
+OSR,Osu! Replay,Osu!,,nf nf-fa-file_o,U+F016,F016
+OST,Offline Storage Table,"Microsoft e-mail software: Outlook Express, Microsoft Outlook",,nf nf-fa-file_o,U+F016,F016
+OSU,Osu! Beatmap Info,Osu!,,nf nf-fa-file_o,U+F016,F016
+OSZ,Osu! Beatmap,Osu!,,nf nf-fa-file_o,U+F016,F016
+OTB,Over-the-air bitmap graphics,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+OTF,OpenType font,,,nf nf-fa-font,U+F031,F031
+OTL,The Vim Outliner,A vim plugin,,nf nf-fa-file_o,U+F016,F016
+OTF[50],"Formula, mathematical equations template","OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_o,U+F016,F016
+OTG[50],Drawings and vector graphics template,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_o,U+F016,F016
+OTP[50],Presentations template,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_powerpoint_o,U+F1C4,F1C4
+OTS[50],Spreadsheets template,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_o,U+F016,F016
+OTT[50],Text (Word processing) documents template,"OpenDocument, LibreOffice, Collabora Online",,nf nf-fa-file_word_o,U+F1C2,F1C2
+OV2,Overlay file (part of program to be loaded when needed),TomTom Point of Interest,,nf nf-fa-file_o,U+F016,F016
+OWL[52][53],Web ontology language (OWL) file,Protégé and other ontology editors,,nf nf-fa-file_o,U+F016,F016
+OXT,OpenOffice.org extension,OpenOffice.org / LibreOffice,,nf nf-fa-file_o,U+F016,F016
+P,Database PROGRESS source code,PROGRESS,,nf nf-fa-database,U+F1C0,F1C0
+P,PASCAL source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+P,Parser source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+P8,PICO-8 Game File,PICO-8,,nf nf-fa-file_o,U+F016,F016
+P10,Certificate Request,,,nf nf-fa-certificate,U+F0A3,F0A3
+P12,Personal Information Exchange,"""Crypto Shell Extensions""",,nf nf-fa-certificate,U+F0A3,F0A3
+PACK[54],Pack200 Packed Jar File,,,nf nf-fa-file_o,U+F016,F016
+PAGES,Pages document file,Pages,,nf nf-fa-file_o,U+F016,F016
+PAK,Archive,Pak,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+PAL,Paint Shop Pro color palette (JASC format),"PaintShop Pro, XnView",,nf nf-fa-file_o,U+F016,F016
+PAM,PAM Portable Arbitrary Map graphics format,Netpbm,,nf nf-fa-file_o,U+F016,F016
+PAPA,"Flipline Studio's game backups like JackSmith, Papa's Wingeria version 1.2+, Papa's Pancakeria version 1.4+[55]",,,nf nf-fa-file_o,U+F016,F016
+PAR,Parity Archive,[56],,nf nf-fa-file_archive_o,U+F1C6,F1C6
+PAR2,Parity Archive v2,[57],,nf nf-fa-file_archive_o,U+F1C6,F1C6
+PARAMS,"MXNet net representation format (.json, .params)[30] Underlying format of the MXNet deep learning framework, used by the Wolfram Language. Networks saved as MXNet are stored as two separate file: a .json file specifying the network topology and a .params file specifying the numeric arrays used in the network.[58]",,,nf nf-fa-file_powerpoint_o,U+F1C4,F1C4
+PAS,Pascal language source,Borland Pascal,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PAX,pax archive file,"pax, GNU Tar",,nf nf-fa-file_archive_o,U+F1C6,F1C6
+PBLIB,Power Library,PowerBASIC,,nf nf-fa-file_o,U+F016,F016
+PBM,ASCII portable bitmap format (.pbm)[30] PBM monochrome raster image format. Member of the Portable family of image formats. Related to PGM and PPM. Native format of the Netpbm graphics software package.[59],Netpbm graphics software package,,nf nf-fa-file_image_o,U+F1C5,F1C5
+PBO,A file type used by Bohemia Interactive,"Arma 3, PBO Manager",,nf nf-fa-file_o,U+F016,F016
+PCAP,Network packet capture format (.pcap)[30][60],WireShark[61],,nf nf-fa-file_o,U+F016,F016
+PCL[62][63],HP-PCL graphics data file,HP Printer Command Language,,nf nf-fa-file_o,U+F016,F016
+PCS,PCSurvey file,PCSurvey by Softart - land surveying software,,nf nf-fa-file_o,U+F016,F016
+PCX,PC Paintbrush file,PC Paintbrush,,nf nf-fa-file_o,U+F016,F016
+PDB[64],debugging data,Microsoft Windows,,nf nf-fa-file_o,U+F016,F016
+PDB[65],Molecule (protein data bank),,,nf nf-fa-file_o,U+F016,F016
+PDE,Processing source code file,Processing programming language,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PDF,Adobe's Portable Document Format,Adobe Acrobat Reader,,nf nf-fa-file_pdf_o,U+F1C1,F1C1
+PDI,Portable Database Image,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+PDM,Program,Deskmate,,nf nf-fa-file_o,U+F016,F016
+PDM,PowerDesigner's physical data model (relational model) file format,PowerDesigner,,nf nf-fa-file_o,U+F016,F016
+PDM,Visual Basic (VB) Project Information File,Visual Basic,,nf nf-fa-file_o,U+F016,F016
+PDN,Image file,Paint.NET,,nf nf-fa-file_image_o,U+F1C5,F1C5
+PDS,PALASM Design Description,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PDS,Planetary Data System Format,,,nf nf-fa-file_o,U+F016,F016
+PEM,A text-based certificate file defined in RFC 1421 through RFC 1424[66],"Applications that need to use cryptographic certificates, including web-servers",,nf nf-fa-key,U+F084,F084
+pet,package[67],Puppy Linux,,nf nf-fa-file_o,U+F016,F016
+PFA,PostScript Font File,,,nf nf-fa-font,U+F031,F031
+PFA,Type 3 font file (unhinted PostScript font),,,nf nf-fa-font,U+F031,F031
+PFAM,PFAM format[68],,,nf nf-fa-file_o,U+F016,F016
+PFB,PostScript font,Adobe Type Manager (ATM),,nf nf-fa-font,U+F031,F031
+PFC,"(Personal Filing Cabinet) contains e-mail, preferences and other personal information",AOL,,nf nf-fa-file_o,U+F016,F016
+PFM[69],PostScript Type 1 font metric file,"Microsoft Windows, Adobe Acrobat Reader",,nf nf-fa-font,U+F031,F031
+PFM[69],Windows Type 1 font metric file,,,nf nf-fa-font,U+F031,F031
+PGN[70],Portable Game Notation -Text specification for Chess game,Most chess playing computer applications,,nf nf-fa-file_text_o,U+F0F6,F0F6
+PFX,An encrypted certificate file[66],"Applications that need to use cryptographic certificates, including web-servers",,nf nf-fa-certificate,U+F0A3,F0A3
+PHF,Database File,Nuverb Systems Inc: Donarius,,nf nf-fa-database,U+F1C0,F1C0
+PHN,Phun scene,Algodoo (previously Phun),,nf nf-fa-file_o,U+F016,F016
+PHP,PHP file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PHP3,PHP 3 file,,,nf nf-fa-file_o,U+F016,F016
+PHP4,PHP 4 file,,,nf nf-fa-file_o,U+F016,F016
+PHR,Phrases,LocoScript,,nf nf-fa-file_o,U+F016,F016
+PHY,Phylip format[68],,,nf nf-fa-file_o,U+F016,F016
+PHZ,Algodoo scene,Algodoo,,nf nf-fa-file_o,U+F016,F016
+PI2,Portrait Innovations High Resolution Encrypted Image file,Portrait Innovations Studio2 (proprietary),,nf nf-fa-file_image_o,U+F1C5,F1C5
+PIE,GlovePIE script file,GlovePIE,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PIR,PIR format[68],,,nf nf-fa-file_o,U+F016,F016
+PIT,Compressed Mac file archive created by PACKIT,unpackit.zoo,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+PIT,Partition Information Table for Samsung's smartphone with Android,Odin3,,nf nf-fa-file_o,U+F016,F016
+PK3,Quake III engine game data,,,nf nf-fa-file_o,U+F016,F016
+PKL,Pickle file,Python object serialization,,nf nf-fa-file_o,U+F016,F016
+PKA,Archive,PKARC,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+PKG,General package for software and games,"MacOS, iOS, PSVita, PS3, PS4, PS5, Symbian, BeOS...",,nf nf-fa-file_o,U+F016,F016
+PL,Perl source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PL,Prolog source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PL,IRAF pixel list,IRAF astronomical data format,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PLANET,Planet Life save file,Planet Life,,nf nf-fa-file_o,U+F016,F016
+PLI,PL/I source file,PL/I compilers,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PLR,Terraria player/character file,Terraria,,nf nf-fa-file_o,U+F016,F016
+PLS,"Multimedia Playlist, primarily for streaming","Shoutcast, IceCast, others",,nf nf-fa-file_o,U+F016,F016
+PM[71],Perl module,,,nf nf-fa-file_o,U+F016,F016
+PMA,PMarc Archive,,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+PMP,PenguinMod Project file,PenguinMod's project file,,nf nf-fa-file_o,U+F016,F016
+PNG,Portable Network Graphics file,"Web browsers, image viewing and editing applications",,nf nf-fa-file_image_o,U+F1C5,F1C5
+POM[72],Build manager configuration file,Apache Maven POM file,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PPEG,parsimonious PEG grammar,parsimonious parser generator,,nf nf-fa-file_o,U+F016,F016
+PPTX,MS Office Open-XML Presentation,Microsoft PowerPoint[73],,nf nf-fa-file_powerpoint_o,U+F1C4,F1C4
+PPSX,MS Office Open-XML Auto-Play Presentation,Microsoft PowerPoint,,nf nf-fa-file_powerpoint_o,U+F1C4,F1C4
+PRJ,Mkd (Unix command),Mkd project file to extract documentation,,nf nf-fa-file_o,U+F016,F016
+PROPERTIES,Configuration file format. Commonly used in Java projects. Associates string keys to string values.[74],,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PROTO[75],Message specification,Google Protocol Buffers,,nf nf-fa-file_o,U+F016,F016
+PRP,Plasma Registry Page,Plasma (engine),,nf nf-fa-file_o,U+F016,F016
+PS,Adobe Postscript file,PostScript,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PSD[76],Photoshop native file format,Adobe Photoshop,,nf nf-fa-file_image_o,U+F1C5,F1C5
+PSDC,Photoshop Cloud Document,Adobe Photoshop,,nf nf-fa-file_image_o,U+F1C5,F1C5
+PSM1[77],Windows Powershell module,Windows Powershell,,nf nf-fa-file_o,U+F016,F016
+PSPPALETTE[78],Paint Shop Pro color palette (JASC format),Paint Shop Pro 8.0 and newer,,nf nf-fa-file_o,U+F016,F016
+PST,Archive File,Microsoft Outlook,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+PS1,Windows Powershell script[77],Windows PowerShell,,nf nf-fa-file_code_o,U+F1C9,F1C9
+PTF,PlayStation Portable Theme file,PSP Theme settings menu,,nf nf-fa-file_o,U+F016,F016
+PTF,Pro Tools Session File,Digidesign/Avid Pro Tools version 7 up to version 9,,nf nf-fa-file_o,U+F016,F016
+PTS,Pro Tools Session File,Digidesign Pro Tools (legacy version),,nf nf-fa-file_o,U+F016,F016
+PTX,Pro Tools Session File,Avid Pro Tools version 10 or later,,nf nf-fa-file_o,U+F016,F016
+PUB,Public key ring file,Pretty Good Privacy RSA System,,nf nf-fa-file_o,U+F016,F016
+PUP[37][38],Pileup format,,,nf nf-fa-file_o,U+F016,F016
+PY,Python script file,Python (programming language),,nf nf-fa-file_code_o,U+F1C9,F1C9
+,,,,nf nf-fa-file_o,U+F016,F016
+QFX,Quicken-specific implementation of the OFX specification,Intuit Quicken,,nf nf-fa-file_o,U+F016,F016
+QIF[79],Quicken Interchange Format,Intuit Quicken,,nf nf-fa-file_o,U+F016,F016
+QLC[69],ATM Type 1 fonts script,Adobe Type Manager,,nf nf-fa-font,U+F031,F031
+QOI,Quite OK Image Format,"Web browsers, image viewing and editing applications",,nf nf-fa-file_image_o,U+F1C5,F1C5
+QSS,QT Style Sheet,QT Python GUI library,,nf nf-fa-file_o,U+F016,F016
+QT,QuickTime movie (animation),,,nf nf-fa-file_video_o,U+F1C8,F1C8
+QTVR,QuickTime VR Movie,,,nf nf-fa-file_video_o,U+F1C8,F1C8
+R,Ratfor file,Ratfor,,nf nf-fa-file_code_o,U+F1C9,F1C9
+R,Script file,R,,nf nf-fa-file_code_o,U+F1C9,F1C9
+"R00, R01, ...",Part of a multi-file RAR archive,RAR,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+R2D,Reflex 2 datafile,Reflex 2,,nf nf-fa-file_o,U+F016,F016
+R3D,Red Raw Video (raw video data created with a Red camera),Red Camera,,nf nf-fa-file_video_o,U+F1C8,F1C8
+R8P,PCL 4 bitmap font file,Intellifont,,nf nf-fa-file_image_o,U+F1C5,F1C5
+RAD,2-op FM music,Reality AdLib Tracker,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+RAD,Radiance,Radiance,,nf nf-fa-file_o,U+F016,F016
+RAL,Remote Access Language file,Remote Access,,nf nf-fa-file_o,U+F016,F016
+RAM,Ramfile,RealAudio,,nf nf-fa-file_o,U+F016,F016
+RAP,Flowchart,RAPTOR,,nf nf-fa-file_o,U+F016,F016
+RAR,Archive,RAR,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+RAS,Graphics format,SUN Raster,,nf nf-fa-file_o,U+F016,F016
+RB,Ruby Script file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+RBXL,Roblox Experience file,Roblox Studio,,nf nf-fa-file_o,U+F016,F016
+RC,Configuration file,"emacs, Vim (text editor), Bash (Unix shell)",,nf nf-fa-file_code_o,U+F1C9,F1C9
+RC[80],Resource Compiler script file,"Microsoft C/C++, Borland C++",,nf nf-fa-file_code_o,U+F1C9,F1C9
+RDP[81],RDP connection,Remote Desktop connection,,nf nf-fa-file_o,U+F016,F016
+RDS[82],Data file,R,,nf nf-fa-file_o,U+F016,F016
+RES[83],Compiled resource,"Microsoft C/C++, Borland C++",,nf nf-fa-file_code_o,U+F1C9,F1C9
+"REX, REXX",Rexx Script file,ooRexx,,nf nf-fa-file_code_o,U+F1C9,F1C9
+RKT,Racket language source file,DrRacket integrated development environment (IDE) for the Racket (programming language),,nf nf-fa-file_code_o,U+F1C9,F1C9
+RM[84],RealMedia,RealPlayer,,nf nf-fa-file_o,U+F016,F016
+RMD [85],R Markdown,RStudio,,nf nf-fa-file_o,U+F016,F016
+RMVB[86],RealMedia Variable Bitrate,RealPlayer,,nf nf-fa-file_o,U+F016,F016
+Rob,Robot4 (TM) Input file format,Robot4 software,,nf nf-fa-file_o,U+F016,F016
+ROL,AdLib Piano Roll,AdLib Visual Composer,,nf nf-fa-file_o,U+F016,F016
+RPM,RPM software package,"Red Hat Linux, the Linux Standard Base and several other operating systems",,nf nf-fa-file_o,U+F016,F016
+RS,Rust language source,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+RSM,Compressed Filetype for Mods of Mario Fangames,SMBX2,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+RSA,Harwell–Boeing matrix format. Used for exchanging and storing sparse matrices.[87],,,nf nf-fa-file_o,U+F016,F016
+"RSL, RSLS, RSLF",Resilio Sync File Placeholder,,,nf nf-fa-file_o,U+F016,F016
+RST,reStructuredText,Docutils,,nf nf-fa-file_text_o,U+F0F6,F0F6
+RTF[88][89][90],Rich Text Format text file (help file script),many - Microsoft Word,,nf nf-fa-file_code_o,U+F1C9,F1C9
+RUA,same as RSA,,,nf nf-fa-file_o,U+F016,F016
+RUN,AMPL script file,AMPL,,nf nf-fa-file_code_o,U+F1C9,F1C9
+RUN,Makeself shell self-extracting archive,shell,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+S,assembler source code file,Unix,,nf nf-fa-file_code_o,U+F1C9,F1C9
+S3M,Scream Tracker Module,Scream Tracker,,nf nf-fa-file_o,U+F016,F016
+S7I,Seed7 library / include file,Seed7 interpreter and compiler,,nf nf-fa-file_o,U+F016,F016
+SAIF[1],Spatial Archive and Interchange Format,,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+SASS[2],"Sass stylesheet language, indented-format",,,nf nf-fa-file_o,U+F016,F016
+SAT,ACIS ACIS .sat,,,nf nf-fa-file_o,U+F016,F016
+SAV,SPSS tabular data (binary),"PSPP, SPSS",,nf nf-fa-file_o,U+F016,F016
+SB,Scratch 1.x project,Scratch,,nf nf-fa-file_o,U+F016,F016
+SB2,Scratch 2.0 project,Scratch,,nf nf-fa-file_o,U+F016,F016
+SB3,Scratch 3.0 project,Scratch,,nf nf-fa-file_o,U+F016,F016
+SBH,Header,ScriptBasic,,nf nf-fa-file_o,U+F016,F016
+SBV,Superbase RDBMS form definition data,Superbase (database),,nf nf-fa-file_o,U+F016,F016
+SBX,For experimental extensions to Scratch,Used by scratchX (scratchx.org),,nf nf-fa-file_o,U+F016,F016
+SCALA,Scala source code file,Scala (programming language),,nf nf-fa-file_code_o,U+F1C9,F1C9
+SCM,Scheme source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SCR,Screen Protector file,Windows Screen Protector,,nf nf-fa-file_o,U+F016,F016
+SCSS[2],Sass stylesheet language,,,nf nf-fa-file_o,U+F016,F016
+SDF[3],SQL Server Compact database file,Microsoft SQL Server Compact,,nf nf-fa-database,U+F1C0,F1C0
+SD7,Seed7 source file,Seed7 interpreter and compiler,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SDNN,Encrypted Story Distiller Nursery Notes Database,"Story Distiller, Series Distiller",,nf nf-fa-database,U+F1C0,F1C0
+SDS,Self Defining Structure provides for N-dimensional very large datasets using HHCode,geographic information systems and relational database management systems,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SDTS,Spatial Data Transfer Standard,,,nf nf-fa-file_o,U+F016,F016
+SEC,Secret key ring file,Pretty Good Privacy RSA System,,nf nf-fa-file_o,U+F016,F016
+SED,Self extraction directive file,IExpress,,nf nf-fa-file_o,U+F016,F016
+SEQ,Video,Tiertex video sequence,,nf nf-fa-file_video_o,U+F1C8,F1C8
+SERIES,Encrypted Series Distiller database,Series Distiller,,nf nf-fa-database,U+F1C0,F1C0
+SF,JAR Digital Signature,,,nf nf-fa-file_o,U+F016,F016
+SFB,Configuration file,emacs,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SFH,backup file for Strike Force Heroes (SFH) on Steam[4],,,nf nf-fa-file_o,U+F016,F016
+SFX,SFX (self-extracting archives) script,RAR,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+SH,Unix shell script,Unix shell interpreter,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SHAR,Shell self-extracting archive,UNSHAR (Unix),,nf nf-fa-file_archive_o,U+F1C6,F1C6
+SHTM,SSI-enabled HTM file,Server Side Includes,,nf nf-fa-file_o,U+F016,F016
+SHTML,SSI-enabled HTML file,Server Side Includes,,nf nf-fa-file_o,U+F016,F016
+SHX,Shape entities,AutoCAD,,nf nf-fa-file_o,U+F016,F016
+,ESRI shapefile,ArcGIS,,nf nf-fa-file_o,U+F016,F016
+SIC,S.I.C.K. Source File,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SIG,Signature file,"gpg, PopMail, ThunderByte AntiVirus",,nf nf-fa-file_o,U+F016,F016
+SL,S-Lang source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SLDASM,SolidWorks assembly,SolidWorks,,nf nf-fa-file_o,U+F016,F016
+SLDPRT,SolidWorks part,SolidWorks,,nf nf-fa-file_o,U+F016,F016
+SM,SMALLTALK source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SMCLVL,Secret Maryo Chronicles Level,Secret Maryo Chronicles,,nf nf-fa-file_o,U+F016,F016
+SMK,Smacker video Format (RAD Video),,,nf nf-fa-file_video_o,U+F1C8,F1C8
+SNO,SNOBOL4 source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SO,"shared object, dynamically linked library","Unix, Linux",,nf nf-fa-file_o,U+F016,F016
+SPF,data,SQR Portable Format,,nf nf-fa-file_o,U+F016,F016
+SPIFF[5],Still Picture Interchange File Format,,,nf nf-fa-file_o,U+F016,F016
+SPIN,Spin source file,Parallax Propeller Microcontrollers,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SPS,SPSS program file (text),"PSPP, SPSS",,nf nf-fa-file_text_o,U+F0F6,F0F6
+SPT,SPITBOL source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SPV,SPIR-V binary file,"Vulkan, Khronos Group",,nf nf-fa-file_o,U+F016,F016
+SPX[6][7],Ogg Speex bitstream,Xiph.Org Foundation,,nf nf-fa-file_o,U+F016,F016
+SPZ,Crestron SIMPL Windows compiled program (ZIP format),Crestron SIMPL Windows,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+SQL,Structured Query Language,Any SQL database,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SRT,SubRip Subtitle file,Most media players,,nf nf-fa-file_o,U+F016,F016
+SRX,Series Distiller update XML file,Series Distiller,,nf nf-fa-file_o,U+F016,F016
+SSC,Celestia Solar System Catalog file,Celestia,,nf nf-fa-file_o,U+F016,F016
+SSC,Stellarium Script,Stellarium,,nf nf-fa-file_code_o,U+F1C9,F1C9
+ST,SMALLTALK source code file,Little Smalltalk,,nf nf-fa-file_code_o,U+F1C9,F1C9
+ST,Structured text file,,,nf nf-fa-file_text_o,U+F0F6,F0F6
+STC,Celestia Star Catalog file,Celestia,,nf nf-fa-file_o,U+F016,F016
+STC,OpenOffice.org XML spreadsheet template,OpenOffice.org Calc,,nf nf-fa-file_o,U+F016,F016
+STD,OpenOffice.org XML drawing template,OpenOffice.org Draw,,nf nf-fa-file_o,U+F016,F016
+STEP,Standard for the Exchange of Product Data,universal format for CAD exchange per ISO 10303,,nf nf-fa-file_o,U+F016,F016
+STI,OpenOffice.org XML presentation template,OpenOffice.org Impress,,nf nf-fa-file_powerpoint_o,U+F1C4,F1C4
+STK[8],Stockholm multiple sequence alignment,"Bioinformatics tools eg HMMER, Xrate, Jalview",,nf nf-fa-file_o,U+F016,F016
+STL,surface geometry of a three-dimensional object,software by 3D Systems,,nf nf-fa-file_o,U+F016,F016
+STM,SSI-enabled HTML file,Server Side Includes,,nf nf-fa-file_o,U+F016,F016
+STO[8],Stockholm multiple sequence alignment,"Bioinformatics tools eg HMMER, Xrate, Jalview",,nf nf-fa-file_o,U+F016,F016
+STORY,Encrypted Story Distiller database,Story Distiller,,nf nf-fa-database,U+F1C0,F1C0
+STP,Standard for the Exchange of Product Data,universal format for CAD exchange per ISO 10303,,nf nf-fa-file_o,U+F016,F016
+STW,OpenOffice.org XML text document template,OpenOffice.org Writer,,nf nf-fa-file_text_o,U+F0F6,F0F6
+STX,Story Distiller update XML,Story Distiller,,nf nf-fa-file_o,U+F016,F016
+STYL,Stylus style sheet file[9],Stylus,,nf nf-fa-file_o,U+F016,F016
+SUR,"Surface topography (in native ""SURF"" format)",MountainsMap,,nf nf-fa-file_o,U+F016,F016
+SVC,Represents the ServiceHost instance hosted by Internet Information Services,Windows Communication Foundation,,nf nf-fa-file_o,U+F016,F016
+SVELTE,Svelte source code,Svelte,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SVG,Scalable Vector Graphics,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+SWF[10],Shockwave Flash,"Macromedia, Adobe Flash Player",,nf nf-fa-file_o,U+F016,F016
+SWG,SWIG source code,SWIG,,nf nf-fa-file_code_o,U+F1C9,F1C9
+SWIFT,Swift source code,Swift (programming language),,nf nf-fa-file_code_o,U+F1C9,F1C9
+SWM,split Windows Imaging Format,"ImageX, DISM, 7-Zip, wimlib",,nf nf-fa-file_o,U+F016,F016
+SXC,OpenOffice.org XML spreadsheet,OpenOffice.org Calc,,nf nf-fa-file_o,U+F016,F016
+SXD,OpenOffice.org XML drawing,OpenOffice.org Draw,,nf nf-fa-file_o,U+F016,F016
+SXG,OpenOffice.org XML master document,,,nf nf-fa-file_o,U+F016,F016
+SXI,OpenOffice.org XML presentation,OpenOffice.org Impress,,nf nf-fa-file_powerpoint_o,U+F1C4,F1C4
+SXM,OpenOffice.org XML formula,OpenOffice.org Calc,,nf nf-fa-file_o,U+F016,F016
+SXP,3DS Process file,3D Studio,,nf nf-fa-file_o,U+F016,F016
+SXW,OpenOffice.org XML text document,OpenOffice.org Writer,,nf nf-fa-file_text_o,U+F0F6,F0F6
+SYLK,Symbolic Link (SYLK) file,Windows,,nf nf-fa-file_o,U+F016,F016
+SYMBOLICLINK,Replace file for a symbolic link,Unix-like OSs,,nf nf-fa-file_o,U+F016,F016
+TAK,"Audio codec, Lossless audio file format","Winamp (+Plugin), foobar2000 (+Plugin), Media Player Classic – BE",,nf nf-fa-file_audio_o,U+F1C7,F1C7
+TAR,tar archive,tar and other file archivers with support,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+TAZ[11],tar archive compressed with compress,tar and other file archivers with support,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+TB2[11],tar archive compressed with Bzip2,tar and other file archivers with support,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+TBZ[11],,,,nf nf-fa-file_o,U+F016,F016
+TBZ2[11],,,,nf nf-fa-file_o,U+F016,F016
+TC,Theme Colour file,Saturn CMS,,nf nf-fa-file_o,U+F016,F016
+TER,Terragen heightmap file,Terragen scenery generator,,nf nf-fa-file_o,U+F016,F016
+TGA,Truevision Advanced Raster Graphics Adapter image,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+TGT,Target configuration file,Target active security software,,nf nf-fa-file_code_o,U+F1C9,F1C9
+TGZ[11],tar archive compressed with gzip,tar and other file archivers with support,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+THM,Thumbnail File,"GoPro, Android, some versions of iOS (Accessible via computer or Jailbreak, on User/Media/PhotoData/Metadata/DCIM)",,nf nf-fa-file_o,U+F016,F016
+TIF,See TIFF,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+TIFF,Tag Image File Format image,,,nf nf-fa-file_image_o,U+F1C5,F1C5
+TLB[12],Type library,A binary file with information about a COM or DCOM object so other applications can use it at runtime. Created by Visual C++ or Visual Studio. Used by many Windows applications.,,nf nf-fa-file_o,U+F016,F016
+TLZ[11],tar archive compressed with LZMA,tar and other file archivers with support,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+TMP[13],Temporary file,,,nf nf-fa-file_o,U+F016,F016
+TORRENT[14],Torrent file,BitTorrent clients (various),,nf nf-fa-file_o,U+F016,F016
+TQL,The quest lessons,TheQuest,,nf nf-fa-file_o,U+F016,F016
+TS,MPEG transport stream,"Video broadcasting, digital video cameras",,nf nf-fa-file_code_o,U+F1C9,F1C9
+TS[15],TypeScript,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+TSCN,Godot Engine Text Scene file,Godot Engine,,nf nf-fa-file_text_o,U+F0F6,F0F6
+TSV[16],Tab-separated values,,,nf nf-fa-file_o,U+F016,F016
+TTC,TrueType Font collection,,,nf nf-fa-font,U+F031,F031
+TTF,TrueType Font file,,,nf nf-fa-font,U+F031,F031
+TWB,Tableau Software Workbook file,,,nf nf-fa-file_o,U+F016,F016
+TXT,Text file,,,nf nf-fa-file_text_o,U+F0F6,F0F6
+TXZ[11],tar archive compressed with xz,tar and other file archivers with support,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+TZ2[11],Same as TBZ,,,nf nf-fa-file_o,U+F016,F016
+TZST[11],tar archive compressed with Zstandard,,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+UI,Espire source code file,Geoworks UI Compiler Geos,,nf nf-fa-file_code_o,U+F1C9,F1C9
+UI,Qt Designer's UI File,Trolltech Qt Designer,,nf nf-fa-file_o,U+F016,F016
+UMP,Umple UML Programming Language Format,Umple,,nf nf-fa-file_o,U+F016,F016
+UNV,"Text file containing finite elements nodal coordinates and more, see notes",Originally used by SDRC for its I-deas software; a lot of simulation software uses it today,,nf nf-fa-file_text_o,U+F0F6,F0F6
+UNX,Game code for GameMaker games,GameMaker,,nf nf-fa-file_code_o,U+F1C9,F1C9
+UOS,Uniform Office Format spreadsheet,,,nf nf-fa-file_o,U+F016,F016
+UOT,Uniform Office Format text,,,nf nf-fa-file_text_o,U+F0F6,F0F6
+UPD,Update file for Storage,,,nf nf-fa-file_o,U+F016,F016
+UPS,ROM patch file,,,nf nf-fa-file_o,U+F016,F016
+URL,Remote file shortcut,Microsoft Windows,,nf nf-fa-file_o,U+F016,F016
+USDZ,Augmented Reality (AR) File,"Apple, Pixar",,nf nf-fa-file_o,U+F016,F016
+UST,Vocal synthesis track data,UTAU,,nf nf-fa-file_o,U+F016,F016
+USTX,Vocal synthesis track data,OpenUtau,,nf nf-fa-file_o,U+F016,F016
+UT!,datafile,uTorrent,,nf nf-fa-file_o,U+F016,F016
+UXF,UML Exchange Format,,,nf nf-fa-file_o,U+F016,F016
+V,Rocq source file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+V,Verilog source file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+V3,Victoria 3 save game file,Victoria 3,,nf nf-fa-file_o,U+F016,F016
+V4P,vvvv patch,vvvv,,nf nf-fa-file_o,U+F016,F016
+V64[17],ROM image from an N64 cartridge,"DoctorV64, Doctor V64 junior, Project 64 and other N64 emulators",,nf nf-fa-file_image_o,U+F1C5,F1C5
+VB,Visual Basic .Net source file,Visual Basic .NET,,nf nf-fa-file_code_o,U+F1C9,F1C9
+VBOX[18],virtual machine settings file (in XML format),VirtualBox,,nf nf-fa-file_o,U+F016,F016
+VBOX-EXTPACK[19],VirtualBox extension package,VirtualBox,,nf nf-fa-file_o,U+F016,F016
+VBPROJ,Visual Basic .Net project file,Visual Basic .Net Express and Visual Studio 2003-2010 Project,,nf nf-fa-file_o,U+F016,F016
+VBR,Visual Basic Custom Control file,Visual Basic,,nf nf-fa-file_o,U+F016,F016
+VBS,VBScript script file,VBScript,,nf nf-fa-file_code_o,U+F1C9,F1C9
+VBX,Visual Basic eXtension,Visual Basic,,nf nf-fa-file_o,U+F016,F016
+VC,VeraCrypt Disk Encrypted file,Open Source VeraCrypt,,nf nf-fa-file_o,U+F016,F016
+VC6,Graphite – 2D and 3D drafting,Ashlar-Vellum,,nf nf-fa-file_o,U+F016,F016
+VCLS,VocaListener voice scanner file,VocaListener Plug-in (Vocaloid3),,nf nf-fa-file_o,U+F016,F016
+VDA,Targa bitmap graphics,many raster graphics editors,,nf nf-fa-file_image_o,U+F1C5,F1C5
+VDI,Virtual Disk Image,VirtualBox,,nf nf-fa-file_image_o,U+F1C5,F1C5
+VDW,Visio web drawing,Microsoft Visio,,nf nf-fa-file_o,U+F016,F016
+VDX,Visio XML drawing,Microsoft Visio,,nf nf-fa-file_o,U+F016,F016
+VFD,Virtual Floppy Disk,Windows Virtual PC (among others),,nf nf-fa-file_o,U+F016,F016
+VI,Virtual Instrument,LabVIEW,,nf nf-fa-file_o,U+F016,F016
+VMCZ,Hyper-V Exported Virtual Machine,Microsoft,,nf nf-fa-file_o,U+F016,F016
+VMDK[20],Virtual Disk file,VMware,,nf nf-fa-file_o,U+F016,F016
+VMG,Nokia message file format,Text Message Editor (Nokia PC Suite),,nf nf-fa-file_o,U+F016,F016
+VOB[21][22],Video Object,"DVD-R, DVD-RW",,nf nf-fa-file_video_o,U+F1C8,F1C8
+VMX,virtual machine configuration file,VMware,,nf nf-fa-file_code_o,U+F1C9,F1C9
+VPK,Valve package,Source engine games,,nf nf-fa-file_o,U+F016,F016
+VPM,Garmin Voice Processing Module,,,nf nf-fa-file_o,U+F016,F016
+VPP,Visual Paradigm Project,Visual Paradigm for UML,,nf nf-fa-file_o,U+F016,F016
+VPR,Vocal synthesizer track data,Vocaloid 5,,nf nf-fa-file_o,U+F016,F016
+VQM,Hardware description language,Altera,,nf nf-fa-file_code_o,U+F1C9,F1C9
+VRB,LateX Beamer file containing verbatim commands,LaTeX Beamer,,nf nf-fa-file_o,U+F016,F016
+VRB,Veeam reversed incremental backup archive,Veeam software,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+VS,Vellum Solids,Ashlar-Vellum,,nf nf-fa-file_o,U+F016,F016
+VSD,Visio drawing,Microsoft Visio,,nf nf-fa-file_o,U+F016,F016
+VSDX[23],Visio drawing,Microsoft Visio,,nf nf-fa-file_o,U+F016,F016
+VSM,Visual Simulation Model,VisSim,,nf nf-fa-file_o,U+F016,F016
+VSQ,Vocal synthesizer track data,Vocaloid 2,,nf nf-fa-file_o,U+F016,F016
+VSQx,Vocal synthesizer track data,"Vocaloid 3, Vocaloid 4",,nf nf-fa-file_o,U+F016,F016
+VST,Truevision Vista graphics,many raster graphics editors,,nf nf-fa-file_o,U+F016,F016
+VSTO,Microsoft Office add-in file,Microsoft Visual Studio,,nf nf-fa-file_o,U+F016,F016
+VSVNBAK,VisualSVN Server repository backup,VisualSVN Server,,nf nf-fa-file_o,U+F016,F016
+VTF,Valve Texture Format file[24],Valve Corporation,,nf nf-fa-file_text_o,U+F0F6,F0F6
+VUE,Visual Understanding Environment map,Visual Understanding Environment,,nf nf-fa-file_o,U+F016,F016
+VVVVVV,VVVVVV map file,VVVVVV,,nf nf-fa-file_o,U+F016,F016
+WAB,Global address book in versions of Microsoft Windows and shared by Microsoft apps such as Outlook and Outlook Express,Outlook and Outlook Express,,nf nf-fa-file_o,U+F016,F016
+WAD,"Default package format for Doom that contains sprites, levels, and game data",Doom and Doom II,,nf nf-fa-file_o,U+F016,F016
+WAD,"Package containing Wii Channel data, such as Virtual Console games. It is commonly used in homebrew to install custom channels, and can be installed with a WAD Manager",Nintendo Wii,,nf nf-fa-file_o,U+F016,F016
+WAV,Sound format (Microsoft Windows RIFF WAVE),Media Player,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+WEBM,Royalty-free video/audio container,HTML5,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+WIN,Game code for GameMaker games,GameMaker,,nf nf-fa-file_code_o,U+F1C9,F1C9
+WITNESS_CAMPAIGN,Game save file for The Witness,The Witness,,nf nf-fa-file_o,U+F016,F016
+WK1,Spreadsheet,Lotus 1-2-3 version 2.x – Lotus Symphony 1.1+,,nf nf-fa-file_o,U+F016,F016
+WK3,Spreadsheet,Lotus 1-2-3 version 3.x,,nf nf-fa-file_o,U+F016,F016
+WKS,Spreadsheet,"Lotus 1-2-3 version 1A – Lotus Symphony 1.0, Microsoft Works",,nf nf-fa-file_o,U+F016,F016
+WL,Wolfram Language package[25][26],,,nf nf-fa-file_o,U+F016,F016
+WLMP,"Windows Live Moviemaker Project, contains paths from where the images/audios/videos of the project are located",Windows Live Movie Maker[27],,nf nf-fa-file_image_o,U+F1C5,F1C5
+WLS,Wolfram Script[28],Wolfram Language,,nf nf-fa-file_code_o,U+F1C9,F1C9
+WMA,Windows Media Audio file Advanced Systems Format,,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+WMDB,Windows Media Player database,Windows Media Player,,nf nf-fa-database,U+F1C0,F1C0
+WMF,Windows MetaFile vector graphics,,,nf nf-fa-file_o,U+F016,F016
+WMV,Windows Media Video file Advanced Systems Format,,,nf nf-fa-file_video_o,U+F1C8,F1C8
+WOFF,WOFF,,,nf nf-fa-font,U+F031,F031
+WOFF2,See WOFF,,,nf nf-fa-font,U+F031,F031
+WOS,WoS bibliographic reference file,ISI/Clarivate Analytics,,nf nf-fa-file_o,U+F016,F016
+WPS,Wii U plugin for aroma,Aroma Environnement (Wii U),,nf nf-fa-file_o,U+F016,F016
+WS,"Whitespace programming language, WonderSwan ROM[29]","Whitespace programming language, WonderSwan ROM",,nf nf-fa-file_o,U+F016,F016
+WSC,WonderSwan Color ROM,,,nf nf-fa-file_o,U+F016,F016
+WTX,Text document,,,nf nf-fa-file_text_o,U+F0F6,F0F6
+WUHB,Wii U Homebrew Bundle,Aroma environnement (Wii U),,nf nf-fa-file_o,U+F016,F016
+X,LEX source code file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+X,XBasic Source code file,Xbasic,,nf nf-fa-file_code_o,U+F1C9,F1C9
+X3D,x3d and xdart Formats,,,nf nf-fa-file_o,U+F016,F016
+XAR,Xara graphics file,Files created by Xara Photo & Graphic Designer (formerly Xara Xtreme and Xara Studio); early versions used the extension ART,,nf nf-fa-file_o,U+F016,F016
+XAR,eXtensible ARchive,"xar, 7-Zip",,nf nf-fa-file_archive_o,U+F1C6,F1C6
+XBRL,eXtensible Business Reporting Language instance file,eXtensible Business Reporting Language,,nf nf-fa-file_o,U+F016,F016
+XCF,Gimp image file,GNU Image Manipulation Program,,nf nf-fa-file_image_o,U+F1C5,F1C5
+XDELTA,Binary files diff,"Xdelta3, deltapatcher",,nf nf-fa-file_o,U+F016,F016
+XDM,Directory Manipulator for 32-bit Protected Mode,Xenotech Research Labs,,nf nf-fa-file_o,U+F016,F016
+XE,Xenon – for Associative 3D Modeling,Ashlar-Vellum,,nf nf-fa-file_o,U+F016,F016
+XEX,Xbox 360 Executable File,,,nf nf-fa-file_o,U+F016,F016
+XLR,"Microsoft Works spreadsheet or chart file, very similar to Microsoft Excel's XLS",Microsoft Works,,nf nf-fa-file_excel_o,U+F1C3,F1C3
+XLS[30],Microsoft Excel Spreadsheet,Microsoft Excel,,nf nf-fa-file_excel_o,U+F1C3,F1C3
+XLSB,Microsoft Excel 2007 Binary Workbook (BIFF12)(Spreadsheets),Microsoft Excel 2007 (see Microsoft Office 2007 file extensions),,nf nf-fa-file_excel_o,U+F1C3,F1C3
+XLSM,Microsoft Excel 2007 Macro-Enabled Workbook (Spreadsheets),Microsoft Excel 2007 (see Microsoft Office 2007 file extensions),,nf nf-fa-file_excel_o,U+F1C3,F1C3
+XLSX[31],Office Open XML Workbook (Spreadsheets),Microsoft Excel 2007 (see Microsoft Office 2007 file extensions),,nf nf-fa-file_o,U+F016,F016
+XM,FastTracker 2 extended module,"AWAVE, Mod4Win, FastTracker, ImpulseTracker",,nf nf-fa-file_o,U+F016,F016
+XML,eXtensible Markup Language file,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+XMF,eXtensible Music Format,,,nf nf-fa-file_audio_o,U+F1C7,F1C7
+XP,eXtended Pattern,FastTracker 2,,nf nf-fa-file_o,U+F016,F016
+XPL,X-Plane system file,Laminar Research,,nf nf-fa-file_o,U+F016,F016
+XPS,Open XML Paper Specification / OpenXPS,Open standard document format initially created by Microsoft and similar in concept to Adobe PDF files,,nf nf-fa-file_o,U+F016,F016
+XSD[32][33],XML schema description,,,nf nf-fa-file_code_o,U+F1C9,F1C9
+XSF,data,Microsoft InfoPath file,,nf nf-fa-file_o,U+F016,F016
+XSL[34],XSL Stylesheet,,,nf nf-fa-file_o,U+F016,F016
+XSLT[34],XSLT file,,,nf nf-fa-file_o,U+F016,F016
+XSN,Microsoft InfoPath template,Microsoft InfoPath,,nf nf-fa-file_o,U+F016,F016
+XSPF,XML Sharable Playlist Format,,,nf nf-fa-file_o,U+F016,F016
+XX,XX-encoded file (ASCII),XXDECODE,,nf nf-fa-file_code_o,U+F1C9,F1C9
+XXE,XX-encoded file (ASCII),XXDECODE,,nf nf-fa-file_code_o,U+F1C9,F1C9
+XXX,Singer Embroidery Format,Embroidermodder,,nf nf-fa-file_o,U+F016,F016
+XYZ,Molecular coordinates,"XMol, RasMol",,nf nf-fa-file_o,U+F016,F016
+XZ,a lossless data compression file format incorporating the LZMA/LZMA2 compression algorithms.,xz,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+Y,YACC grammar file,Yacc/Bison,,nf nf-fa-file_o,U+F016,F016
+YML[35],YML markup file,domain specific language output to XML,,nf nf-fa-file_code_o,U+F1C9,F1C9
+YAML[36],YAML source file,YAML (data serialization language),,nf nf-fa-file_code_o,U+F1C9,F1C9
+YYMP,GameMaker Extension File,GameMaker,,nf nf-fa-file_o,U+F016,F016
+YYMPS,,GameMaker,,nf nf-fa-file_o,U+F016,F016
+YYP,GameMaker Project File,GameMaker,,nf nf-fa-file_o,U+F016,F016
+YYZ,GameMaker Project Export File,GameMaker,,nf nf-fa-file_o,U+F016,F016
+ZIP[37],ZIP (file format),PKZip – WinZip – Mac OS X,,nf nf-fa-file_archive_o,U+F1C6,F1C6
+ZRX,REXX scripting language for ZOC_(software),ZOC terminal emulator,,nf nf-fa-file_code_o,U+F1C9,F1C9
+ZS,Script for Minecraft mod MineTweaker[38] and CraftTweaker[39],Minecraft Mods,,nf nf-fa-file_code_o,U+F1C9,F1C9
+ZST,"ZStandard, a lossless data compression file format.",zstd,,nf nf-fa-file_archive_o,U+F1C6,F1C6
