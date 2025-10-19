@@ -133,7 +133,7 @@ Produce output with no ANSI color codes:contentReference[oaicite:46]{index=46}. 
 Colorize the output according to file type or extension. \fIWHEN\fR can be **auto**, **always**, or **never**:contentReference[oaicite:47]{index=47}. **auto** (default) means color output only if the output is a terminal (tty) and not disabled by `NO_COLOR` env var:contentReference[oaicite:48]{index=48}; **always** forces color codes even if output is piped; **never** disables color entirely:contentReference[oaicite:49]{index=49}. (See **Environment** below for `LS_COLORS` usage.)
 .TP 
 \fB\-\-theme\fR \fINAME\fR
-Use theme \fINAME\fR for colors and icons:contentReference[oaicite:50]{index=50}:contentReference[oaicite:51]{index=51}. Themes are defined in YAML files named `<NAME>_theme.yaml`. The program will load the specified theme file (case-sensitive name). If the name ends in “_theme” or “.yaml”, that part is optional (e.g. `--theme=light` loads `light_theme.yaml`). An error is reported if the theme file is not found:contentReference[oaicite:52]{index=52}:contentReference[oaicite:53]{index=53}.
+Use theme \fINAME\fR for colors and icons:contentReference[oaicite:50]{index=50}:contentReference[oaicite:51]{index=51}. Themes live inside the configuration database (`NLS.sqlite3`). The supplied name matches the entry stored in the database (case-sensitive). For backward compatibility, suffixes “_theme” or “.yaml” are ignored (e.g. `--theme=light` and `--theme=light_theme` refer to the same theme). An error is reported if the theme is not found:contentReference[oaicite:52]{index=52}:contentReference[oaicite:53]{index=53}.
 .TP 
 .B \-\-light
 Use the light color scheme:contentReference[oaicite:54]{index=54}. This sets the default theme to a light background variant (overriding auto-detection).
@@ -199,10 +199,10 @@ The following environment variables affect \fBnls\fR:
 
 .TP 
 .B NLS_DATA_DIR 
-If set, specifies a directory to search for configuration files (themes, icon mappings) before any other default locations:contentReference[oaicite:80]{index=80}. This allows using custom theme files or configurations from an alternate location. When \fBNLS_DATA_DIR\fR is set, per-user overrides are ignored for resources found in that directory:contentReference[oaicite:81]{index=81}.
+If set, specifies a directory to search for the configuration database before any other default locations:contentReference[oaicite:80]{index=80}. This allows using a custom `NLS.sqlite3` from an alternate location. When \fBNLS_DATA_DIR\fR is set, per-user overrides are ignored for the resources provided there:contentReference[oaicite:81]{index=81}.
 .TP 
 .B LS_COLORS 
-Defines color codes for file types, as used by GNU ls and dircolors:contentReference[oaicite:82]{index=82}. \fBnls\fR will use this if \fB--color\fR is enabled (or auto) to apply file type colors:contentReference[oaicite:83]{index=83}. Set via the \fBdircolors(1)\fR command or manually, it is a colon-separated list of file pattern color mappings. If not set, \fBnls\fR uses its built-in theme YAML settings for colors.
+Defines color codes for file types, as used by GNU ls and dircolors:contentReference[oaicite:82]{index=82}. \fBnls\fR will use this if \fB--color\fR is enabled (or auto) to apply file type colors:contentReference[oaicite:83]{index=83}. Set via the \fBdircolors(1)\fR command or manually, it is a colon-separated list of file pattern color mappings. If not set, \fBnls\fR uses the defaults embedded in the configuration database for colors.
 .TP 
 .B NO_COLOR 
 If this variable is present in the environment, \fBnls\fR will disable colored output entirely:contentReference[oaicite:84]{index=84}. This overrides \fB--color=auto\fR (effectively treating it as “never”). This is a standard convention to respect users who prefer no color in output.
@@ -217,7 +217,7 @@ Sets the default quoting style for filenames:contentReference[oaicite:88]{index=
 If set, \fBnls\fR may enable POSIX compatibility modes for certain behaviors. For example, when this is present, time styles prefixed with "posix-" will be in effect (unless the locale is POSIX/C). It may also influence sorting or quoting to adhere strictly to POSIX `ls` rules. (Note: This variable is recognized for compatibility; its exact effects in nls are minimal and primarily pertain to time style handling:contentReference[oaicite:89]{index=89}.)
 
 .PP 
-On Windows, \fBnls\fR additionally looks for configuration files under `%APPDATA%\\nicels\\yaml` (for per-user config) and the installation directory’s “yaml” subfolder, unless overridden by \fBNLS_DATA_DIR\fR:contentReference[oaicite:90]{index=90}. The `%USERPROFILE%` is used as a fallback if `%APPDATA%` is not defined. These environment specifics are mainly for locating config files and do not typically require manual intervention.
+On Windows, \fBnls\fR additionally looks for `NLS.sqlite3` under `%APPDATA%\\nicels\\DB` (for per-user config) and `%PROGRAMDATA%\\nicels\\DB` for system-wide defaults, unless overridden by \fBNLS_DATA_DIR\fR:contentReference[oaicite:90]{index=90}. `%USERPROFILE%` is used as a fallback if `%APPDATA%` is not defined. These environment specifics are mainly for locating the database and do not typically require manual intervention.
 
 .SH EXAMPLES
 .PP 
@@ -251,13 +251,13 @@ $ nls \-d .
 Combining flags can refine output. For example, \fBnls -d -lA\fR would list only directories in long format, including hidden ones (but omitting “.” and “..”).
 
 .IP "4."
-Copy the default configuration files to your user config directory:
+Copy the default configuration database to your user config directory:
 .RS
 .nf
 $ nls \-\-copy-config
 .fi
 .RE
-This will populate your `~/.nicels/yaml` (on Linux/macOS) or `%APPDATA%\\nicels\\yaml` (on Windows) with the default theme and icon configuration files, if they do not already exist. It prints which files were copied or skipped and then exits:contentReference[oaicite:92]{index=92}:contentReference[oaicite:93]{index=93}.
+This will populate your `~/.nicels/DB/NLS.sqlite3` (on Linux/macOS) or `%APPDATA%\\nicels\\DB\\NLS.sqlite3` (on Windows) with the default configuration database if it does not already exist. It prints which files were copied or skipped and then exits:contentReference[oaicite:92]{index=92}:contentReference[oaicite:93]{index=93}.
 
 .SH AUTHOR
 \fBnls\fR was developed by Dmitry K. (GitHub user **dm17ryk**). It is an open-source project available on GitHub. Feedback, bug reports, and contributions are welcome via the project’s issue tracker.

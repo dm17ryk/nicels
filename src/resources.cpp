@@ -1,5 +1,6 @@
 #include "resources.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <optional>
@@ -8,6 +9,9 @@
 #include "perf.h"
 
 namespace nls {
+namespace {
+constexpr const char* kDatabaseFilename = "NLS.sqlite3";
+}
 
 class ResourceManager::Impl {
 public:
@@ -30,6 +34,12 @@ public:
 
         const auto initial_directories = directories_.size();
 
+        auto register_directory = [&](const Path& dir) {
+            if (dir.empty()) return;
+            auto normalized = normalize(dir);
+            addNormalizedDir(std::move(normalized));
+        };
+
         if (const char* env = std::getenv("NLS_DATA_DIR")) {
             if (env[0] != '\0') {
                 auto normalized = normalize(Path(env));
@@ -38,12 +48,25 @@ public:
             }
         }
 
+#ifdef _WIN32
+        Path program_data_dir;
+        if (const char* programdata = std::getenv("PROGRAMDATA")) {
+            if (programdata[0] != '\0') {
+                register_directory(Path(programdata) / "nicels");
+                program_data_dir = Path(programdata) / "nicels" / "DB";
+                register_directory(program_data_dir);
+            }
+        }
+#endif
+
         std::error_code ec;
         Path cwd = std::filesystem::current_path(ec);
         if (!ec) {
-            addDir(cwd / "yaml");
+            register_directory(cwd / "DB");
+            register_directory(cwd);
         }
 
+        Path exe_dir;
         if (argv0 && argv0[0] != '\0') {
             Path exe_path(argv0);
             if (!exe_path.is_absolute()) {
@@ -53,38 +76,62 @@ public:
             if (ec) {
                 exe_path = exe_path.lexically_normal();
             }
-            Path exe_dir = exe_path.parent_path();
+            exe_dir = exe_path.parent_path();
             if (!exe_dir.empty()) {
-                addDir(exe_dir / "yaml");
-                addDir(exe_dir.parent_path() / "yaml");
+                register_directory(exe_dir / "DB");
+                register_directory(exe_dir);
+                Path exe_parent = exe_dir.parent_path();
+                if (!exe_parent.empty()) {
+                    register_directory(exe_parent / "DB");
+                    register_directory(exe_parent);
+                }
             }
         }
 
 #ifdef _WIN32
-        Path user_dir;
+        Path primary_user_dir;
         if (const char* appdata = std::getenv("APPDATA")) {
             if (appdata[0] != '\0') {
-                user_dir = Path(appdata) / ".nicels" / "yaml";
+                Path base(appdata);
+                primary_user_dir = base / "nicels" / "DB";
+                register_directory(primary_user_dir);
+                register_directory(base / "nicels");
+                register_directory(base / ".nicels" / "DB"); // legacy
+                register_directory(base / ".nicels" / "yaml"); // legacy
+                register_directory(base / ".nicels");
             }
         }
-        if (user_dir.empty()) {
+        if (primary_user_dir.empty()) {
             if (const char* profile = std::getenv("USERPROFILE")) {
                 if (profile[0] != '\0') {
-                    user_dir = Path(profile) / ".nicels" / "yaml";
+                    Path base(profile);
+                    primary_user_dir = base / "nicels" / "DB";
+                    register_directory(primary_user_dir);
+                    register_directory(base / "nicels");
+                    register_directory(base / ".nicels" / "DB"); // legacy
+                    register_directory(base / ".nicels" / "yaml"); // legacy
+                    register_directory(base / ".nicels");
                 }
             }
         }
-        if (!user_dir.empty()) {
-            auto normalized = normalize(user_dir);
+        if (!primary_user_dir.empty()) {
+            auto normalized = normalize(primary_user_dir);
             addNormalizedDir(normalized);
             user_config_dir_ = std::move(normalized);
         }
 #else
-        addDir(Path("/etc/dm17ryk/nicels/yaml"));
+        register_directory(Path("/etc/dm17ryk/nicels/DB"));
+        register_directory(Path("/etc/dm17ryk/nicels"));
+#endif
 
+#ifndef _WIN32
         if (const char* home = std::getenv("HOME")) {
             if (home[0] != '\0') {
-                Path user_dir = Path(home) / ".nicels" / "yaml";
+                Path base(home);
+                Path user_dir = base / ".nicels" / "DB";
+                register_directory(user_dir);
+                register_directory(base / ".nicels");
+                register_directory(base / ".nicels" / "yaml"); // legacy
                 auto normalized = normalize(user_dir);
                 addNormalizedDir(normalized);
                 user_config_dir_ = std::move(normalized);
@@ -111,6 +158,21 @@ public:
             timer.emplace("resources::find");
             perf_manager.IncrementCounter("resources::find_calls");
         }
+
+        if (name.empty() || name == kDatabaseFilename) {
+            Path database = findDatabase();
+            if (!database.empty()) {
+                if (perf_enabled) {
+                    perf_manager.IncrementCounter("resources::find_hits");
+                }
+                return database;
+            }
+            if (perf_enabled) {
+                perf_manager.IncrementCounter("resources::find_misses");
+            }
+            return {};
+        }
+
         for (const auto& dir : directories_) {
             std::filesystem::path candidate = dir / name;
             std::error_code ec;
@@ -123,6 +185,56 @@ public:
         }
         if (perf_enabled) {
             perf_manager.IncrementCounter("resources::find_misses");
+        }
+        return {};
+    }
+
+    [[nodiscard]] std::vector<Path> databaseCandidates() const {
+        std::vector<Path> candidates;
+        auto add_candidate = [&](const Path& dir, bool allow_missing) {
+            if (dir.empty()) return;
+            std::filesystem::path candidate = dir / kDatabaseFilename;
+            std::error_code ec;
+            bool exists = std::filesystem::exists(candidate, ec);
+            if (!exists || ec) {
+                if (!allow_missing) return;
+            }
+            if (std::find(candidates.begin(), candidates.end(), candidate) == candidates.end()) {
+                candidates.push_back(std::move(candidate));
+            }
+        };
+
+        if (!env_override_dir_.empty()) {
+            add_candidate(env_override_dir_, true);
+        }
+
+        if (!user_config_dir_.empty()) {
+            add_candidate(user_config_dir_, false);
+        }
+
+        for (const auto& dir : directories_) {
+            if (!env_override_dir_.empty() && dir == env_override_dir_) {
+                continue;
+            }
+            if (!user_config_dir_.empty() && dir == user_config_dir_) {
+                continue;
+            }
+            add_candidate(dir, false);
+        }
+
+        return candidates;
+    }
+
+    [[nodiscard]] Path findDatabase() const {
+        auto candidates = databaseCandidates();
+        for (const auto& candidate : candidates) {
+            std::error_code ec;
+            if (std::filesystem::exists(candidate, ec) && !ec) {
+                bool is_file = std::filesystem::is_regular_file(candidate, ec);
+                if (!ec && is_file) {
+                    return candidate;
+                }
+            }
         }
         return {};
     }
@@ -158,12 +270,11 @@ public:
     Path envOverrideDir() const { return env_override_dir_; }
     Path defaultConfigDir() const
     {
+        if (auto database = findDatabase(); !database.empty()) {
+            return database.parent_path();
+        }
         if (!env_override_dir_.empty()) {
             return env_override_dir_;
-        }
-        auto colors = find("colors.yaml");
-        if (!colors.empty()) {
-            return colors.parent_path();
         }
         return {};
     }
@@ -186,6 +297,14 @@ void ResourceManager::initPaths(const char* argv0) {
 
 std::filesystem::path ResourceManager::find(const std::string& name) {
     return instance().find(name);
+}
+
+std::filesystem::path ResourceManager::findDatabase() {
+    return instance().findDatabase();
+}
+
+std::vector<std::filesystem::path> ResourceManager::databaseCandidates() {
+    return instance().databaseCandidates();
 }
 
 void ResourceManager::addDir(const Path& dir) {
@@ -240,71 +359,74 @@ std::error_code ResourceManager::copyDefaultsToUserConfig(CopyResult& result, bo
         }
     }
 
-    Path source_dir = impl.defaultConfigDir();
-    if (source_dir.empty()) {
-        return std::make_error_code(std::errc::no_such_file_or_directory);
-    }
-
-    std::filesystem::directory_iterator iter(source_dir, ec);
+    Path destination = user_dir / kDatabaseFilename;
+    bool destination_exists = std::filesystem::exists(destination, ec);
     if (ec) {
         return ec;
     }
-    const std::filesystem::directory_iterator end;
-    for (; iter != end; iter.increment(ec)) {
-        if (ec) {
-            return ec;
-        }
-        const auto& entry = *iter;
-        bool is_regular = entry.is_regular_file(ec);
-        if (ec) {
-            return ec;
-        }
-        if (!is_regular) {
-            continue;
-        }
-
-        if (entry.path().extension() != ".yaml") {
-            continue;
-        }
-
-        Path destination = user_dir / entry.path().filename();
-        bool destination_exists = std::filesystem::exists(destination, ec);
-        if (ec) {
-            return ec;
-        }
-        if (destination_exists) {
-            bool same = std::filesystem::equivalent(entry.path(), destination, ec);
-            if (ec) {
-                return ec;
-            }
-            if (same) {
-                result.skipped.push_back(destination);
-                if (perf_enabled) {
-                    perf_manager.IncrementCounter("resources::yaml_files_skipped");
-                }
-                continue;
-            }
-            if (!overwrite_existing) {
-                result.skipped.push_back(destination);
-                if (perf_enabled) {
-                    perf_manager.IncrementCounter("resources::yaml_files_skipped");
-                }
-                continue;
-            }
-        }
-
-        std::filesystem::copy_options options = overwrite_existing
-            ? std::filesystem::copy_options::overwrite_existing
-            : std::filesystem::copy_options::none;
-        std::filesystem::copy_file(entry.path(), destination, options, ec);
-        if (ec) {
-            return ec;
-        }
-
-        result.copied.push_back(destination);
+    if (destination_exists && !overwrite_existing) {
+        result.skipped.push_back(destination);
         if (perf_enabled) {
-            perf_manager.IncrementCounter("resources::yaml_files_copied");
+            perf_manager.IncrementCounter("resources::db_file_skipped");
         }
+        return {};
+    }
+
+    Path source_file;
+    for (const auto& candidate : impl.databaseCandidates()) {
+        std::error_code candidate_ec;
+        if (candidate.empty()) continue;
+        if (!std::filesystem::exists(candidate, candidate_ec) || candidate_ec) {
+            continue;
+        }
+        if (candidate.parent_path() == user_dir) {
+            continue;
+        }
+        source_file = candidate;
+        break;
+    }
+    if (source_file.empty()) {
+        for (const auto& candidate : impl.databaseCandidates()) {
+            std::error_code candidate_ec;
+            if (candidate.empty()) continue;
+            if (!std::filesystem::exists(candidate, candidate_ec) || candidate_ec) {
+                continue;
+            }
+            source_file = candidate;
+            break;
+        }
+    }
+
+    if (source_file.empty()) {
+        return std::make_error_code(std::errc::no_such_file_or_directory);
+    }
+
+    bool same_file = false;
+    if (destination_exists) {
+        same_file = std::filesystem::equivalent(source_file, destination, ec);
+        if (ec) {
+            return ec;
+        }
+    }
+    if (same_file) {
+        result.skipped.push_back(destination);
+        if (perf_enabled) {
+            perf_manager.IncrementCounter("resources::db_file_skipped");
+        }
+        return {};
+    }
+
+    std::filesystem::copy_options options = overwrite_existing
+        ? std::filesystem::copy_options::overwrite_existing
+        : std::filesystem::copy_options::none;
+    std::filesystem::copy_file(source_file, destination, options, ec);
+    if (ec) {
+        return ec;
+    }
+
+    result.copied.push_back(destination);
+    if (perf_enabled) {
+        perf_manager.IncrementCounter("resources::db_file_copied");
     }
 
     return {};

@@ -20,9 +20,9 @@ builds reproducible across Linux and Windows (msys2,pwsh,cmd) targets.【F:CMake
 Download the latest `nicels` setup program from the project's releases (or
 generate one locally with `cpack -G NSIS`). The installer supports
 per-machine and per-user installs, offers an "Add nls to PATH" checkbox, and
-places the bundled YAML themes in `<install dir>\\yaml`. Restart any open
+installs the bundled configuration database at `<install dir>\\DB\\NLS.sqlite3`. Restart any open
 shells after installation so the updated PATH takes effect. User overrides are
-still loaded from `%APPDATA%\\.nicels\\yaml`, letting you keep local changes
+still loaded from `%APPDATA%\\nicels\\DB\\NLS.sqlite3`, letting you keep local changes
 separate from the shared defaults.【F:CMakeLists.txt†L206-L228】【F:cmake/NSIS/NicelsNSISTemplate.in†L809-L877】
 
 ### Linux packages
@@ -38,10 +38,10 @@ sudo dpkg -i nicels_<version>_amd64.deb
 sudo apt-get install -f
 ```
 
-This installs `nls` to `/usr/bin/nls` and places the default YAML files in
-`/etc/dm17ryk/nicels/yaml`. Future upgrades or downgrades can reuse the same
-command; Debian's `conffile` handling preserves local edits in `/etc` by
-prompting before overwriting.【F:CMakeLists.txt†L177-L231】【F:CMakeLists.txt†L232-L306】
+This installs `nls` to `/usr/bin/nls` and places the default configuration
+database at `/etc/dm17ryk/nicels/DB/NLS.sqlite3`. Future upgrades or downgrades can
+reuse the same command; Debian's `conffile` handling preserves local edits in
+`/etc` by prompting before overwriting.【F:CMakeLists.txt†L177-L231】【F:CMakeLists.txt†L232-L306】
 
 **Fedora / RHEL (`.rpm`)**
 
@@ -52,7 +52,7 @@ sudo dnf install ./nicels-<version>-1.x86_64.rpm
 ```
 
 The package installs the binary under `/usr/bin` and marks
-`/etc/dm17ryk/nicels/yaml/*.yaml` as `%config(noreplace)` so administrator
+`/etc/dm17ryk/nicels/DB/NLS.sqlite3` as `%config(noreplace)` so administrator
 changes survive upgrades.【F:CMakeLists.txt†L232-L306】
 
 **User-local install (no root)**
@@ -61,13 +61,14 @@ If you cannot use the system package manager, run the helper script to stage a
 per-user installation:
 
 ```sh
-./tools/install_nls_user.sh --binary /path/to/nls --configs /path/to/yaml
+./tools/install_nls_user.sh --binary /path/to/nls --db /path/to/NLS.sqlite3
 ```
 
-The script copies the executable to `~/.local/bin/nls`, installs defaults into
-`~/.nicels/yaml`, and automatically backs up an existing `~/.nicels/yaml`
-directory before replacing it. It prints a reminder if `~/.local/bin` is not on
-your `PATH` and supports a `--dry-run` mode for verification.【F:tools/install_nls_user.sh†L1-L179】
+The script copies the executable to `~/.local/bin/nls`, installs the default
+database into `~/.nicels/DB`, and automatically backs up an existing
+`~/.nicels/DB/NLS.sqlite3` file before replacing it. It prints a reminder if
+`~/.local/bin` is not on your `PATH` and supports a `--dry-run` mode for
+verification.【F:tools/install_nls_user.sh†L1-L184】
 
 ### Linux (build from source)
 1. Install toolchain dependencies:
@@ -144,7 +145,7 @@ The generated files appear in `build/linux-clang/` under names such as
 `nicels-<version>-Source.tar.gz`. Debian and RPM archives adopt architecture
 tags like `x86_64`, `aarch64`, `x86`, or `arm` depending on the target. Debian
 packages automatically derive shared library dependencies with
-`dpkg-shlibdeps`, and the RPM marks the YAML files as `%config(noreplace)` so
+`dpkg-shlibdeps`, and the RPM marks the SQLite database as `%config(noreplace)` so
 upgrades respect local edits.【F:CMakeLists.txt†L177-L328】
 
 The `nls` executable appears under `build/<preset>/<config>/`. Run it directly
@@ -186,36 +187,25 @@ ctest --preset msys-clang-test
 You will see the informational message from CMake until tests are added.【F:CMakeLists.txt†L159-L170】
 
 ## Configuration files and themes
-`nls` loads its colour themes and icon maps from YAML files. The search order is:
+`nls` loads its colour themes, icon maps, and aliases from the SQLite
+database `NLS.sqlite3`. At startup it searches for the database in this order:
 
 1. A directory specified via the `NLS_DATA_DIR` environment variable (highest priority).
-2. `./yaml/` relative to the current working directory.
-3. `yaml/` next to the executable and its parent directory.
-4. System-wide defaults:
-   - Linux/macOS: `/etc/dm17ryk/nicels/yaml`
-   - Windows: the directory that contains the installed executable
-5. Per-user overrides:
-   - Linux/macOS: `~/.nicels/yaml`
-   - Windows: `%APPDATA%\.nicels\yaml` (falling back to `%USERPROFILE%` if needed)
+2. `./DB/` relative to the current working directory (and the working directory itself).
+3. `DB/` next to the executable, the executable's directory, and their parents (for relocatable installs).
+4. System-wide defaults installed with the package, e.g. `/etc/dm17ryk/nicels/DB/NLS.sqlite3` on Linux or `%PROGRAMDATA%\nicels\DB\NLS.sqlite3` on Windows.
+5. Per-user overrides: `~/.nicels/DB/NLS.sqlite3` on Linux/macOS, or `%APPDATA%\nicels\DB\NLS.sqlite3` on Windows (falling back to `%USERPROFILE%\nicels\DB` if `%APPDATA%` is unavailable).
 
-When both a global and a user YAML file exist for the same resource, `nls`
-loads the global configuration first and then applies the user entries on top,
-allowing per-user customisation without modifying the installation. If
-`NLS_DATA_DIR` is set, files from that directory take precedence and suppress
-user overrides for matching resources. Missing YAML files are silently ignored;
-compiled-in defaults remain in effect.【F:src/resources.cpp†L9-L116】【F:src/theme.cpp†L360-L505】
+The first readable database found in that order is used. If none can be opened,
+nicels falls back to the compiled-in defaults.【F:src/resources.cpp†L9-L207】【F:src/theme.cpp†L421-L515】
 
-Palette definitions (`colors.yaml`, `dark_theme.yaml`, and `light_theme.yaml`)
-support per-user overrides for the existing keys so you can tweak individual
-colours without copying the full files; new keys are ignored. Icon maps
-(`files.yaml`, `folders.yaml`, and their alias files) accept additional entries
-in user overrides, letting you introduce new file and folder icons or aliases
-alongside the bundled defaults.
-
-To create additional colour schemes, add a `<name>_theme.yaml` file to any of
-the configuration directories above. Launch `nls` with `--theme=<name>` to load
-it; the program reports an error and falls back to the default theme when the
-named file is missing.
+To customise colours or icons, copy the packaged `NLS.sqlite3` into the user
+configuration directory and edit it with your preferred SQLite tooling. Because
+the configuration lives in a single file, overrides replace the entire
+database—copy the default, modify it, and place the customised version wherever
+you want it to apply (e.g. `~/.nicels/DB/NLS.sqlite3`). The `--copy-config`
+and `--copy-config-only` options copy the currently detected database into the
+user directory for convenience.
 
 ## CLI usage
 ### Quick start
@@ -306,7 +296,7 @@ what the executable reports.
 | `--no-icons, --without-icons` | `—` | `—` | disable icons in output |
 | `--no-color` | `—` | `—` | disable ANSI colors |
 | `--color` | `WHEN` | `auto` | colorize the output: auto, always, never (default: auto) |
-| `--theme` | `NAME` | `—` | use theme NAME (loads NAME_theme.yaml) |
+| `--theme` | `NAME` | `—` | use theme NAME from the configuration database |
 | `--light` | `—` | `—` | use light color scheme |
 | `--dark` | `—` | `—` | use dark color scheme |
 | `-q, --hide-control-chars` | `—` | `—` | print ? instead of nongraphic characters |
@@ -350,9 +340,9 @@ what the executable reports.
   `--report short` summary when scripting.
 - On Windows presets, the link options statically link libgcc/libstdc++/winpthread
   so the produced `nls.exe` is self-contained.【F:CMakeLists.txt†L109-L149】
-- Theme YAML files under `yaml/` hold light/dark palettes. Copy the entries you
-  want to adjust into your per-user directory to change colours, and add new
-  icon or alias rows to extend icon coverage.【F:yaml/light_theme.yaml†L1-L200】
+- Configuration data lives in `NLS.sqlite3`. Copy it into `~/.nicels/DB` (or
+  `%APPDATA%\nicels\DB` on Windows) to experiment with new colours, icons, or
+  aliases without modifying the system-wide database.
 
 ## ASCII screenshots
 ### Linux (ANSI colours with inode, owner/group, Git status)

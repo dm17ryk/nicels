@@ -119,8 +119,8 @@ endif()
 unset(_nls_buildtree_install_prefix)
 unset(_nls_current_install_prefix)
 
-set(NLS_GLOBAL_CONFIG_INSTALL_DIR "/etc/dm17ryk/nicels/yaml"
-  CACHE PATH "Install location for nicels global YAML configuration files")
+set(NLS_GLOBAL_CONFIG_INSTALL_DIR "/etc/dm17ryk/nicels/DB"
+  CACHE PATH "Install location for nicels global configuration files")
 if(NOT IS_ABSOLUTE "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
   message(FATAL_ERROR "NLS_GLOBAL_CONFIG_INSTALL_DIR must be an absolute path")
 endif()
@@ -210,6 +210,26 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/includes" FILES ${_nls_headers})
 unset(_nls_sources)
 unset(_nls_headers)
 
+add_library(nls_sqlite3 STATIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/third-party/sqlite/sqlite3.c"
+)
+
+target_include_directories(nls_sqlite3
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third-party/sqlite
+)
+
+target_compile_definitions(nls_sqlite3
+  PUBLIC
+    SQLITE_THREADSAFE=1
+  PRIVATE
+    $<$<CONFIG:Release>:NDEBUG>
+)
+
+set_target_properties(nls_sqlite3 PROPERTIES
+  POSITION_INDEPENDENT_CODE ON
+)
+
 if(WIN32)
   set(_nls_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/icons/nls.ico")
   if(NOT EXISTS "${_nls_app_icon}")
@@ -243,10 +263,12 @@ target_include_directories(nls
     ${CMAKE_CURRENT_SOURCE_DIR}/src
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/includes
+    ${CMAKE_CURRENT_SOURCE_DIR}/third-party/sqlite
 )
 
 target_link_libraries(nls
   PRIVATE
+    nls_sqlite3
     CLI11::CLI11
 )
 
@@ -286,6 +308,7 @@ endif()
 
 if(NLS_RELEASE_COMPILE_OPTIONS)
   target_compile_options(nls PRIVATE $<$<CONFIG:Release>:${NLS_RELEASE_COMPILE_OPTIONS}>)
+  target_compile_options(nls_sqlite3 PRIVATE $<$<CONFIG:Release>:${NLS_RELEASE_COMPILE_OPTIONS}>)
 endif()
 
 if(NLS_RELEASE_LINK_OPTIONS)
@@ -402,45 +425,32 @@ if(WIN32 AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STR
 endif()
 
 
-set(_nls_yaml_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/yaml")
-file(GLOB _nls_yaml_files RELATIVE "${_nls_yaml_source_dir}" "${_nls_yaml_source_dir}/*.yaml")
-set(_nls_yaml_install_paths)
-
 install(TARGETS nls
   FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nls
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-if(WIN32)
-  set(_nls_yaml_install_destination "yaml")
-elseif(UNIX AND NOT APPLE)
-  set(_nls_yaml_install_destination "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
-else()
-  set(_nls_yaml_install_destination "${CMAKE_INSTALL_DATADIR}/nicels/yaml")
-endif()
-
-foreach(_nls_yaml IN LISTS _nls_yaml_files)
-  if(UNIX AND NOT APPLE)
-    set(_nls_yaml_install_path "${NLS_GLOBAL_CONFIG_INSTALL_DIR}/${_nls_yaml}")
-    list(APPEND _nls_yaml_install_paths "${_nls_yaml_install_path}")
+set(_nls_db_source "${CMAKE_CURRENT_SOURCE_DIR}/DB/NLS.sqlite3")
+set(_nls_db_install_path)
+if(EXISTS "${_nls_db_source}")
+  if(WIN32)
+    set(_nls_db_install_destination "DB")
+  elseif(UNIX AND NOT APPLE)
+    set(_nls_db_install_destination "${NLS_GLOBAL_CONFIG_INSTALL_DIR}")
+  else()
+    set(_nls_db_install_destination "${CMAKE_INSTALL_DATADIR}/nicels/DB")
   endif()
 
-  install(FILES "${_nls_yaml_source_dir}/${_nls_yaml}"
-    DESTINATION "${_nls_yaml_install_destination}")
-endforeach()
+  install(FILES "${_nls_db_source}"
+    DESTINATION "${_nls_db_install_destination}")
 
-if(WIN32)
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/man/nls.chm"
-    DESTINATION "man")
-elseif(UNIX AND NOT APPLE)
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/man/linux/nls.1"
-    DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
+  if(IS_ABSOLUTE "${_nls_db_install_destination}")
+    set(_nls_db_install_path "${_nls_db_install_destination}/NLS.sqlite3")
+  endif()
 endif()
-unset(_nls_yaml)
-unset(_nls_yaml_install_path)
-unset(_nls_yaml_install_destination)
-unset(_nls_yaml_files)
-unset(_nls_yaml_source_dir)
+
+unset(_nls_db_install_destination)
+unset(_nls_db_source)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -497,8 +507,26 @@ else()
   set(_nls_cpack_arch "unknown")
 endif()
 
-set(CPACK_SYSTEM_NAME "${_nls_cpack_arch}")
-set(CPACK_PACKAGE_FILE_NAME "nicels-${NLS_VERSION_STRING}-${_nls_cpack_arch}")
+set(_nls_pkg_file_arch "${_nls_cpack_arch}")
+set(_nls_debian_arch "${_nls_cpack_arch}")
+set(_nls_rpm_arch "${_nls_cpack_arch}")
+
+if(_nls_cpack_arch STREQUAL "x86_64")
+  set(_nls_debian_arch "amd64")
+elseif(_nls_cpack_arch STREQUAL "x86")
+  set(_nls_debian_arch "i386")
+elseif(_nls_cpack_arch STREQUAL "arm")
+  set(_nls_debian_arch "armhf")
+endif()
+
+if(_nls_cpack_arch STREQUAL "arm64")
+  set(_nls_rpm_arch "aarch64")
+elseif(_nls_cpack_arch STREQUAL "arm")
+  set(_nls_rpm_arch "arm")
+endif()
+
+set(CPACK_SYSTEM_NAME "${_nls_pkg_file_arch}")
+set(CPACK_PACKAGE_FILE_NAME "nicels-${NLS_VERSION_STRING}-${_nls_pkg_file_arch}")
 
 if(WIN32)
   set(CPACK_GENERATOR "NSIS")
@@ -521,10 +549,14 @@ if(WIN32)
   set(CPACK_NSIS_MUI_UNIICON "${_nls_app_icon}")
   set(CPACK_NSIS_INSTALLER_ICON "${_nls_app_icon}")
   set(CPACK_NSIS_UNINSTALLER_ICON "${_nls_app_icon}")
+  set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
+    "CreateDirectory \\\"$COMMONPROGRAMDATA\\\\nicels\\\\DB\\\"\\nCopyFiles /SILENT \\\"$INSTDIR\\\\DB\\\\NLS.sqlite3\\\" \\\"$COMMONPROGRAMDATA\\\\nicels\\\\DB\\\\NLS.sqlite3\\\"\\n")
+  set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
+    "Delete \\\"$COMMONPROGRAMDATA\\\\nicels\\\\DB\\\\NLS.sqlite3\\\"\\nRMDir \\\"$COMMONPROGRAMDATA\\\\nicels\\\\DB\\\"\\nRMDir \\\"$COMMONPROGRAMDATA\\\\nicels\\\"\\n")
 elseif(UNIX AND NOT APPLE)
   set(CPACK_GENERATOR "DEB;RPM")
-  set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${_nls_cpack_arch}")
-  set(CPACK_RPM_PACKAGE_ARCHITECTURE "${_nls_cpack_arch}")
+  set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${_nls_debian_arch}")
+  set(CPACK_RPM_PACKAGE_ARCHITECTURE "${_nls_rpm_arch}")
   set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
   set(CPACK_DEBIAN_PACKAGE_MAINTAINER "nicels maintainers")
   set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/nicels/nicels")
@@ -537,22 +569,15 @@ elseif(UNIX AND NOT APPLE)
   set(CPACK_RPM_PACKAGE_DESCRIPTION
     "nicels is a feature-rich replacement for ls that adds icons, git status, and modern defaults.")
 
-  if(_nls_yaml_install_paths)
+  if(_nls_db_install_path)
     set(_nls_cpack_aux_dir "${CMAKE_CURRENT_BINARY_DIR}/cpack")
     file(MAKE_DIRECTORY "${_nls_cpack_aux_dir}")
 
     set(_nls_debian_conffiles "${_nls_cpack_aux_dir}/conffiles")
-    string(JOIN "\n" _nls_debian_conffiles_contents ${_nls_yaml_install_paths})
-    file(WRITE "${_nls_debian_conffiles}" "${_nls_debian_conffiles_contents}\n")
+    file(WRITE "${_nls_debian_conffiles}" "${_nls_db_install_path}\n")
     set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${_nls_debian_conffiles}")
 
-    set(_nls_rpm_config_entries)
-    foreach(_nls_yaml_path IN LISTS _nls_yaml_install_paths)
-      list(APPEND _nls_rpm_config_entries "%config(noreplace) ${_nls_yaml_path}")
-    endforeach()
-    string(JOIN "\n" CPACK_RPM_USER_FILELIST ${_nls_rpm_config_entries})
-    unset(_nls_rpm_config_entries)
-    unset(_nls_debian_conffiles_contents)
+    set(CPACK_RPM_USER_FILELIST "%config(noreplace) ${_nls_db_install_path}")
     unset(_nls_debian_conffiles)
   endif()
 endif()
@@ -573,8 +598,11 @@ set(CPACK_SOURCE_IGNORE_FILES
 )
 
 include(CPack)
-unset(_nls_yaml_install_paths)
+unset(_nls_db_install_path)
 unset(_nls_cpack_arch)
 unset(_nls_cpack_arch_candidate)
 unset(_nls_cpack_arch_lower)
 unset(_nls_cpack_vs_platform)
+unset(_nls_pkg_file_arch)
+unset(_nls_debian_arch)
+unset(_nls_rpm_arch)

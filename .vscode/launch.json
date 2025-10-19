@@ -8,18 +8,19 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/nls.exe",
-            /* "args": [
+            "program": "C:\\Program Files\\nicels\\bin\\nls.exe",
+            "args": [
                 "-l",
                 "-A",
                 "-a",
                 "--gs",
-            ], */
-            "args": [
-                "-h"
+                "--sd"
             ],
+            // "args": [
+            //     "-h"
+            // ],
             "stopAtEntry": true,
-            "cwd": "${fileDirname}/../",
+            "cwd": "${workspaceFolder}/test/",
             "environment": [],
             "externalConsole": true,
             "MIMode": "gdb",

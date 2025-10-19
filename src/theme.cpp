@@ -2,20 +2,24 @@
 
 #include "resources.h"
 #include "string_utils.h"
-#include "yaml_loader.h"
 
 #include "perf.h"
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cctype>
 #include <filesystem>
 #include <format>
+#include <memory>
 #include <optional>
 #include <iostream>
 #include <sstream>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
+
+#include <sqlite3.h>
 
 namespace nls {
 namespace {
@@ -105,59 +109,17 @@ public:
         return theme;
     }
 
-    static void MergeMap(std::unordered_map<std::string, std::string>& dest,
-                         const std::unordered_map<std::string, std::string>& src,
-                         bool lowercase_values = false)
-    {
-        for (const auto& kv : src) {
-            std::string value = kv.second;
-            if (lowercase_values) value = StringUtils::ToLower(value);
-            dest[StringUtils::ToLower(kv.first)] = std::move(value);
-        }
-    }
-
-    static std::optional<std::string> ParseColorName(std::string_view name)
-    {
-        std::string trimmed = StringUtils::Trim(name);
-        std::erase_if(trimmed, [](unsigned char ch) { return std::isspace(ch) != 0; });
-        if (trimmed.empty()) return std::string{};
-        std::string lower = StringUtils::ToLower(trimmed);
-        if (lower == "none" || lower == "default") return std::string{};
-        if (!lower.empty() && lower[0] == '#') {
-            auto rgb = ParseHexTriplet(std::string_view(lower).substr(1));
-            if (!rgb) return std::nullopt;
-            return MakeAnsi((*rgb)[0], (*rgb)[1], (*rgb)[2]);
-        }
-        if (lower.size() > 1 && lower[0] == '0' && (lower[1] == 'x' || lower[1] == 'X')) {
-            auto rgb = ParseHexTriplet(std::string_view(lower).substr(2));
-            if (!rgb) return std::nullopt;
-            return MakeAnsi((*rgb)[0], (*rgb)[1], (*rgb)[2]);
-        }
-        auto it = ColorMap().find(lower);
-        if (it != ColorMap().end()) {
-            return MakeAnsi(it->second[0], it->second[1], it->second[2]);
-        }
-        return std::nullopt;
-    }
-
     static std::string ToUtf8(std::u8string_view text)
     {
         return {reinterpret_cast<const char*>(text.data()), text.size()};
     }
 
-    static bool IsPathWithin(const std::filesystem::path& path, const std::filesystem::path& base)
+    static std::string MakeAnsiFromRgb(std::uint32_t rgb)
     {
-        if (path.empty() || base.empty()) return false;
-        auto normalized_path = path.lexically_normal();
-        auto normalized_base = base.lexically_normal();
-
-        auto path_it = normalized_path.begin();
-        for (auto base_it = normalized_base.begin(); base_it != normalized_base.end(); ++base_it, ++path_it) {
-            if (path_it == normalized_path.end() || *path_it != *base_it) {
-                return false;
-            }
-        }
-        return true;
+        int r = static_cast<int>((rgb >> 16) & 0xFF);
+        int g = static_cast<int>((rgb >> 8) & 0xFF);
+        int b = static_cast<int>(rgb & 0xFF);
+        return MakeAnsi(r, g, b);
     }
 
 private:
@@ -165,173 +127,185 @@ private:
     {
         return std::format("\x1b[38;2;{};{};{}m", r, g, b);
     }
+};
 
-    static constexpr int HexValue(char ch) noexcept
+struct SqliteCloser {
+    void operator()(sqlite3* db) const noexcept
     {
-        if (ch >= '0' && ch <= '9') return ch - '0';
-        if (ch >= 'a' && ch <= 'f') return 10 + (ch - 'a');
-        if (ch >= 'A' && ch <= 'F') return 10 + (ch - 'A');
-        return -1;
-    }
-
-    static constexpr std::optional<std::array<int, 3>> ParseHexTriplet(std::string_view hex)
-    {
-        if (hex.size() == 3) {
-            int r = HexValue(hex[0]);
-            int g = HexValue(hex[1]);
-            int b = HexValue(hex[2]);
-            if (r < 0 || g < 0 || b < 0) return std::nullopt;
-            return std::array<int, 3>{r * 17, g * 17, b * 17};
+        if (db) {
+            sqlite3_close(db);
         }
-        if (hex.size() == 6) {
-            int vals[6];
-            for (size_t i = 0; i < 6; ++i) {
-                vals[i] = HexValue(hex[i]);
-                if (vals[i] < 0) return std::nullopt;
-            }
-            int r = vals[0] * 16 + vals[1];
-            int g = vals[2] * 16 + vals[3];
-            int b = vals[4] * 16 + vals[5];
-            return std::array<int, 3>{r, g, b};
-        }
-        return std::nullopt;
-    }
-
-    static std::optional<std::array<int, 3>> ParseColorTriplet(const std::string& value)
-    {
-        std::string trimmed = StringUtils::Trim(value);
-        if (trimmed.empty()) return std::nullopt;
-
-        std::string lower = StringUtils::ToLower(trimmed);
-        std::string_view view(lower);
-        if (!view.empty() && view.front() == '#') {
-            view.remove_prefix(1);
-        } else if (view.size() > 2 && view[0] == '0' && (view[1] == 'x' || view[1] == 'X')) {
-            view.remove_prefix(2);
-        }
-
-        if (auto rgb = ParseHexTriplet(view)) {
-            return rgb;
-        }
-
-        std::string normalized = trimmed;
-        std::replace_if(normalized.begin(), normalized.end(), [](char ch) {
-            return ch == ',' || ch == ';';
-        }, ' ');
-
-        std::istringstream iss(normalized);
-        int r = 0;
-        int g = 0;
-        int b = 0;
-        if (!(iss >> r >> g >> b)) {
-            return std::nullopt;
-        }
-        if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
-            return std::nullopt;
-        }
-        return std::array<int, 3>{r, g, b};
-    }
-
-    static std::unordered_map<std::string, std::array<int, 3>> MakeDefaultColorMap()
-    {
-        static constexpr std::array<std::pair<std::string_view, std::array<int, 3>>, 44> kDefaults{{
-            {"black", {0, 0, 0}},
-            {"white", {255, 255, 255}},
-            {"red", {255, 0, 0}},
-            {"green", {0, 128, 0}},
-            {"lime", {0, 255, 0}},
-            {"limegreen", {50, 205, 50}},
-            {"seagreen", {46, 139, 87}},
-            {"mediumspringgreen", {0, 250, 154}},
-            {"chartreuse", {127, 255, 0}},
-            {"darkred", {139, 0, 0}},
-            {"darkorange", {255, 140, 0}},
-            {"forestgreen", {34, 139, 34}},
-            {"darkgreen", {0, 100, 0}},
-            {"navy", {0, 0, 128}},
-            {"navyblue", {0, 0, 128}},
-            {"darkblue", {0, 0, 139}},
-            {"blue", {0, 0, 255}},
-            {"cyan", {0, 255, 255}},
-            {"aqua", {0, 255, 255}},
-            {"dodgerblue", {30, 144, 255}},
-            {"orange", {255, 165, 0}},
-            {"gold", {255, 215, 0}},
-            {"yellow", {255, 255, 0}},
-            {"peachpuff", {255, 218, 185}},
-            {"moccasin", {255, 228, 181}},
-            {"slategray", {112, 128, 144}},
-            {"slategrey", {112, 128, 144}},
-            {"burlywood", {222, 184, 135}},
-            {"indianred", {205, 92, 92}},
-            {"royalblue", {65, 105, 225}},
-            {"saddlebrown", {139, 69, 19}},
-            {"sienna", {160, 82, 45}},
-            {"darkkhaki", {189, 183, 107}},
-            {"darkgray", {169, 169, 169}},
-            {"darkgrey", {169, 169, 169}},
-            {"gray", {128, 128, 128}},
-            {"grey", {128, 128, 128}},
-            {"lightgray", {211, 211, 211}},
-            {"lightgrey", {211, 211, 211}},
-            {"silver", {192, 192, 192}},
-            {"brown", {165, 42, 42}},
-            {"magenta", {255, 0, 255}},
-            {"purple", {128, 0, 128}},
-            {"pink", {255, 192, 203}}
-        }};
-
-        std::unordered_map<std::string, std::array<int, 3>> map;
-        map.reserve(kDefaults.size());
-        for (const auto& [name, rgb] : kDefaults) {
-            map.emplace(name, rgb);
-        }
-        return map;
-    }
-
-    static std::unordered_map<std::string, std::array<int, 3>> LoadColorMapFromYaml()
-    {
-        auto result = MakeDefaultColorMap();
-        auto apply = [&](const std::filesystem::path& path) {
-            if (path.empty()) return;
-            auto yaml_map = YamlLoader::LoadSimpleMap(path, true);
-            for (auto& kv : yaml_map) {
-                auto rgb = ParseColorTriplet(kv.second);
-                if (rgb) {
-                    auto lower = StringUtils::ToLower(kv.first);
-                    auto it = result.find(lower);
-                    if (it != result.end()) {
-                        it->second = *rgb;
-                    }
-                }
-            }
-        };
-
-        auto primary_path = ResourceManager::find("colors.yaml");
-        apply(primary_path);
-
-        const auto user_dir = ResourceManager::userConfigDir();
-        const auto env_dir = ResourceManager::envOverrideDir();
-        const bool primary_from_env = ThemeSupport::IsPathWithin(primary_path, env_dir);
-        if (!user_dir.empty() && (!primary_from_env || primary_path.empty())) {
-            std::filesystem::path user_path = user_dir / "colors.yaml";
-            if (user_path != primary_path) {
-                std::error_code ec;
-                if (std::filesystem::exists(user_path, ec) && !ec) {
-                    apply(user_path);
-                }
-            }
-        }
-
-        return result;
-    }
-
-    static const std::unordered_map<std::string, std::array<int, 3>>& ColorMap()
-    {
-        static const std::unordered_map<std::string, std::array<int, 3>> map = LoadColorMapFromYaml();
-        return map;
     }
 };
+
+struct SqliteStmtFinalizer {
+    void operator()(sqlite3_stmt* stmt) const noexcept
+    {
+        if (stmt) {
+            sqlite3_finalize(stmt);
+        }
+    }
+};
+
+using SqliteDbPtr = std::unique_ptr<sqlite3, SqliteCloser>;
+using SqliteStmtPtr = std::unique_ptr<sqlite3_stmt, SqliteStmtFinalizer>;
+
+static std::string PathToUtf8(const std::filesystem::path& path)
+{
+    auto u8 = path.u8string();
+    std::string out;
+    out.reserve(u8.size());
+    for (char8_t ch : u8) {
+        out.push_back(static_cast<char>(ch));
+    }
+    return out;
+}
+
+static SqliteDbPtr OpenConfigDatabase(const std::filesystem::path& path)
+{
+    sqlite3* raw = nullptr;
+    const std::string utf8 = PathToUtf8(path);
+    int rc = sqlite3_open_v2(utf8.c_str(), &raw, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nullptr);
+    if (rc != SQLITE_OK) {
+        if (raw) {
+            std::cerr << "nls: error: failed to open config database '" << path << "': "
+                      << sqlite3_errmsg(raw) << '\n';
+            sqlite3_close(raw);
+        } else {
+            std::cerr << "nls: error: failed to open config database '" << path << "': "
+                      << sqlite3_errstr(rc) << '\n';
+        }
+        return {};
+    }
+    return SqliteDbPtr(raw);
+}
+
+static bool LoadThemeColors(sqlite3* db, int theme_id, ThemeColors& target, std::size_t& entries_out)
+{
+    static constexpr const char* kSql =
+        "SELECT element, c.value FROM Theme_colors t "
+        "JOIN Colors c ON t.color_id = c.id WHERE t.id = ?1;";
+    sqlite3_stmt* stmt_raw = nullptr;
+    int rc = sqlite3_prepare_v2(db, kSql, -1, &stmt_raw, nullptr);
+    if (rc != SQLITE_OK) {
+        entries_out = 0;
+        return false;
+    }
+    SqliteStmtPtr stmt(stmt_raw);
+    rc = sqlite3_bind_int(stmt.get(), 1, theme_id);
+    if (rc != SQLITE_OK) {
+        entries_out = 0;
+        return false;
+    }
+
+    std::size_t entries = 0;
+    while ((rc = sqlite3_step(stmt.get())) == SQLITE_ROW) {
+        const unsigned char* element = sqlite3_column_text(stmt.get(), 0);
+        if (!element) {
+            continue;
+        }
+        std::string key = StringUtils::ToLower(reinterpret_cast<const char*>(element));
+        std::uint32_t rgb = static_cast<std::uint32_t>(sqlite3_column_int64(stmt.get(), 1)) & 0xFFFFFFu;
+        target.set(std::move(key), ThemeSupport::MakeAnsiFromRgb(rgb));
+        ++entries;
+    }
+
+    entries_out = entries;
+    return rc == SQLITE_DONE && entries > 0;
+}
+
+
+static std::optional<int> LookupThemeId(sqlite3* db, std::string_view name)
+{
+    static constexpr const char* kSql =
+        "SELECT id FROM Themes WHERE LOWER(name) = LOWER(?1) LIMIT 1;";
+    sqlite3_stmt* stmt_raw = nullptr;
+    int rc = sqlite3_prepare_v2(db, kSql, -1, &stmt_raw, nullptr);
+    if (rc != SQLITE_OK) {
+        return std::nullopt;
+    }
+    SqliteStmtPtr stmt(stmt_raw);
+    rc = sqlite3_bind_text(stmt.get(), 1, name.data(), static_cast<int>(name.size()), SQLITE_TRANSIENT);
+    if (rc != SQLITE_OK) {
+        return std::nullopt;
+    }
+    rc = sqlite3_step(stmt.get());
+    if (rc == SQLITE_ROW) {
+        return sqlite3_column_int(stmt.get(), 0);
+    }
+    if (rc == SQLITE_DONE) {
+        return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+struct IconLoadStats {
+    std::size_t sources = 0;
+    std::size_t entries = 0;
+    bool success = true;
+};
+
+static IconLoadStats LoadIconsFromDatabase(sqlite3* db, IconTheme& icons)
+{
+    IconLoadStats stats;
+
+    auto load_map = [&](const std::string& query, auto& target, bool is_alias) {
+        sqlite3_stmt* stmt = nullptr;
+        int rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr);
+        if (rc != SQLITE_OK) {
+            std::cerr << "Warning: Failed to prepare query: " << query << "\n";
+            stats.success = false;
+            return;
+        }
+        ++stats.sources;
+        while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+            // Check column count
+            int col_count = sqlite3_column_count(stmt);
+            if (col_count < 2) {
+                std::cerr << "Warning: Query '" << query << "' returned less than 2 columns\n";
+                continue;
+            }
+            const unsigned char* key = sqlite3_column_text(stmt, 0);
+            const unsigned char* value = sqlite3_column_text(stmt, 1);
+            if (!key || !value) {
+                std::cerr << "Warning: Missing key or icon value in query '" << query << "'\n";
+                continue;
+            }
+            std::string key_str(StringUtils::ToLower(reinterpret_cast<const char*>(key)));
+            std::string value_str(reinterpret_cast<const char*>(value));
+            if (is_alias) {
+                value_str = StringUtils::ToLower(value_str);
+            }
+            // Check for malformed icon value (example: empty string)
+            if (value_str.empty()) {
+                std::cerr << "Warning: Malformed icon value for key '" << key_str << "' in query '" << query << "'\n";
+                continue;
+            }
+            target[key_str] = value_str;
+            ++stats.entries;
+        }
+        if (rc != SQLITE_DONE) {
+            std::cerr << "Warning: Error executing query: " << query << "\n";
+            stats.success = false;
+        }
+        sqlite3_finalize(stmt);
+    };
+
+    icons.files.clear();
+    icons.folders.clear();
+    icons.file_aliases.clear();
+    icons.folder_aliases.clear();
+
+    load_map("SELECT name, icon FROM Files;", icons.files, false);
+    load_map("SELECT name, icon FROM Folders;", icons.folders, false);
+    load_map("SELECT alias, name FROM File_Aliases;", icons.file_aliases, true);
+    load_map("SELECT alias, name FROM Folder_Aliases;", icons.folder_aliases, true);
+
+    return stats;
+}
+
+
+
 
 } // namespace
 
@@ -385,13 +359,40 @@ void Theme::initialize(ColorScheme scheme, std::optional<std::string> custom_the
         if (name.empty() || has_separator) {
             std::cerr << "nls: error: theme '" << *custom_theme << "' not found\n";
         } else {
-            bool found = false;
-            ThemeColors loaded = load_theme_file(name + "_theme.yaml", &found);
-            if (!found) {
+            std::vector<std::filesystem::path> candidate_paths;
+            if (!database_path_.empty()) {
+                candidate_paths.push_back(database_path_);
+            }
+            for (const auto& candidate : ResourceManager::databaseCandidates()) {
+                if (candidate.empty()) continue;
+                if (std::find(candidate_paths.begin(), candidate_paths.end(), candidate) == candidate_paths.end()) {
+                    candidate_paths.push_back(candidate);
+                }
+            }
+
+            bool loaded_custom = false;
+            for (const auto& candidate : candidate_paths) {
+                if (candidate.empty()) continue;
+                if (auto db = OpenConfigDatabase(candidate)) {
+                    auto theme_id = LookupThemeId(db.get(), name);
+                    if (!theme_id) {
+                        continue;
+                    }
+                    ThemeColors loaded = fallback_;
+                    std::size_t entries = 0;
+                    if (!LoadThemeColors(db.get(), *theme_id, loaded, entries)) {
+                        continue;
+                    }
+                    custom_theme_name_ = name;
+                    custom_theme_ = std::move(loaded);
+                    database_path_ = candidate;
+                    loaded_custom = true;
+                    break;
+                }
+            }
+
+            if (!loaded_custom) {
                 std::cerr << "nls: error: theme '" << *custom_theme << "' not found\n";
-            } else {
-                custom_theme_name_ = std::move(name);
-                custom_theme_ = std::move(loaded);
             }
         }
     }
@@ -472,122 +473,33 @@ void Theme::ensure_loaded()
 
     loaded_ = true;
     fallback_ = ThemeSupport::MakeFallbackTheme();
-    dark_ = load_theme_file("dark_theme.yaml");
-    light_ = load_theme_file("light_theme.yaml");
-    load_icons();
-}
-
-ThemeColors Theme::load_theme_file(const std::string& filename, bool* found)
-{
-    auto& perf_manager = perf::Manager::Instance();
-    const bool perf_enabled = perf_manager.enabled();
-    std::optional<perf::Timer> timer;
-    if (perf_enabled) {
-        timer.emplace("theme::load_theme_file");
-        perf_manager.IncrementCounter("theme::load_theme_file_calls");
-    }
-
-    ThemeColors theme = fallback_;
-    bool loaded_any = false;
-    std::size_t sources_considered = 0;
-    std::size_t entries_processed = 0;
-    std::size_t colors_applied = 0;
-    auto apply = [&](const std::filesystem::path& path) {
-        if (path.empty()) return;
-        ++sources_considered;
-        loaded_any = true;
-        auto map = YamlLoader::LoadSimpleMap(path, true);
-        for (auto& kv : map) {
-            ++entries_processed;
-            if (theme.values.find(kv.first) == theme.values.end()) {
-                continue;
-            }
-            auto parsed = ThemeSupport::ParseColorName(kv.second);
-            if (parsed) {
-                theme.set(kv.first, *parsed);
-                ++colors_applied;
-            }
-        }
-    };
-
-    auto primary_path = ResourceManager::find(filename);
-    apply(primary_path);
-
-    const auto user_dir = ResourceManager::userConfigDir();
-    const auto env_dir = ResourceManager::envOverrideDir();
-    const bool primary_from_env = ThemeSupport::IsPathWithin(primary_path, env_dir);
-    if (!user_dir.empty() && (!primary_from_env || primary_path.empty())) {
-        std::filesystem::path user_path = user_dir / filename;
-        if (user_path != primary_path) {
-            std::error_code ec;
-            if (std::filesystem::exists(user_path, ec) && !ec) {
-                apply(user_path);
-            }
-        }
-    }
-    if (found) {
-        *found = loaded_any;
-    }
-    if (perf_enabled) {
-        perf_manager.IncrementCounter("theme::theme_sources", sources_considered);
-        perf_manager.IncrementCounter("theme::theme_entries_processed", entries_processed);
-        perf_manager.IncrementCounter("theme::theme_colors_applied", colors_applied);
-    }
-    return theme;
-}
-
-void Theme::load_icons()
-{
-    auto& perf_manager = perf::Manager::Instance();
-    const bool perf_enabled = perf_manager.enabled();
-    std::optional<perf::Timer> timer;
-    if (perf_enabled) {
-        timer.emplace("theme::load_icons");
-        perf_manager.IncrementCounter("theme::load_icons_calls");
-    }
-
+    dark_ = fallback_;
+    light_ = fallback_;
     icons_ = ThemeSupport::MakeFallbackIcons();
+    database_path_.clear();
 
-    const auto user_dir = ResourceManager::userConfigDir();
-    const auto env_dir = ResourceManager::envOverrideDir();
+    std::size_t theme_sources = 0;
+    std::size_t theme_entries = 0;
+    IconLoadStats icon_stats{};
 
-    std::size_t icon_sources = 0;
-    std::size_t icon_entries = 0;
-
-    auto merge_with_overrides = [&](const std::string& name,
-                                    auto& target,
-                                    bool lowercase_values) {
-        auto primary_path = ResourceManager::find(name);
-        if (!primary_path.empty()) {
-            auto map = YamlLoader::LoadSimpleMap(primary_path, true);
-            if (perf_enabled) {
-                ++icon_sources;
-                icon_entries += map.size();
+    for (const auto& candidate : ResourceManager::databaseCandidates()) {
+        if (candidate.empty()) continue;
+        if (auto db = OpenConfigDatabase(candidate)) {
+            std::size_t dark_entries = 0;
+            if (LoadThemeColors(db.get(), 1, dark_, dark_entries)) {
+                ++theme_sources;
+                theme_entries += dark_entries;
             }
-            ThemeSupport::MergeMap(target, map, lowercase_values);
-        }
-
-        const bool primary_from_env = ThemeSupport::IsPathWithin(primary_path, env_dir);
-        if (!user_dir.empty() && (!primary_from_env || primary_path.empty())) {
-            std::filesystem::path user_path = user_dir / name;
-            if (user_path != primary_path) {
-                std::error_code ec;
-                if (std::filesystem::exists(user_path, ec) && !ec) {
-                    auto map = YamlLoader::LoadSimpleMap(user_path, true);
-                    if (perf_enabled) {
-                        ++icon_sources;
-                        icon_entries += map.size();
-                    }
-                    ThemeSupport::MergeMap(target, map, lowercase_values);
-                }
+            std::size_t light_entries = 0;
+            if (LoadThemeColors(db.get(), 2, light_, light_entries)) {
+                ++theme_sources;
+                theme_entries += light_entries;
             }
+            icon_stats = LoadIconsFromDatabase(db.get(), icons_);
+            database_path_ = candidate;
+            break;
         }
-    };
-
-    merge_with_overrides("files.yaml", icons_.files, false);
-    merge_with_overrides("file_aliases.yaml", icons_.file_aliases, true);
-    merge_with_overrides("folders.yaml", icons_.folders, false);
-    merge_with_overrides("folder_aliases.yaml", icons_.folder_aliases, true);
+    }
 
     if (icons_.files.find("file") == icons_.files.end()) {
         icons_.files["file"] = ThemeSupport::ToUtf8(u8"\uf15b");
@@ -595,9 +507,12 @@ void Theme::load_icons()
     if (icons_.folders.find("folder") == icons_.folders.end()) {
         icons_.folders["folder"] = ThemeSupport::ToUtf8(u8"\uf07b");
     }
+
     if (perf_enabled) {
-        perf_manager.IncrementCounter("theme::icon_sources", icon_sources);
-        perf_manager.IncrementCounter("theme::icon_entries_processed", icon_entries);
+        perf_manager.IncrementCounter("theme::theme_sources", theme_sources);
+        perf_manager.IncrementCounter("theme::theme_entries_processed", theme_entries);
+        perf_manager.IncrementCounter("theme::icon_sources", icon_stats.sources);
+        perf_manager.IncrementCounter("theme::icon_entries_processed", icon_stats.entries);
     }
 }
 
