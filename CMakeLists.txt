@@ -550,9 +550,9 @@ if(WIN32)
   set(CPACK_NSIS_INSTALLER_ICON "${_nls_app_icon}")
   set(CPACK_NSIS_UNINSTALLER_ICON "${_nls_app_icon}")
   set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
-    "CreateDirectory \"$PROGRAMDATA\\nicels\\DB\"\nCopyFiles /SILENT \"$INSTDIR\\DB\\NLS.sqlite3\" \"$PROGRAMDATA\\nicels\\DB\\NLS.sqlite3\"")
+    "CreateDirectory \\\"$COMMONPROGRAMDATA\\\\nicels\\\\DB\\\"\\nCopyFiles /SILENT \\\"$INSTDIR\\\\DB\\\\NLS.sqlite3\\\" \\\"$COMMONPROGRAMDATA\\\\nicels\\\\DB\\\\NLS.sqlite3\\\"\\n")
   set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
-    "Delete \"$PROGRAMDATA\\nicels\\DB\\NLS.sqlite3\"\nRMDir \"$PROGRAMDATA\\nicels\\DB\"\nRMDir \"$PROGRAMDATA\\nicels\"")
+    "Delete \\\"$COMMONPROGRAMDATA\\\\nicels\\\\DB\\\\NLS.sqlite3\\\"\\nRMDir \\\"$COMMONPROGRAMDATA\\\\nicels\\\\DB\\\"\\nRMDir \\\"$COMMONPROGRAMDATA\\\\nicels\\\"\\n")
 elseif(UNIX AND NOT APPLE)
   set(CPACK_GENERATOR "DEB;RPM")
   set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${_nls_debian_arch}")
