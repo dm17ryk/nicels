@@ -42,3 +42,5 @@ build/
 _CPack_Packages/
 CMakeUserPresets.json
 compile_commands.json
+NLS.sqlite3-shm
+NLS.sqlite3-wal

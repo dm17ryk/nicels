@@ -8,6 +8,9 @@
 #include "perf.h"
 
 namespace nls {
+namespace {
+constexpr const char* kDatabaseFilename = "NLS.sqlite3";
+}
 
 class ResourceManager::Impl {
 public:
@@ -30,6 +33,12 @@ public:
 
         const auto initial_directories = directories_.size();
 
+        auto register_directory = [&](const Path& dir) {
+            if (dir.empty()) return;
+            auto normalized = normalize(dir);
+            addNormalizedDir(std::move(normalized));
+        };
+
         if (const char* env = std::getenv("NLS_DATA_DIR")) {
             if (env[0] != '\0') {
                 auto normalized = normalize(Path(env));
@@ -41,9 +50,12 @@ public:
         std::error_code ec;
         Path cwd = std::filesystem::current_path(ec);
         if (!ec) {
-            addDir(cwd / "yaml");
+            register_directory(cwd / "DB");
+            register_directory(cwd / "yaml"); // compatibility with legacy layouts
+            register_directory(cwd);
         }
 
+        Path exe_dir;
         if (argv0 && argv0[0] != '\0') {
             Path exe_path(argv0);
             if (!exe_path.is_absolute()) {
@@ -53,38 +65,59 @@ public:
             if (ec) {
                 exe_path = exe_path.lexically_normal();
             }
-            Path exe_dir = exe_path.parent_path();
+            exe_dir = exe_path.parent_path();
             if (!exe_dir.empty()) {
-                addDir(exe_dir / "yaml");
-                addDir(exe_dir.parent_path() / "yaml");
+                register_directory(exe_dir / "DB");
+                register_directory(exe_dir / "yaml");
+                register_directory(exe_dir);
+                Path exe_parent = exe_dir.parent_path();
+                if (!exe_parent.empty()) {
+                    register_directory(exe_parent / "DB");
+                    register_directory(exe_parent / "yaml");
+                    register_directory(exe_parent);
+                }
             }
         }
 
 #ifdef _WIN32
-        Path user_dir;
+        Path primary_user_dir;
         if (const char* appdata = std::getenv("APPDATA")) {
             if (appdata[0] != '\0') {
-                user_dir = Path(appdata) / ".nicels" / "yaml";
+                Path base(appdata);
+                primary_user_dir = base / "nicels" / "DB";
+                register_directory(primary_user_dir);
+                register_directory(base / "nicels");
+                register_directory(base / ".nicels" / "yaml"); // legacy
             }
         }
-        if (user_dir.empty()) {
+        if (primary_user_dir.empty()) {
             if (const char* profile = std::getenv("USERPROFILE")) {
                 if (profile[0] != '\0') {
-                    user_dir = Path(profile) / ".nicels" / "yaml";
+                    Path base(profile);
+                    primary_user_dir = base / "nicels" / "DB";
+                    register_directory(primary_user_dir);
+                    register_directory(base / "nicels");
+                    register_directory(base / ".nicels" / "yaml"); // legacy
                 }
             }
         }
-        if (!user_dir.empty()) {
-            auto normalized = normalize(user_dir);
+        if (!primary_user_dir.empty()) {
+            auto normalized = normalize(primary_user_dir);
             addNormalizedDir(normalized);
             user_config_dir_ = std::move(normalized);
         }
 #else
-        addDir(Path("/etc/dm17ryk/nicels/yaml"));
+        register_directory(Path("/etc/dm17ryk/nicels/DB"));
+        register_directory(Path("/etc/dm17ryk/nicels"));
+        register_directory(Path("/etc/dm17ryk/nicels/yaml")); // legacy
 
         if (const char* home = std::getenv("HOME")) {
             if (home[0] != '\0') {
-                Path user_dir = Path(home) / ".nicels" / "yaml";
+                Path base(home);
+                Path user_dir = base / ".nicels" / "DB";
+                register_directory(user_dir);
+                register_directory(base / ".nicels");
+                register_directory(base / ".nicels" / "yaml"); // legacy
                 auto normalized = normalize(user_dir);
                 addNormalizedDir(normalized);
                 user_config_dir_ = std::move(normalized);
@@ -111,6 +144,21 @@ public:
             timer.emplace("resources::find");
             perf_manager.IncrementCounter("resources::find_calls");
         }
+
+        if (name.empty() || name == kDatabaseFilename) {
+            Path database = findDatabase();
+            if (!database.empty()) {
+                if (perf_enabled) {
+                    perf_manager.IncrementCounter("resources::find_hits");
+                }
+                return database;
+            }
+            if (perf_enabled) {
+                perf_manager.IncrementCounter("resources::find_misses");
+            }
+            return {};
+        }
+
         for (const auto& dir : directories_) {
             std::filesystem::path candidate = dir / name;
             std::error_code ec;
@@ -124,6 +172,38 @@ public:
         if (perf_enabled) {
             perf_manager.IncrementCounter("resources::find_misses");
         }
+        return {};
+    }
+
+    [[nodiscard]] Path findDatabase() const {
+        auto locate = [&](const Path& base) -> Path {
+            if (base.empty()) return {};
+            std::filesystem::path candidate = base / kDatabaseFilename;
+            std::error_code ec;
+            if (std::filesystem::exists(candidate, ec) && !ec) {
+                bool is_file = std::filesystem::is_regular_file(candidate, ec);
+                if (!ec && is_file) {
+                    return candidate;
+                }
+            }
+            return {};
+        };
+
+        if (!env_override_dir_.empty()) {
+            if (auto candidate = locate(env_override_dir_); !candidate.empty()) {
+                return candidate;
+            }
+        }
+
+        for (const auto& dir : directories_) {
+            if (!env_override_dir_.empty() && dir == env_override_dir_) {
+                continue;
+            }
+            if (auto candidate = locate(dir); !candidate.empty()) {
+                return candidate;
+            }
+        }
+
         return {};
     }
 
@@ -158,12 +238,11 @@ public:
     Path envOverrideDir() const { return env_override_dir_; }
     Path defaultConfigDir() const
     {
+        if (auto database = findDatabase(); !database.empty()) {
+            return database.parent_path();
+        }
         if (!env_override_dir_.empty()) {
             return env_override_dir_;
-        }
-        auto colors = find("colors.yaml");
-        if (!colors.empty()) {
-            return colors.parent_path();
         }
         return {};
     }
@@ -186,6 +265,10 @@ void ResourceManager::initPaths(const char* argv0) {
 
 std::filesystem::path ResourceManager::find(const std::string& name) {
     return instance().find(name);
+}
+
+std::filesystem::path ResourceManager::findDatabase() {
+    return instance().findDatabase();
 }
 
 void ResourceManager::addDir(const Path& dir) {

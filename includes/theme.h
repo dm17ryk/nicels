@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -60,8 +61,6 @@ private:
     Theme() = default;
 
     void ensure_loaded();
-    ThemeColors load_theme_file(const std::string& filename, bool* found = nullptr);
-    void load_icons();
 
     IconResult folder_icon(std::string_view name);
     IconResult file_icon(std::string_view name, bool is_exec);
@@ -74,6 +73,7 @@ private:
     ThemeColors custom_theme_;
     std::optional<std::string> custom_theme_name_;
     IconTheme icons_;
+    std::filesystem::path database_path_;
 };
 
 } // namespace nls
