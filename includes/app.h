@@ -22,6 +22,8 @@ private:
     FileScanner& scanner() { return *scanner_; }
     Renderer& renderer() { return *renderer_; }
 
+    int runDatabaseCommand(Config::DbAction action);
+
     CommandLineParser parser_{};
     Config* config_{nullptr};
     FileOwnershipResolver ownership_resolver_{};
@@ -32,4 +34,3 @@ private:
 };
 
 }  // namespace nls
-

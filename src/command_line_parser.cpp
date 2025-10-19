@@ -224,6 +224,11 @@ public:
         actions_.emplace_back([value](Config& cfg) { cfg.set_copy_config_only(value); });
     }
 
+    void SetDbAction(Config::DbAction action)
+    {
+        actions_.emplace_back([action](Config& cfg) { cfg.set_db_action(action); });
+    }
+
     void SetBlockSize(uintmax_t value, bool specified, bool show_suffix, std::string suffix)
     {
         actions_.emplace_back([value, specified, show_suffix, suffix = std::move(suffix)](Config& cfg) {
@@ -255,7 +260,9 @@ public:
             action(cfg);
         }
         if (cfg.paths().empty()) {
-            cfg.mutable_paths().push_back(".");
+            if (cfg.db_action() == Config::DbAction::None) {
+                cfg.mutable_paths().push_back(".");
+            }
         }
         if (cfg.all()) {
             cfg.set_almost_all(false);
@@ -446,6 +453,31 @@ Exit status:
     );
 
     program.add_option("paths", builder.paths(), "paths to list")->type_name("PATH");
+
+    auto* db_command = program.add_subcommand("db", "Inspect configuration database tables");
+    db_command->fallthrough(false);
+    db_command->configurable(false);
+    db_command->allow_extras(false);
+    db_command->require_option(1, 1);
+    db_command->callback([&]() {
+        if (builder.paths().empty()) {
+            return;
+        }
+        builder.paths().clear();
+    });
+
+    db_command->add_flag_callback("--show-files",
+        [&]() { builder.SetDbAction(Config::DbAction::ShowFiles); },
+        "list file icon metadata from the merged configuration database");
+    db_command->add_flag_callback("--show-folders",
+        [&]() { builder.SetDbAction(Config::DbAction::ShowFolders); },
+        "list folder icon metadata from the merged configuration database");
+    db_command->add_flag_callback("--show-file-aliases",
+        [&]() { builder.SetDbAction(Config::DbAction::ShowFileAliases); },
+        "list file alias metadata along with resolved icons");
+    db_command->add_flag_callback("--show-folder-aliases",
+        [&]() { builder.SetDbAction(Config::DbAction::ShowFolderAliases); },
+        "list folder alias metadata along with resolved icons");
 
     program.add_flag_callback("--copy-config", [&]() { builder.SetCopyConfig(true); },
         "copy default configuration files to the user configuration directory and exit");

@@ -33,6 +33,14 @@ public:
         Escape
     };
 
+    enum class DbAction {
+        None,
+        ShowFiles,
+        ShowFolders,
+        ShowFileAliases,
+        ShowFolderAliases
+    };
+
     static Config& Instance();
 
     Config(const Config&) = delete;
@@ -136,6 +144,9 @@ public:
     bool copy_config_only() const;
     void set_copy_config_only(bool value);
 
+    DbAction db_action() const;
+    void set_db_action(DbAction value);
+
     const std::optional<std::string>& theme_name() const;
     void set_theme_name(std::optional<std::string> value);
 
@@ -213,6 +224,7 @@ private:
     bool show_block_size_ = false;
     bool perf_logging_ = false;
     bool copy_config_only_ = false;
+    DbAction db_action_ = DbAction::None;
 
     std::optional<std::string> theme_name_{};
 
