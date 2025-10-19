@@ -210,6 +210,26 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/includes" FILES ${_nls_headers})
 unset(_nls_sources)
 unset(_nls_headers)
 
+add_library(nls_sqlite3 STATIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/third-party/sqlite/sqlite3.c"
+)
+
+target_include_directories(nls_sqlite3
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third-party/sqlite
+)
+
+target_compile_definitions(nls_sqlite3
+  PUBLIC
+    SQLITE_THREADSAFE=1
+  PRIVATE
+    $<$<CONFIG:Release>:NDEBUG>
+)
+
+set_target_properties(nls_sqlite3 PROPERTIES
+  POSITION_INDEPENDENT_CODE ON
+)
+
 if(WIN32)
   set(_nls_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/icons/nls.ico")
   if(NOT EXISTS "${_nls_app_icon}")
@@ -243,10 +263,12 @@ target_include_directories(nls
     ${CMAKE_CURRENT_SOURCE_DIR}/src
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/includes
+    ${CMAKE_CURRENT_SOURCE_DIR}/third-party/sqlite
 )
 
 target_link_libraries(nls
   PRIVATE
+    nls_sqlite3
     CLI11::CLI11
 )
 
@@ -286,6 +308,7 @@ endif()
 
 if(NLS_RELEASE_COMPILE_OPTIONS)
   target_compile_options(nls PRIVATE $<$<CONFIG:Release>:${NLS_RELEASE_COMPILE_OPTIONS}>)
+  target_compile_options(nls_sqlite3 PRIVATE $<$<CONFIG:Release>:${NLS_RELEASE_COMPILE_OPTIONS}>)
 endif()
 
 if(NLS_RELEASE_LINK_OPTIONS)
