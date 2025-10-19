@@ -217,7 +217,7 @@ Sets the default quoting style for filenames:contentReference[oaicite:88]{index=
 If set, \fBnls\fR may enable POSIX compatibility modes for certain behaviors. For example, when this is present, time styles prefixed with "posix-" will be in effect (unless the locale is POSIX/C). It may also influence sorting or quoting to adhere strictly to POSIX `ls` rules. (Note: This variable is recognized for compatibility; its exact effects in nls are minimal and primarily pertain to time style handling:contentReference[oaicite:89]{index=89}.)
 
 .PP 
-On Windows, \fBnls\fR additionally looks for `NLS.sqlite3` under `%APPDATA%\\nicels\\DB` (for per-user config) and the installation prefix’s `DB` subfolder, unless overridden by \fBNLS_DATA_DIR\fR:contentReference[oaicite:90]{index=90}. `%USERPROFILE%` is used as a fallback if `%APPDATA%` is not defined. These environment specifics are mainly for locating the database and do not typically require manual intervention.
+On Windows, \fBnls\fR additionally looks for `NLS.sqlite3` under `%APPDATA%\\nicels\\DB` (for per-user config) and `%PROGRAMDATA%\\nicels\\DB` for system-wide defaults, unless overridden by \fBNLS_DATA_DIR\fR:contentReference[oaicite:90]{index=90}. `%USERPROFILE%` is used as a fallback if `%APPDATA%` is not defined. These environment specifics are mainly for locating the database and do not typically require manual intervention.
 
 .SH EXAMPLES
 .PP 

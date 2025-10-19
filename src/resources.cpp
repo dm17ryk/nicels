@@ -48,6 +48,17 @@ public:
             }
         }
 
+#ifdef _WIN32
+        Path program_data_dir;
+        if (const char* programdata = std::getenv("PROGRAMDATA")) {
+            if (programdata[0] != '\0') {
+                register_directory(Path(programdata) / "nicels");
+                program_data_dir = Path(programdata) / "nicels" / "DB";
+                register_directory(program_data_dir);
+            }
+        }
+#endif
+
         std::error_code ec;
         Path cwd = std::filesystem::current_path(ec);
         if (!ec) {
@@ -86,6 +97,7 @@ public:
                 register_directory(primary_user_dir);
                 register_directory(base / "nicels");
                 register_directory(base / ".nicels" / "DB"); // legacy
+                register_directory(base / ".nicels" / "yaml"); // legacy
                 register_directory(base / ".nicels");
             }
         }
@@ -97,6 +109,7 @@ public:
                     register_directory(primary_user_dir);
                     register_directory(base / "nicels");
                     register_directory(base / ".nicels" / "DB"); // legacy
+                    register_directory(base / ".nicels" / "yaml"); // legacy
                     register_directory(base / ".nicels");
                 }
             }
@@ -109,13 +122,16 @@ public:
 #else
         register_directory(Path("/etc/dm17ryk/nicels/DB"));
         register_directory(Path("/etc/dm17ryk/nicels"));
+#endif
 
+#ifndef _WIN32
         if (const char* home = std::getenv("HOME")) {
             if (home[0] != '\0') {
                 Path base(home);
                 Path user_dir = base / ".nicels" / "DB";
                 register_directory(user_dir);
                 register_directory(base / ".nicels");
+                register_directory(base / ".nicels" / "yaml"); // legacy
                 auto normalized = normalize(user_dir);
                 addNormalizedDir(normalized);
                 user_config_dir_ = std::move(normalized);
