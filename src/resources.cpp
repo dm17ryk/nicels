@@ -52,7 +52,6 @@ public:
         Path cwd = std::filesystem::current_path(ec);
         if (!ec) {
             register_directory(cwd / "DB");
-            register_directory(cwd / "yaml"); // compatibility with legacy layouts
             register_directory(cwd);
         }
 
@@ -69,12 +68,10 @@ public:
             exe_dir = exe_path.parent_path();
             if (!exe_dir.empty()) {
                 register_directory(exe_dir / "DB");
-                register_directory(exe_dir / "yaml");
                 register_directory(exe_dir);
                 Path exe_parent = exe_dir.parent_path();
                 if (!exe_parent.empty()) {
                     register_directory(exe_parent / "DB");
-                    register_directory(exe_parent / "yaml");
                     register_directory(exe_parent);
                 }
             }
@@ -88,7 +85,8 @@ public:
                 primary_user_dir = base / "nicels" / "DB";
                 register_directory(primary_user_dir);
                 register_directory(base / "nicels");
-                register_directory(base / ".nicels" / "yaml"); // legacy
+                register_directory(base / ".nicels" / "DB"); // legacy
+                register_directory(base / ".nicels");
             }
         }
         if (primary_user_dir.empty()) {
@@ -98,7 +96,8 @@ public:
                     primary_user_dir = base / "nicels" / "DB";
                     register_directory(primary_user_dir);
                     register_directory(base / "nicels");
-                    register_directory(base / ".nicels" / "yaml"); // legacy
+                    register_directory(base / ".nicels" / "DB"); // legacy
+                    register_directory(base / ".nicels");
                 }
             }
         }
@@ -110,7 +109,6 @@ public:
 #else
         register_directory(Path("/etc/dm17ryk/nicels/DB"));
         register_directory(Path("/etc/dm17ryk/nicels"));
-        register_directory(Path("/etc/dm17ryk/nicels/yaml")); // legacy
 
         if (const char* home = std::getenv("HOME")) {
             if (home[0] != '\0') {
@@ -118,7 +116,6 @@ public:
                 Path user_dir = base / ".nicels" / "DB";
                 register_directory(user_dir);
                 register_directory(base / ".nicels");
-                register_directory(base / ".nicels" / "yaml"); // legacy
                 auto normalized = normalize(user_dir);
                 addNormalizedDir(normalized);
                 user_config_dir_ = std::move(normalized);
