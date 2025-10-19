@@ -249,34 +249,46 @@ static IconLoadStats LoadIconsFromDatabase(sqlite3* db, IconTheme& icons)
 {
     IconLoadStats stats;
 
-    auto load_map = [&](const char* sql,
-                        auto& map,
-                        bool lowercase_values) {
-        sqlite3_stmt* stmt_raw = nullptr;
-        int rc = sqlite3_prepare_v2(db, sql, -1, &stmt_raw, nullptr);
+    auto load_map = [&](const std::string& query, auto& target, bool is_alias) {
+        sqlite3_stmt* stmt = nullptr;
+        int rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr);
         if (rc != SQLITE_OK) {
+            std::cerr << "Warning: Failed to prepare query: " << query << "\n";
             stats.success = false;
             return;
         }
-        SqliteStmtPtr stmt(stmt_raw);
         ++stats.sources;
-        while ((rc = sqlite3_step(stmt.get())) == SQLITE_ROW) {
-            const unsigned char* key_text = sqlite3_column_text(stmt.get(), 0);
-            const unsigned char* value_text = sqlite3_column_text(stmt.get(), 1);
-            if (!key_text || !value_text) {
+        while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+            // Check column count
+            int col_count = sqlite3_column_count(stmt);
+            if (col_count < 2) {
+                std::cerr << "Warning: Query '" << query << "' returned less than 2 columns\n";
                 continue;
             }
-            std::string key = StringUtils::ToLower(reinterpret_cast<const char*>(key_text));
-            std::string value(reinterpret_cast<const char*>(value_text));
-            if (lowercase_values) {
-                value = StringUtils::ToLower(value);
+            const unsigned char* key = sqlite3_column_text(stmt, 0);
+            const unsigned char* value = sqlite3_column_text(stmt, 1);
+            if (!key || !value) {
+                std::cerr << "Warning: Missing key or icon value in query '" << query << "'\n";
+                continue;
             }
-            map[key] = std::move(value);
+            std::string key_str(StringUtils::ToLower(reinterpret_cast<const char*>(key)));
+            std::string value_str(reinterpret_cast<const char*>(value));
+            if (is_alias) {
+                value_str = StringUtils::ToLower(value_str);
+            }
+            // Check for malformed icon value (example: empty string)
+            if (value_str.empty()) {
+                std::cerr << "Warning: Malformed icon value for key '" << key_str << "' in query '" << query << "'\n";
+                continue;
+            }
+            target[key_str] = value_str;
             ++stats.entries;
         }
         if (rc != SQLITE_DONE) {
+            std::cerr << "Warning: Error executing query: " << query << "\n";
             stats.success = false;
         }
+        sqlite3_finalize(stmt);
     };
 
     icons.files.clear();
