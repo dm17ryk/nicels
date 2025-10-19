@@ -1,5 +1,6 @@
 #include "resources.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <optional>
@@ -175,10 +176,45 @@ public:
         return {};
     }
 
+    [[nodiscard]] std::vector<Path> databaseCandidates() const {
+        std::vector<Path> candidates;
+        auto add_candidate = [&](const Path& dir, bool allow_missing) {
+            if (dir.empty()) return;
+            std::filesystem::path candidate = dir / kDatabaseFilename;
+            std::error_code ec;
+            bool exists = std::filesystem::exists(candidate, ec);
+            if (!exists || ec) {
+                if (!allow_missing) return;
+            }
+            if (std::find(candidates.begin(), candidates.end(), candidate) == candidates.end()) {
+                candidates.push_back(std::move(candidate));
+            }
+        };
+
+        if (!env_override_dir_.empty()) {
+            add_candidate(env_override_dir_, true);
+        }
+
+        if (!user_config_dir_.empty()) {
+            add_candidate(user_config_dir_, false);
+        }
+
+        for (const auto& dir : directories_) {
+            if (!env_override_dir_.empty() && dir == env_override_dir_) {
+                continue;
+            }
+            if (!user_config_dir_.empty() && dir == user_config_dir_) {
+                continue;
+            }
+            add_candidate(dir, false);
+        }
+
+        return candidates;
+    }
+
     [[nodiscard]] Path findDatabase() const {
-        auto locate = [&](const Path& base) -> Path {
-            if (base.empty()) return {};
-            std::filesystem::path candidate = base / kDatabaseFilename;
+        auto candidates = databaseCandidates();
+        for (const auto& candidate : candidates) {
             std::error_code ec;
             if (std::filesystem::exists(candidate, ec) && !ec) {
                 bool is_file = std::filesystem::is_regular_file(candidate, ec);
@@ -186,24 +222,7 @@ public:
                     return candidate;
                 }
             }
-            return {};
-        };
-
-        if (!env_override_dir_.empty()) {
-            if (auto candidate = locate(env_override_dir_); !candidate.empty()) {
-                return candidate;
-            }
         }
-
-        for (const auto& dir : directories_) {
-            if (!env_override_dir_.empty() && dir == env_override_dir_) {
-                continue;
-            }
-            if (auto candidate = locate(dir); !candidate.empty()) {
-                return candidate;
-            }
-        }
-
         return {};
     }
 
@@ -271,6 +290,10 @@ std::filesystem::path ResourceManager::findDatabase() {
     return instance().findDatabase();
 }
 
+std::vector<std::filesystem::path> ResourceManager::databaseCandidates() {
+    return instance().databaseCandidates();
+}
+
 void ResourceManager::addDir(const Path& dir) {
     instance().addDir(dir);
 }
@@ -323,71 +346,74 @@ std::error_code ResourceManager::copyDefaultsToUserConfig(CopyResult& result, bo
         }
     }
 
-    Path source_dir = impl.defaultConfigDir();
-    if (source_dir.empty()) {
-        return std::make_error_code(std::errc::no_such_file_or_directory);
-    }
-
-    std::filesystem::directory_iterator iter(source_dir, ec);
+    Path destination = user_dir / kDatabaseFilename;
+    bool destination_exists = std::filesystem::exists(destination, ec);
     if (ec) {
         return ec;
     }
-    const std::filesystem::directory_iterator end;
-    for (; iter != end; iter.increment(ec)) {
-        if (ec) {
-            return ec;
-        }
-        const auto& entry = *iter;
-        bool is_regular = entry.is_regular_file(ec);
-        if (ec) {
-            return ec;
-        }
-        if (!is_regular) {
-            continue;
-        }
-
-        if (entry.path().extension() != ".yaml") {
-            continue;
-        }
-
-        Path destination = user_dir / entry.path().filename();
-        bool destination_exists = std::filesystem::exists(destination, ec);
-        if (ec) {
-            return ec;
-        }
-        if (destination_exists) {
-            bool same = std::filesystem::equivalent(entry.path(), destination, ec);
-            if (ec) {
-                return ec;
-            }
-            if (same) {
-                result.skipped.push_back(destination);
-                if (perf_enabled) {
-                    perf_manager.IncrementCounter("resources::yaml_files_skipped");
-                }
-                continue;
-            }
-            if (!overwrite_existing) {
-                result.skipped.push_back(destination);
-                if (perf_enabled) {
-                    perf_manager.IncrementCounter("resources::yaml_files_skipped");
-                }
-                continue;
-            }
-        }
-
-        std::filesystem::copy_options options = overwrite_existing
-            ? std::filesystem::copy_options::overwrite_existing
-            : std::filesystem::copy_options::none;
-        std::filesystem::copy_file(entry.path(), destination, options, ec);
-        if (ec) {
-            return ec;
-        }
-
-        result.copied.push_back(destination);
+    if (destination_exists && !overwrite_existing) {
+        result.skipped.push_back(destination);
         if (perf_enabled) {
-            perf_manager.IncrementCounter("resources::yaml_files_copied");
+            perf_manager.IncrementCounter("resources::db_file_skipped");
         }
+        return {};
+    }
+
+    Path source_file;
+    for (const auto& candidate : impl.databaseCandidates()) {
+        std::error_code candidate_ec;
+        if (candidate.empty()) continue;
+        if (!std::filesystem::exists(candidate, candidate_ec) || candidate_ec) {
+            continue;
+        }
+        if (candidate.parent_path() == user_dir) {
+            continue;
+        }
+        source_file = candidate;
+        break;
+    }
+    if (source_file.empty()) {
+        for (const auto& candidate : impl.databaseCandidates()) {
+            std::error_code candidate_ec;
+            if (candidate.empty()) continue;
+            if (!std::filesystem::exists(candidate, candidate_ec) || candidate_ec) {
+                continue;
+            }
+            source_file = candidate;
+            break;
+        }
+    }
+
+    if (source_file.empty()) {
+        return std::make_error_code(std::errc::no_such_file_or_directory);
+    }
+
+    bool same_file = false;
+    if (destination_exists) {
+        same_file = std::filesystem::equivalent(source_file, destination, ec);
+        if (ec) {
+            return ec;
+        }
+    }
+    if (same_file) {
+        result.skipped.push_back(destination);
+        if (perf_enabled) {
+            perf_manager.IncrementCounter("resources::db_file_skipped");
+        }
+        return {};
+    }
+
+    std::filesystem::copy_options options = overwrite_existing
+        ? std::filesystem::copy_options::overwrite_existing
+        : std::filesystem::copy_options::none;
+    std::filesystem::copy_file(source_file, destination, options, ec);
+    if (ec) {
+        return ec;
+    }
+
+    result.copied.push_back(destination);
+    if (perf_enabled) {
+        perf_manager.IncrementCounter("resources::db_file_copied");
     }
 
     return {};

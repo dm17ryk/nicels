@@ -11,12 +11,13 @@
 #include <cctype>
 #include <filesystem>
 #include <format>
-#include <optional>
 #include <memory>
+#include <optional>
 #include <iostream>
 #include <sstream>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include <sqlite3.h>
 
@@ -346,27 +347,39 @@ void Theme::initialize(ColorScheme scheme, std::optional<std::string> custom_the
         if (name.empty() || has_separator) {
             std::cerr << "nls: error: theme '" << *custom_theme << "' not found\n";
         } else {
-            std::filesystem::path db_path = database_path_;
-            if (db_path.empty()) {
-                db_path = ResourceManager::findDatabase();
+            std::vector<std::filesystem::path> candidate_paths;
+            if (!database_path_.empty()) {
+                candidate_paths.push_back(database_path_);
             }
-            if (db_path.empty()) {
-                std::cerr << "nls: error: theme '" << *custom_theme << "' not found\n";
-            } else if (auto db = OpenConfigDatabase(db_path)) {
-                auto theme_id = LookupThemeId(db.get(), name);
-                if (!theme_id) {
-                    std::cerr << "nls: error: theme '" << *custom_theme << "' not found\n";
-                } else {
+            for (const auto& candidate : ResourceManager::databaseCandidates()) {
+                if (candidate.empty()) continue;
+                if (std::find(candidate_paths.begin(), candidate_paths.end(), candidate) == candidate_paths.end()) {
+                    candidate_paths.push_back(candidate);
+                }
+            }
+
+            bool loaded_custom = false;
+            for (const auto& candidate : candidate_paths) {
+                if (candidate.empty()) continue;
+                if (auto db = OpenConfigDatabase(candidate)) {
+                    auto theme_id = LookupThemeId(db.get(), name);
+                    if (!theme_id) {
+                        continue;
+                    }
                     ThemeColors loaded = fallback_;
                     std::size_t entries = 0;
                     if (!LoadThemeColors(db.get(), *theme_id, loaded, entries)) {
-                        std::cerr << "nls: error: theme '" << *custom_theme << "' not found\n";
-                    } else {
-                        custom_theme_name_ = std::move(name);
-                        custom_theme_ = std::move(loaded);
+                        continue;
                     }
+                    custom_theme_name_ = name;
+                    custom_theme_ = std::move(loaded);
+                    database_path_ = candidate;
+                    loaded_custom = true;
+                    break;
                 }
-            } else {
+            }
+
+            if (!loaded_custom) {
                 std::cerr << "nls: error: theme '" << *custom_theme << "' not found\n";
             }
         }
@@ -457,9 +470,9 @@ void Theme::ensure_loaded()
     std::size_t theme_entries = 0;
     IconLoadStats icon_stats{};
 
-    std::filesystem::path db_path = ResourceManager::findDatabase();
-    if (!db_path.empty()) {
-        if (auto db = OpenConfigDatabase(db_path)) {
+    for (const auto& candidate : ResourceManager::databaseCandidates()) {
+        if (candidate.empty()) continue;
+        if (auto db = OpenConfigDatabase(candidate)) {
             std::size_t dark_entries = 0;
             if (LoadThemeColors(db.get(), 1, dark_, dark_entries)) {
                 ++theme_sources;
@@ -471,7 +484,8 @@ void Theme::ensure_loaded()
                 theme_entries += light_entries;
             }
             icon_stats = LoadIconsFromDatabase(db.get(), icons_);
-            database_path_ = std::move(db_path);
+            database_path_ = candidate;
+            break;
         }
     }
 

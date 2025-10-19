@@ -16,6 +16,7 @@ public:
     static void initPaths(const char* argv0);
     static std::filesystem::path find(const std::string& name);
     static std::filesystem::path findDatabase();
+    static std::vector<std::filesystem::path> databaseCandidates();
     static std::filesystem::path userConfigDir();
     static std::filesystem::path envOverrideDir();
 

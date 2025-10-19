@@ -2,41 +2,43 @@
 #
 # install_nls_user.sh - Install nicels (nls) for the current user without root.
 #
-# This script copies a pre-built nls binary and its YAML configuration files
-# into user-writable locations (defaulting to ~/.local/bin and ~/.nicels/yaml).
+# This script copies a pre-built nls binary and its SQLite configuration
+# database into user-writable locations (defaulting to ~/.local/bin and
+# ~/.nicels/DB).
 # Existing configuration directories are backed up before the defaults are
 # installed to avoid overwriting user customisations.
 set -euo pipefail
 
 print_usage() {
   cat <<'USAGE'
-Usage: install_nls_user.sh --binary <path-to-nls> [--configs <yaml-dir>] [--prefix <install-root>]
+Usage: install_nls_user.sh --binary <path-to-nls> [--db <sqlite-db>] [--prefix <install-root>]
                            [--config-dest <path>] [--dry-run]
 
 Options:
   --binary <path>       Path to the compiled nls executable to install (required).
-  --configs <path>      Directory containing YAML configuration files. Defaults to
-                        the directory named "yaml" next to the binary.
+  --db <path>           Path to the NLS.sqlite3 configuration database. Defaults to
+                        locating NLS.sqlite3 near the binary.
   --prefix <path>       Base directory for the installation. Defaults to "$HOME/.local".
-  --config-dest <path>  Destination for configuration files. Defaults to "$HOME/.nicels/yaml".
+  --config-dest <path>  Destination directory for configuration files. Defaults to "$HOME/.nicels/DB".
   --dry-run             Show the actions that would be performed without making changes.
   -h, --help            Show this help text and exit.
 
 Examples:
-  # Install a locally built binary and YAML directory
-  ./tools/install_nls_user.sh --binary build/release/nls --configs yaml
+  # Install a locally built binary and database
+  ./tools/install_nls_user.sh --binary build/release/nls --db DB/NLS.sqlite3
 
-  # Install using defaults when the binary and yaml directory are siblings
+  # Install using defaults when the binary and DB directory are siblings
   ./tools/install_nls_user.sh --binary ./dist/nls
 USAGE
 }
 
 # Default locations
 INSTALL_PREFIX="${HOME}/.local"
-CONFIG_DEST="${HOME}/.nicels/yaml"
+CONFIG_DEST="${HOME}/.nicels/DB"
 BINARY_SOURCE=""
-CONFIG_SOURCE=""
+DB_SOURCE=""
 DRY_RUN=false
+LAST_BACKUP_PATH=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -44,8 +46,13 @@ while [[ $# -gt 0 ]]; do
       BINARY_SOURCE="$2"
       shift 2
       ;;
+    --db)
+      DB_SOURCE="$2"
+      shift 2
+      ;;
     --configs)
-      CONFIG_SOURCE="$2"
+      echo "Warning: --configs is deprecated; use --db" >&2
+      DB_SOURCE="$2"
       shift 2
       ;;
     --prefix)
@@ -83,12 +90,27 @@ if [[ ! -f "$BINARY_SOURCE" ]]; then
   exit 1
 fi
 
-if [[ -z "$CONFIG_SOURCE" ]]; then
-  CONFIG_SOURCE="$(cd "$(dirname "$BINARY_SOURCE")" && pwd)/yaml"
+if [[ -z "$DB_SOURCE" ]]; then
+  BASE_DIR="$(cd "$(dirname "$BINARY_SOURCE")" && pwd)"
+  for candidate in \
+    "${BASE_DIR}/NLS.sqlite3" \
+    "${BASE_DIR}/DB/NLS.sqlite3" \
+    "${BASE_DIR}/../DB/NLS.sqlite3"
+  do
+    if [[ -f "$candidate" ]]; then
+      DB_SOURCE="$candidate"
+      break
+    fi
+  done
 fi
 
-if [[ ! -d "$CONFIG_SOURCE" ]]; then
-  echo "Error: configuration directory '$CONFIG_SOURCE' does not exist." >&2
+if [[ -z "$DB_SOURCE" ]]; then
+  echo "Error: unable to locate NLS.sqlite3 automatically. Specify it with --db." >&2
+  exit 1
+fi
+
+if [[ ! -f "$DB_SOURCE" ]]; then
+  echo "Error: configuration database '$DB_SOURCE' does not exist." >&2
   exit 1
 fi
 
@@ -100,8 +122,6 @@ if [[ "$CONFIG_DEST" != /* ]]; then
 fi
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-backup_path="${CONFIG_DEST}.bak-${TIMESTAMP}"
-
 do_run() {
   if [[ "$DRY_RUN" == true ]]; then
     printf 'DRY-RUN:' >&2
@@ -121,21 +141,21 @@ install_binary() {
 }
 
 backup_existing_config() {
-  if [[ -d "$CONFIG_DEST" ]]; then
-    echo "Existing configuration detected at ${CONFIG_DEST}" >&2
-    echo "Backing up to ${backup_path}" >&2
-    do_run mv "${CONFIG_DEST}" "${backup_path}"
+  local db_file="${CONFIG_DEST}/NLS.sqlite3"
+  if [[ -f "${db_file}" ]]; then
+    local backup_file="${db_file}.bak-${TIMESTAMP}"
+    echo "Existing configuration detected at ${db_file}" >&2
+    echo "Backing up to ${backup_file}" >&2
+    do_run cp -a "${db_file}" "${backup_file}"
+    LAST_BACKUP_PATH="${backup_file}"
   fi
 }
 
-install_configs() {
-  echo "Installing configuration files to ${CONFIG_DEST}"
+install_database() {
+  echo "Installing configuration database to ${CONFIG_DEST}"
   do_run mkdir -p "${CONFIG_DEST}"
-  if command -v rsync >/dev/null 2>&1; then
-    do_run rsync -a --delete "${CONFIG_SOURCE}/" "${CONFIG_DEST}/"
-  else
-    do_run cp -a "${CONFIG_SOURCE}/." "${CONFIG_DEST}/"
-  fi
+  local dest_file="${CONFIG_DEST}/NLS.sqlite3"
+  do_run install -m 0644 "${DB_SOURCE}" "${dest_file}"
 }
 
 warn_about_path() {
@@ -154,7 +174,7 @@ warn_about_path() {
 
 install_binary
 backup_existing_config
-install_configs
+install_database
 
 if [[ "$DRY_RUN" == true ]]; then
   echo
@@ -164,8 +184,8 @@ else
   echo "nicels installed for user '${USER}'."
   echo "Binary: ${BIN_DEST}/nls"
   echo "Configuration: ${CONFIG_DEST}"
-  if [[ -d "$backup_path" ]]; then
-    echo "Previous configuration backup: ${backup_path}"
+  if [[ -n "$LAST_BACKUP_PATH" ]]; then
+    echo "Previous configuration backup: ${LAST_BACKUP_PATH}"
   fi
   warn_about_path
   echo

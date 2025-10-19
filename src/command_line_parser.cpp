@@ -687,7 +687,7 @@ never (default: auto))");
 
             builder.SetThemeName(std::move(theme));
         },
-        "use theme NAME (loads NAME_theme.yaml)");
+        "use theme NAME from the configuration database");
     theme_option->type_name("NAME");
 
     appearance->add_flag_callback("--light", [&]() { builder.SetColorTheme(Config::ColorTheme::Light); },
