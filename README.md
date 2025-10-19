@@ -39,7 +39,7 @@ sudo apt-get install -f
 ```
 
 This installs `nls` to `/usr/bin/nls` and places the default configuration
-database at `/etc/dm17ryk/nicels/NLS.sqlite3`. Future upgrades or downgrades can
+database at `/etc/dm17ryk/nicels/DB/NLS.sqlite3`. Future upgrades or downgrades can
 reuse the same command; Debian's `conffile` handling preserves local edits in
 `/etc` by prompting before overwriting.【F:CMakeLists.txt†L177-L231】【F:CMakeLists.txt†L232-L306】
 
@@ -52,7 +52,7 @@ sudo dnf install ./nicels-<version>-1.x86_64.rpm
 ```
 
 The package installs the binary under `/usr/bin` and marks
-`/etc/dm17ryk/nicels/NLS.sqlite3` as `%config(noreplace)` so administrator
+`/etc/dm17ryk/nicels/DB/NLS.sqlite3` as `%config(noreplace)` so administrator
 changes survive upgrades.【F:CMakeLists.txt†L232-L306】
 
 **User-local install (no root)**
@@ -193,7 +193,7 @@ database `NLS.sqlite3`. At startup it searches for the database in this order:
 1. A directory specified via the `NLS_DATA_DIR` environment variable (highest priority).
 2. `./DB/` relative to the current working directory (and the working directory itself).
 3. `DB/` next to the executable, the executable's directory, and their parents (for relocatable installs).
-4. System-wide defaults installed with the package, e.g. `/etc/dm17ryk/nicels/NLS.sqlite3` on Linux or the `DB` directory inside the Windows installer prefix.
+4. System-wide defaults installed with the package, e.g. `/etc/dm17ryk/nicels/DB/NLS.sqlite3` on Linux or the `DB` directory inside the Windows installer prefix.
 5. Per-user overrides: `~/.nicels/DB/NLS.sqlite3` on Linux/macOS, or `%APPDATA%\nicels\DB\NLS.sqlite3` on Windows (falling back to `%USERPROFILE%\nicels\DB` if `%APPDATA%` is unavailable).
 
 The first readable database found in that order is used. If none can be opened,
