@@ -230,6 +230,16 @@ public:
         actions_.emplace_back([action](Config& cfg) { cfg.set_db_action(action); });
     }
 
+    void EnableDbMode()
+    {
+        db_mode_ = true;
+    }
+
+    bool db_mode() const
+    {
+        return db_mode_;
+    }
+
     void SetDbName(std::string value)
     {
         db_icon_entry_.name = value;
@@ -337,6 +347,7 @@ private:
     Config::DbIconEntry db_icon_entry_{};
     Config::DbAliasEntry db_alias_entry_{};
     Config::DbAction db_action_ = Config::DbAction::None;
+    bool db_mode_ = false;
 };
 
 } // namespace
@@ -511,6 +522,7 @@ Exit status:
     db_command->configurable(false);
     db_command->allow_extras(false);
     db_command->callback([&]() {
+        builder.EnableDbMode();
         if (builder.paths().empty()) {
             return;
         }
@@ -997,11 +1009,17 @@ show information for the file the link references)");
         return oss.str();
     };
 
+    bool db_mode = builder.db_mode();
     auto db_action = builder.db_action();
-    if (db_action == Config::DbAction::None) {
+    if (!db_mode) {
+        if (db_action != Config::DbAction::None) {
+            throw CLI::ValidationError("db", "db options require the 'db' subcommand");
+        }
+    } else if (db_action == Config::DbAction::None) {
         throw CLI::ValidationError("db", "one of --show-* or --set-* flags must be provided");
     }
-    if (db_action == Config::DbAction::SetFile || db_action == Config::DbAction::SetFolder) {
+
+    if (db_mode && (db_action == Config::DbAction::SetFile || db_action == Config::DbAction::SetFolder)) {
         std::vector<std::string> missing;
         ensure_missing(missing, name_option, "--name");
         ensure_missing(missing, icon_option, "--icon");
@@ -1020,7 +1038,7 @@ show information for the file the link references)");
         if (alias_option->count() > 0) {
             throw CLI::ValidationError("db", "--alias is not valid with --set-file/--set-folder");
         }
-    } else if (db_action == Config::DbAction::SetFileAlias || db_action == Config::DbAction::SetFolderAlias) {
+    } else if (db_mode && (db_action == Config::DbAction::SetFileAlias || db_action == Config::DbAction::SetFolderAlias)) {
         std::vector<std::string> missing;
         ensure_missing(missing, name_option, "--name");
         ensure_missing(missing, alias_option, "--alias");
@@ -1036,7 +1054,7 @@ show information for the file the link references)");
             description_option->count() > 0 || used_by_option->count() > 0) {
             throw CLI::ValidationError("db", "icon metadata options are not valid with alias commands");
         }
-    } else {
+    } else if (db_mode) {
         if (name_option->count() > 0 || icon_option->count() > 0 || icon_class_option->count() > 0 ||
             icon_utf_option->count() > 0 || icon_hex_option->count() > 0 ||
             description_option->count() > 0 || used_by_option->count() > 0 ||
