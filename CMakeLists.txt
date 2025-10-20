@@ -454,7 +454,13 @@ unset(_nls_db_source)
 
 include(CTest)
 if(BUILD_TESTING)
-  message(STATUS "No tests have been defined yet. Add them under the test/ directory.")
+  find_package(Python3 3.9 COMPONENTS Interpreter REQUIRED)
+  add_test(
+    NAME nls_cli_tests
+    COMMAND ${Python3_EXECUTABLE}
+            "${CMAKE_CURRENT_SOURCE_DIR}/test/run_nls_cli_tests.py"
+            --binary $<TARGET_FILE:nls>
+  )
 endif()
 
 set(CPACK_PACKAGE_NAME "nicels")

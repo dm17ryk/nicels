@@ -38,8 +38,12 @@
 *.pkg
 *.log
 nls
+!test/assets/*.tar.gz
 build/
 _CPack_Packages/
+test/lin/
+test/win/
+Testing/
 CMakeUserPresets.json
 compile_commands.json
 NLS.sqlite3-shm
