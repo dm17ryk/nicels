@@ -179,12 +179,19 @@ the file always contains four components, starting at `1.0.0.0`.
 ```
 
 ### Tests
-CTest presets are provided even though no tests are defined yet:
+Functional coverage is exercised via CTest. The default target rebuilds the
+fixture directories from the archived assets before each run, so tests can be
+invoked directly without prior setup:
 ```sh
-ctest --preset linux-clang-test
-ctest --preset msys-clang-test
+cmake --build build
+ctest --preset linux-clang-test -R nls_cli_tests
 ```
-You will see the informational message from CMake until tests are added.【F:CMakeLists.txt†L159-L170】
+or, from an existing build tree:
+```sh
+ctest -R nls_cli_tests
+```
+The harness regenerates the Linux or Windows sample trees on the fly (depending
+on the host platform) and walks through every documented CLI option.
 
 ## Configuration files and themes
 `nls` loads its colour themes, icon maps, and aliases from the SQLite
@@ -216,6 +223,36 @@ nls -laA --gs --header --report=long
 ```
 Use `--color=auto` (default) to keep ANSI colours only when stdout is a
 terminal, and `--no-icons` when running inside tools that strip Unicode.
+
+### Database subcommand
+The configuration database bundled with nicels can be inspected and amended in
+place. All database operations live under the `db` subcommand:
+
+```sh
+# Preview merged icon entries
+nls db --show-files
+nls db --show-folders
+
+# Review alias expansions
+nls db --show-file-aliases
+nls db --show-folder-aliases
+
+# Add or adjust entries (provide every field you need to change)
+nls db --set-file \
+  --name ".blend" \
+  --icon "􏿽" \
+  --icon_class "material" \
+  --icon_utf_16_codes "\\uf1b2" \
+  --description "Blender project" \
+  --used_by "studio"
+
+# Add or remove aliases (an empty --alias removes the mapping)
+nls db --set-file-aliases --name "Makefile" --alias "GNUmakefile"
+nls db --set-folder-aliases --name "Documents" --alias ""
+```
+
+When invoked without `--name`, the commands operate in read-only mode. Update
+operations fail fast if required metadata is omitted.
 
 ### Keeping this section in sync
 The CLI reference below is generated from the live binary. After changing
