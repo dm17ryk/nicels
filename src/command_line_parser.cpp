@@ -226,7 +226,54 @@ public:
 
     void SetDbAction(Config::DbAction action)
     {
+        db_action_ = action;
         actions_.emplace_back([action](Config& cfg) { cfg.set_db_action(action); });
+    }
+
+    void SetDbName(std::string value)
+    {
+        db_icon_entry_.name = value;
+        db_alias_entry_.name = db_icon_entry_.name;
+    }
+
+    void SetDbIcon(std::string value)
+    {
+        db_icon_entry_.icon = std::move(value);
+    }
+
+    void SetDbIconClass(std::string value)
+    {
+        db_icon_entry_.icon_class = std::move(value);
+    }
+
+    void SetDbIconUtf16(std::string value)
+    {
+        db_icon_entry_.icon_utf16 = std::move(value);
+    }
+
+    void SetDbIconHex(std::string value)
+    {
+        db_icon_entry_.icon_hex = std::move(value);
+    }
+
+    void SetDbDescription(std::string value)
+    {
+        db_icon_entry_.description = std::move(value);
+    }
+
+    void SetDbUsedBy(std::string value)
+    {
+        db_icon_entry_.used_by = std::move(value);
+    }
+
+    void SetDbAlias(std::string value)
+    {
+        db_alias_entry_.alias = std::move(value);
+    }
+
+    Config::DbAction db_action() const
+    {
+        return db_action_;
     }
 
     void SetBlockSize(uintmax_t value, bool specified, bool show_suffix, std::string suffix)
@@ -259,6 +306,8 @@ public:
         for (const auto& action : actions_) {
             action(cfg);
         }
+        cfg.set_db_icon_entry(db_icon_entry_);
+        cfg.set_db_alias_entry(db_alias_entry_);
         if (cfg.paths().empty()) {
             if (cfg.db_action() == Config::DbAction::None) {
                 cfg.mutable_paths().push_back(".");
@@ -285,6 +334,9 @@ private:
     std::vector<std::string> hide_patterns_{};
     std::vector<std::string> ignore_patterns_{};
     std::optional<ColorMode> color_mode_{};
+    Config::DbIconEntry db_icon_entry_{};
+    Config::DbAliasEntry db_alias_entry_{};
+    Config::DbAction db_action_ = Config::DbAction::None;
 };
 
 } // namespace
@@ -458,7 +510,6 @@ Exit status:
     db_command->fallthrough(false);
     db_command->configurable(false);
     db_command->allow_extras(false);
-    db_command->require_option(1, 1);
     db_command->callback([&]() {
         if (builder.paths().empty()) {
             return;
@@ -478,6 +529,59 @@ Exit status:
     db_command->add_flag_callback("--show-folder-aliases",
         [&]() { builder.SetDbAction(Config::DbAction::ShowFolderAliases); },
         "list folder alias metadata along with resolved icons");
+
+    db_command->add_flag_callback("--set-file",
+        [&]() { builder.SetDbAction(Config::DbAction::SetFile); },
+        "add or update a file icon entry; supply all metadata fields");
+    db_command->add_flag_callback("--set-folder",
+        [&]() { builder.SetDbAction(Config::DbAction::SetFolder); },
+        "add or update a folder icon entry; supply all metadata fields");
+    db_command->add_flag_callback("--set-file-aliases",
+        [&]() { builder.SetDbAction(Config::DbAction::SetFileAlias); },
+        "add, update, or remove a file alias entry");
+    db_command->add_flag_callback("--set-folder-aliases",
+        [&]() { builder.SetDbAction(Config::DbAction::SetFolderAlias); },
+        "add, update, or remove a folder alias entry");
+
+    auto name_option = db_command->add_option_function<std::string>("--name",
+        [&](const std::string& value) { builder.SetDbName(value); },
+        "entry name (extension or folder label)");
+    name_option->type_name("TEXT");
+
+    auto icon_option = db_command->add_option_function<std::string>("--icon",
+        [&](const std::string& value) { builder.SetDbIcon(value); },
+        "icon glyph to associate with the entry");
+    icon_option->type_name("TEXT");
+
+    auto icon_class_option = db_command->add_option_function<std::string>("--icon_class",
+        [&](const std::string& value) { builder.SetDbIconClass(value); },
+        "icon class identifier");
+    icon_class_option->type_name("TEXT");
+
+    auto icon_utf_option = db_command->add_option_function<std::string>("--icon_utf_16_codes",
+        [&](const std::string& value) { builder.SetDbIconUtf16(value); },
+        "icon UTF-16 codepoint (format \\uXXXX)");
+    icon_utf_option->type_name("CODE");
+
+    auto icon_hex_option = db_command->add_option_function<std::string>("--icon_hex_code",
+        [&](const std::string& value) { builder.SetDbIconHex(value); },
+        "icon hexadecimal codepoint (format 0xXXXX)");
+    icon_hex_option->type_name("CODE");
+
+    auto description_option = db_command->add_option_function<std::string>("--description",
+        [&](const std::string& value) { builder.SetDbDescription(value); },
+        "entry description");
+    description_option->type_name("TEXT");
+
+    auto used_by_option = db_command->add_option_function<std::string>("--used_by",
+        [&](const std::string& value) { builder.SetDbUsedBy(value); },
+        "entry usage notes");
+    used_by_option->type_name("TEXT");
+
+    auto alias_option = db_command->add_option_function<std::string>("--alias",
+        [&](const std::string& value) { builder.SetDbAlias(value); },
+        "alias to assign (empty string removes alias)");
+    alias_option->type_name("TEXT");
 
     program.add_flag_callback("--copy-config", [&]() { builder.SetCopyConfig(true); },
         "copy default configuration files to the user configuration directory and exit");
@@ -874,6 +978,71 @@ show information for the file the link references)");
         program.parse(patched_argc, parse_argv.data());
     } catch (const CLI::ParseError& e) {
         std::exit(program.exit(e));
+    }
+
+    auto ensure_missing = [](std::vector<std::string>& missing, CLI::Option* opt, const char* label) {
+        if (opt->count() == 0) {
+            missing.emplace_back(label);
+        }
+    };
+
+    auto join_labels = [](const std::vector<std::string>& labels) {
+        std::ostringstream oss;
+        for (size_t i = 0; i < labels.size(); ++i) {
+            if (i > 0) {
+                oss << ", ";
+            }
+            oss << labels[i];
+        }
+        return oss.str();
+    };
+
+    auto db_action = builder.db_action();
+    if (db_action == Config::DbAction::None) {
+        throw CLI::ValidationError("db", "one of --show-* or --set-* flags must be provided");
+    }
+    if (db_action == Config::DbAction::SetFile || db_action == Config::DbAction::SetFolder) {
+        std::vector<std::string> missing;
+        ensure_missing(missing, name_option, "--name");
+        ensure_missing(missing, icon_option, "--icon");
+        ensure_missing(missing, icon_class_option, "--icon_class");
+        ensure_missing(missing, icon_utf_option, "--icon_utf_16_codes");
+        ensure_missing(missing, icon_hex_option, "--icon_hex_code");
+        ensure_missing(missing, description_option, "--description");
+        ensure_missing(missing, used_by_option, "--used_by");
+        if (!missing.empty()) {
+            std::ostringstream oss;
+            oss << "missing required option(s) for "
+                << (db_action == Config::DbAction::SetFile ? "--set-file" : "--set-folder")
+                << ": " << join_labels(missing);
+            throw CLI::ValidationError("db", oss.str());
+        }
+        if (alias_option->count() > 0) {
+            throw CLI::ValidationError("db", "--alias is not valid with --set-file/--set-folder");
+        }
+    } else if (db_action == Config::DbAction::SetFileAlias || db_action == Config::DbAction::SetFolderAlias) {
+        std::vector<std::string> missing;
+        ensure_missing(missing, name_option, "--name");
+        ensure_missing(missing, alias_option, "--alias");
+        if (!missing.empty()) {
+            std::ostringstream oss;
+            oss << "missing required option(s) for "
+                << (db_action == Config::DbAction::SetFileAlias ? "--set-file-aliases" : "--set-folder-aliases")
+                << ": " << join_labels(missing);
+            throw CLI::ValidationError("db", oss.str());
+        }
+        if (icon_option->count() > 0 || icon_class_option->count() > 0 ||
+            icon_utf_option->count() > 0 || icon_hex_option->count() > 0 ||
+            description_option->count() > 0 || used_by_option->count() > 0) {
+            throw CLI::ValidationError("db", "icon metadata options are not valid with alias commands");
+        }
+    } else {
+        if (name_option->count() > 0 || icon_option->count() > 0 || icon_class_option->count() > 0 ||
+            icon_utf_option->count() > 0 || icon_hex_option->count() > 0 ||
+            description_option->count() > 0 || used_by_option->count() > 0 ||
+            alias_option->count() > 0) {
+            throw CLI::ValidationError("db", "metadata options require a --set-* command");
+        }
     }
 
     if (!tree_arguments.empty()) {

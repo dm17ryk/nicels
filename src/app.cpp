@@ -109,7 +109,7 @@ int App::run(int argc, char** argv) {
 int App::runDatabaseCommand(Config::DbAction action)
 {
     DatabaseInspector inspector = DatabaseInspector::CreateFromResourceManager();
-    return inspector.Execute(action);
+    return inspector.Execute(action, options().db_icon_entry(), options().db_alias_entry());
 }
 
 }  // namespace nls

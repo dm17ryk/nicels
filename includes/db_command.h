@@ -19,7 +19,9 @@ public:
     static DatabaseInspector CreateFromResourceManager();
 
     explicit DatabaseInspector(std::vector<std::filesystem::path> candidates);
-    int Execute(Config::DbAction action);
+    int Execute(Config::DbAction action,
+                const Config::DbIconEntry& icon_entry,
+                const Config::DbAliasEntry& alias_entry);
 
 private:
     struct IconRecord {
@@ -53,6 +55,9 @@ private:
     using IconMap = std::unordered_map<std::string, IconRecord>;
     using AliasMap = std::unordered_map<std::string, AliasRecord>;
 
+    enum class IconTarget { Files, Folders };
+    enum class AliasTarget { Files, Folders };
+
     [[nodiscard]] bool EnsureLoaded();
     [[nodiscard]] bool LoadAllSources();
     [[nodiscard]] bool LoadSingleSource(const std::filesystem::path& path);
@@ -61,11 +66,22 @@ private:
         FilterReadable(std::vector<std::filesystem::path> paths);
 
     [[nodiscard]] static std::unique_ptr<sqlite3, void(*)(sqlite3*)>
-        OpenDatabase(const std::filesystem::path& path, std::string& error);
+        OpenDatabase(const std::filesystem::path& path, int flags, std::string& error);
     [[nodiscard]] static std::optional<std::string>
         LoadIconTable(sqlite3* db, std::string_view sql, IconMap& target);
     [[nodiscard]] static std::optional<std::string>
         LoadAliasTable(sqlite3* db, std::string_view sql, AliasMap& target);
+
+    [[nodiscard]] static bool IsElevated();
+    [[nodiscard]] static bool EnsureSchema(sqlite3* db);
+    [[nodiscard]] static bool ExecuteSimple(sqlite3* db, std::string_view sql);
+    [[nodiscard]] static std::optional<std::uint32_t> ParseUnicode(std::string_view text);
+    [[nodiscard]] static std::optional<std::uint32_t> ParseHex(std::string_view text);
+    [[nodiscard]] static bool AllFieldsEmpty(const Config::DbIconEntry& entry);
+    [[nodiscard]] int ApplyIconEntry(IconTarget target, const Config::DbIconEntry& entry);
+    [[nodiscard]] int ApplyAliasEntry(AliasTarget target, const Config::DbAliasEntry& entry);
+    [[nodiscard]] std::filesystem::path ResolveWritableDatabasePath(bool prefer_system) const;
+    [[nodiscard]] static std::filesystem::path UserDatabasePath();
 
     [[nodiscard]] static std::string ExtractText(sqlite3_stmt* stmt, int column);
     [[nodiscard]] static std::optional<std::uint32_t> ExtractCode(sqlite3_stmt* stmt, int column);
@@ -84,6 +100,7 @@ private:
     bool loaded_ = false;
     bool had_error_ = false;
     std::string last_error_;
+    mutable std::filesystem::path writable_cache_{};
 };
 
 }  // namespace nls

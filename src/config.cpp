@@ -55,6 +55,8 @@ void Config::Reset() {
     perf_logging_ = false;
     copy_config_only_ = false;
     db_action_ = DbAction::None;
+    db_icon_entry_ = {};
+    db_alias_entry_ = {};
 
     theme_name_.reset();
 
@@ -171,6 +173,12 @@ void Config::set_copy_config_only(bool value) { copy_config_only_ = value; }
 
 Config::DbAction Config::db_action() const { return db_action_; }
 void Config::set_db_action(DbAction value) { db_action_ = value; }
+
+const Config::DbIconEntry& Config::db_icon_entry() const { return db_icon_entry_; }
+void Config::set_db_icon_entry(DbIconEntry value) { db_icon_entry_ = std::move(value); }
+
+const Config::DbAliasEntry& Config::db_alias_entry() const { return db_alias_entry_; }
+void Config::set_db_alias_entry(DbAliasEntry value) { db_alias_entry_ = std::move(value); }
 
 const std::optional<std::string>& Config::theme_name() const { return theme_name_; }
 void Config::set_theme_name(std::optional<std::string> value) { theme_name_ = std::move(value); }

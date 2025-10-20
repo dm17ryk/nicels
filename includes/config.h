@@ -38,7 +38,11 @@ public:
         ShowFiles,
         ShowFolders,
         ShowFileAliases,
-        ShowFolderAliases
+        ShowFolderAliases,
+        SetFile,
+        SetFolder,
+        SetFileAlias,
+        SetFolderAlias
     };
 
     static Config& Instance();
@@ -147,6 +151,27 @@ public:
     DbAction db_action() const;
     void set_db_action(DbAction value);
 
+    struct DbIconEntry {
+        std::string name;
+        std::string icon;
+        std::string icon_class;
+        std::string icon_utf16;
+        std::string icon_hex;
+        std::string description;
+        std::string used_by;
+    };
+
+    struct DbAliasEntry {
+        std::string name;
+        std::string alias;
+    };
+
+    const DbIconEntry& db_icon_entry() const;
+    void set_db_icon_entry(DbIconEntry value);
+
+    const DbAliasEntry& db_alias_entry() const;
+    void set_db_alias_entry(DbAliasEntry value);
+
     const std::optional<std::string>& theme_name() const;
     void set_theme_name(std::optional<std::string> value);
 
@@ -225,6 +250,8 @@ private:
     bool perf_logging_ = false;
     bool copy_config_only_ = false;
     DbAction db_action_ = DbAction::None;
+    DbIconEntry db_icon_entry_{};
+    DbAliasEntry db_alias_entry_{};
 
     std::optional<std::string> theme_name_{};
 
