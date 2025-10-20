@@ -42,7 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Remove the destination directory first if it already exists.",
+        help="Overwrite existing fixture subdirectories at the destination.",
     )
     return parser.parse_args()
 
@@ -56,6 +56,17 @@ def _rmtree(path: Path) -> None:
             raise
 
     shutil.rmtree(path, onerror=_onerror)
+
+
+def _platform_entries(selection: str) -> list[tuple[str, Path]]:
+    if selection == "linux":
+        return [("linux", LIN_ARCHIVE)]
+    if selection == "windows":
+        return [("windows", WIN_ARCHIVE)]
+    return [
+        ("linux", LIN_ARCHIVE),
+        ("windows", WIN_ARCHIVE),
+    ]
 
 
 def _safe_extract(archive: Path, destination: Path) -> None:
@@ -85,22 +96,27 @@ def main() -> int:
     args = parse_args()
     destination = Path(args.destination).expanduser()
 
+    selected = _platform_entries(args.platform)
+
     if destination.exists():
-        if not args.force:
-            print(f"error: destination {destination} already exists (use --force to overwrite)", file=sys.stderr)
+        if not destination.is_dir():
+            print(f"error: destination {destination} exists and is not a directory", file=sys.stderr)
             return 1
-        if destination.is_file():
-            destination.unlink()
-        else:
-            _rmtree(destination)
+        for platform, _ in selected:
+            subdir = destination / ("lin" if platform == "linux" else "win")
+            if subdir.exists():
+                if args.force:
+                    _rmtree(subdir)
+                else:
+                    print(
+                        f"error: fixture directory {subdir} already exists (use --force to overwrite)",
+                        file=sys.stderr,
+                    )
+                    return 1
+    else:
+        destination.mkdir(parents=True, exist_ok=True)
 
     destination.mkdir(parents=True, exist_ok=True)
-
-    selected = []
-    if args.platform in ("linux", "all"):
-        selected.append(("linux", LIN_ARCHIVE))
-    if args.platform in ("windows", "all"):
-        selected.append(("windows", WIN_ARCHIVE))
 
     if not selected:
         print("nothing to do: no platforms selected", file=sys.stderr)

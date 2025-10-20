@@ -39,6 +39,8 @@
 *.log
 nls
 !test/assets/*.tar.gz
+test/_logs/
+test/config-home/
 build/
 _CPack_Packages/
 test/lin/

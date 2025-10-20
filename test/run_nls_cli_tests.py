@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import argparse
 import os
+import platform
 import shutil
 import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, Optional
@@ -36,13 +36,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--fixtures",
-        help="Existing fixtures directory to reuse. "
-        "If omitted, fixtures are generated in a temporary directory.",
+        default=str(REPO_ROOT / "test"),
+        help="Directory where the fixture tree should be materialised (default: %(default)s)",
     )
     parser.add_argument(
-        "--keep-fixtures",
-        action="store_true",
-        help="Do not delete generated fixtures after the run (useful for debugging).",
+        "--platform",
+        choices=("auto", "linux", "windows", "all"),
+        default="auto",
+        help="Fixture set to unpack before running the checks (default: auto)",
     )
     return parser.parse_args()
 
@@ -55,9 +56,16 @@ def ensure_binary(path: Path) -> Path:
     return path
 
 
-def generate_fixtures(destination: Path) -> None:
+def generate_fixtures(destination: Path, platform_choice: str) -> None:
     script = REPO_ROOT / "tools" / "generate_test_structure.py"
-    cmd = [sys.executable, str(script), str(destination), "--platform", "linux", "--force"]
+    cmd = [
+        sys.executable,
+        str(script),
+        str(destination),
+        "--platform",
+        platform_choice,
+        "--force",
+    ]
     subprocess.run(cmd, check=True, cwd=REPO_ROOT)
 
 
@@ -68,10 +76,18 @@ def _default_env() -> dict[str, str]:
     return env
 
 
-def build_cases(fixture_dir: Path) -> list[TestCase]:
-    lin_root = fixture_dir / "lin"
-    if not lin_root.is_dir():
-        raise RuntimeError(f"linux fixture root {lin_root} is missing")
+def resolve_platform_choice(selection: str) -> str:
+    if selection != "auto":
+        return selection
+    system = platform.system().lower()
+    if "windows" in system:
+        return "windows"
+    return "linux"
+
+
+def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
+    if not root_dir.is_dir():
+        raise RuntimeError(f"fixture root {root_dir} is missing")
 
     cases: list[TestCase] = []
     env = _default_env()
@@ -91,6 +107,8 @@ def build_cases(fixture_dir: Path) -> list[TestCase]:
     add("version", "--version")
 
     copy_config_root = fixture_dir / "config-home"
+    if copy_config_root.exists():
+        shutil.rmtree(copy_config_root)
     home_dir = copy_config_root / "home"
     xdg_dir = copy_config_root / "xdg"
     home_dir.mkdir(parents=True, exist_ok=True)
@@ -104,50 +122,50 @@ def build_cases(fixture_dir: Path) -> list[TestCase]:
         },
     )
 
-    add("default-listing", str(lin_root))
+    add("default-listing", str(root_dir))
 
     # Layout options.
-    add("long-format", "-l", str(lin_root))
-    add("one-per-line", "-1", str(lin_root))
-    add("list-by-lines", "-x", str(lin_root))
-    add("list-by-columns", "-C", str(lin_root))
+    add("long-format", "-l", str(root_dir))
+    add("one-per-line", "-1", str(root_dir))
+    add("list-by-lines", "-x", str(root_dir))
+    add("list-by-columns", "-C", str(root_dir))
     for format_opt in ("vertical", "across", "horizontal", "long", "single-column", "comma"):
-        add(f"format-{format_opt}", f"--format={format_opt}", str(lin_root))
-    add("header", "--header", str(lin_root))
-    add("comma-separated", "-m", str(lin_root))
-    add("tabsize", "-T", "4", str(lin_root))
-    add("width", "-w", "120", str(lin_root))
-    add("tree", "--tree", str(lin_root))
-    add("tree-depth", "--tree=2", str(lin_root))
+        add(f"format-{format_opt}", f"--format={format_opt}", str(root_dir))
+    add("header", "--header", str(root_dir))
+    add("comma-separated", "-m", str(root_dir))
+    add("tabsize", "-T", "4", str(root_dir))
+    add("width", "-w", "120", str(root_dir))
+    add("tree", "--tree", str(root_dir))
+    add("tree-depth", "--tree=2", str(root_dir))
     for report_opt in ("short", "long"):
-        add(f"report-{report_opt}", f"--report={report_opt}", str(lin_root))
-    add("zero-terminated", "--zero", str(lin_root))
+        add(f"report-{report_opt}", f"--report={report_opt}", str(root_dir))
+    add("zero-terminated", "--zero", str(root_dir))
 
     # Filtering options.
-    add("all", "-a", str(lin_root))
-    add("almost-all", "-A", str(lin_root))
-    add("dirs-only", "-d", str(lin_root))
-    add("files-only", "-f", str(lin_root))
-    add("ignore-backups", "-B", str(lin_root))
-    add("hide-pattern", "--hide", "*.log", str(lin_root))
-    add("ignore-pattern", "-I", "*.bin", str(lin_root))
+    add("all", "-a", str(root_dir))
+    add("almost-all", "-A", str(root_dir))
+    add("dirs-only", "-d", str(root_dir))
+    add("files-only", "-f", str(root_dir))
+    add("ignore-backups", "-B", str(root_dir))
+    add("hide-pattern", "--hide", "*.log", str(root_dir))
+    add("ignore-pattern", "-I", "*.bin", str(root_dir))
 
     # Sorting options.
-    add("sort-mod-time", "-t", str(lin_root))
-    add("sort-size", "-S", str(lin_root))
-    add("sort-extension", "-X", str(lin_root))
-    add("unsorted", "-U", str(lin_root))
-    add("reverse", "-r", str(lin_root))
+    add("sort-mod-time", "-t", str(root_dir))
+    add("sort-size", "-S", str(root_dir))
+    add("sort-extension", "-X", str(root_dir))
+    add("unsorted", "-U", str(root_dir))
+    add("reverse", "-r", str(root_dir))
     for sort_opt in ("size", "time", "extension", "none"):
-        add(f"sort-by-{sort_opt}", "--sort", sort_opt, str(lin_root))
-    add("group-directories-first", "--group-directories-first", str(lin_root))
-    add("sort-files-first", "--sort-files", str(lin_root))
-    add("dots-first", "--dots-first", str(lin_root))
+        add(f"sort-by-{sort_opt}", "--sort", sort_opt, str(root_dir))
+    add("group-directories-first", "--group-directories-first", str(root_dir))
+    add("sort-files-first", "--sort-files", str(root_dir))
+    add("dots-first", "--dots-first", str(root_dir))
 
     # Appearance options.
-    add("escape", "-b", str(lin_root))
-    add("literal", "-N", str(lin_root))
-    add("quote-name", "-Q", str(lin_root))
+    add("escape", "-b", str(root_dir))
+    add("literal", "-N", str(root_dir))
+    add("quote-name", "-Q", str(root_dir))
     quoting_styles: Iterable[str] = (
         "literal",
         "locale",
@@ -159,53 +177,53 @@ def build_cases(fixture_dir: Path) -> list[TestCase]:
         "escape",
     )
     for style in quoting_styles:
-        add(f"quoting-style-{style}", "--quoting-style", style, str(lin_root))
-    add("append-indicator", "-p", str(lin_root))
-    add("indicator-none", "--indicator-style", "none", str(lin_root))
-    add("indicator-slash", "--indicator-style", "slash", str(lin_root))
-    add("no-icons", "--no-icons", str(lin_root))
-    add("without-icons-alias", "--without-icons", str(lin_root))
-    add("no-color", "--no-color", str(lin_root))
+        add(f"quoting-style-{style}", "--quoting-style", style, str(root_dir))
+    add("append-indicator", "-p", str(root_dir))
+    add("indicator-none", "--indicator-style", "none", str(root_dir))
+    add("indicator-slash", "--indicator-style", "slash", str(root_dir))
+    add("no-icons", "--no-icons", str(root_dir))
+    add("without-icons-alias", "--without-icons", str(root_dir))
+    add("no-color", "--no-color", str(root_dir))
     for when in ("always", "auto", "never"):
-        add(f"color-{when}", f"--color={when}", str(lin_root))
-    add("theme-dark", "--theme", "Dark", str(lin_root))
-    add("light-theme", "--light", str(lin_root))
-    add("dark-theme", "--dark", str(lin_root))
-    add("hide-control", "-q", str(lin_root))
-    add("show-control", "--show-control-chars", str(lin_root))
+        add(f"color-{when}", f"--color={when}", str(root_dir))
+    add("theme-dark", "--theme", "Dark", str(root_dir))
+    add("light-theme", "--light", str(root_dir))
+    add("dark-theme", "--dark", str(root_dir))
+    add("hide-control", "-q", str(root_dir))
+    add("show-control", "--show-control-chars", str(root_dir))
     for time_style in ("default", "locale", "local", "long-iso", "full-iso", "iso", "iso8601"):
-        add(f"time-style-{time_style}", "--time-style", time_style, str(lin_root))
-    add("full-time", "--full-time", str(lin_root))
-    add("hyperlink", "--hyperlink", str(lin_root))
+        add(f"time-style-{time_style}", "--time-style", time_style, str(root_dir))
+    add("full-time", "--full-time", str(root_dir))
+    add("hyperlink", "--hyperlink", str(root_dir))
 
     # Information options.
-    add("inode", "-i", str(lin_root))
-    add("no-owner", "-o", str(lin_root))
-    add("no-group-long", "-g", str(lin_root))
-    add("no-group-option", "-G", str(lin_root))
-    add("numeric-ids", "-n", str(lin_root))
-    add("bytes", "--bytes", str(lin_root))
-    add("size", "--size", str(lin_root))
-    add("block-size", "--block-size", "1K", str(lin_root))
-    add("dereference", "-L", str(lin_root))
-    add("git-status", "--git-status", str(lin_root))
+    add("inode", "-i", str(root_dir))
+    add("no-owner", "-o", str(root_dir))
+    add("no-group-long", "-g", str(root_dir))
+    add("no-group-option", "-G", str(root_dir))
+    add("numeric-ids", "-n", str(root_dir))
+    add("bytes", "--bytes", str(root_dir))
+    add("size", "--size", str(root_dir))
+    add("block-size", "--block-size", "1K", str(root_dir))
+    add("dereference", "-L", str(root_dir))
+    add("git-status", "--git-status", str(root_dir))
 
     # Debug / diagnostics.
-    add("perf-debug", "--perf-debug", str(lin_root))
+    add("perf-debug", "--perf-debug", str(root_dir))
 
     # Subcommands.
     add("db-help", "db", "--help")
 
     # Representative option combinations.
-    add("combo-long-all-git", "-l", "-a", "--git-status", "--header", str(lin_root))
-    add("combo-sorting", "-S", "-t", "--reverse", str(lin_root))
-    add("combo-format-tree", "--format", "long", "--tree=1", str(lin_root))
-    add("combo-themed", "-l", "--color=always", "--theme", "Dark", str(lin_root))
-    add("combo-filtering", "-A", "--hide", "*.log", "--ignore", "*.bin", str(lin_root))
-    add("combo-quoting", "-Q", "--quoting-style", "shell-escape", str(lin_root))
-    add("combo-numeric", "-n", "--bytes", "--block-size", "1M", str(lin_root))
-    add("combo-appearance", "--no-icons", "--no-color", "--hyperlink", str(lin_root))
-    add("combo-information", "-i", "-o", "-g", "-G", "--size", str(lin_root))
+    add("combo-long-all-git", "-l", "-a", "--git-status", "--header", str(root_dir))
+    add("combo-sorting", "-S", "-t", "--reverse", str(root_dir))
+    add("combo-format-tree", "--format", "long", "--tree=1", str(root_dir))
+    add("combo-themed", "-l", "--color=always", "--theme", "Dark", str(root_dir))
+    add("combo-filtering", "-A", "--hide", "*.log", "--ignore", "*.bin", str(root_dir))
+    add("combo-quoting", "-Q", "--quoting-style", "shell-escape", str(root_dir))
+    add("combo-numeric", "-n", "--bytes", "--block-size", "1M", str(root_dir))
+    add("combo-appearance", "--no-icons", "--no-color", "--hyperlink", str(root_dir))
+    add("combo-information", "-i", "-o", "-g", "-G", "--size", str(root_dir))
 
     return cases
 
@@ -246,43 +264,31 @@ def main() -> int:
         binary = (REPO_ROOT / binary).resolve()
     ensure_binary(binary)
 
-    if args.fixtures:
-        fixture_root = Path(args.fixtures)
-        if not fixture_root.is_dir():
-            raise FileNotFoundError(f"fixture directory {fixture_root} does not exist")
-        temp_context = _StaticPathContext(fixture_root.resolve())
-    elif args.keep_fixtures:
-        persistent_dir = Path(tempfile.mkdtemp(prefix="nls-fixtures-")).resolve()
-        temp_context = _StaticPathContext(persistent_dir)
-    else:
-        tmp_dir = tempfile.TemporaryDirectory(prefix="nls-fixtures-")
-        temp_context = tmp_dir
+    fixtures_root = Path(args.fixtures).expanduser().resolve()
+    fixtures_root.mkdir(parents=True, exist_ok=True)
 
+    platform_choice = resolve_platform_choice(args.platform)
+    generate_fixtures(fixtures_root, platform_choice)
+
+    log_dir = fixtures_root / "_logs"
+    if log_dir.exists():
+        shutil.rmtree(log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    if platform_choice == "windows":
+        root_dir = fixtures_root / "win"
+    else:
+        root_dir = fixtures_root / "lin"
+
+    cases = build_cases(fixtures_root, root_dir)
     try:
-        with temp_context as folder:
-            fixture_dir = Path(folder)
-            if not args.fixtures:
-                generate_fixtures(fixture_dir)
-            log_dir = fixture_dir / "logs"
-            log_dir.mkdir(parents=True, exist_ok=True)
-            cases = build_cases(fixture_dir)
-            run_cases(binary, cases, log_dir)
-            print(f"\nAll {len(cases)} CLI checks passed. Logs stored in {log_dir}.")
+        run_cases(binary, cases, log_dir)
     except Exception as exc:  # pragma: no cover
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+    print(f"\nAll {len(cases)} CLI checks passed. Logs stored in {log_dir}.")
     return 0
-
-
-class _StaticPathContext:  # pragma: no cover - compatibility utility
-    def __init__(self, path: Path):
-        self._path = path
-
-    def __enter__(self) -> str:
-        return str(self._path)
-
-    def __exit__(self, exc_type, exc_value, traceback) -> bool:
-        return False
 
 
 if __name__ == "__main__":

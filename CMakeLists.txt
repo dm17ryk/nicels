@@ -460,6 +460,8 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE}
             "${CMAKE_CURRENT_SOURCE_DIR}/test/run_nls_cli_tests.py"
             --binary $<TARGET_FILE:nls>
+            --fixtures "${CMAKE_CURRENT_SOURCE_DIR}/test"
+            --platform auto
   )
 endif()
 
