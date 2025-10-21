@@ -50,11 +50,41 @@ def parse_args() -> argparse.Namespace:
 
 
 def ensure_binary(path: Path) -> Path:
-    if not path.exists():
-        raise FileNotFoundError(f"nls binary not found at {path}")
-    if not os.access(path, os.X_OK):
-        raise PermissionError(f"nls binary at {path} is not executable")
-    return path
+    def _is_executable(candidate: Path) -> bool:
+        return candidate.is_file() and os.access(candidate, os.X_OK)
+
+    if _is_executable(path):
+        return path
+
+    fallback_candidates: list[Path] = []
+    if path.suffix == "" and os.name == "nt":
+        fallback_candidates.append(path.with_suffix(".exe"))
+
+    search_roots: list[Path] = []
+    if path.parent != path:
+        search_roots.append(path.parent)
+    search_roots.append(REPO_ROOT / "build")
+
+    names: list[str] = ["nls"]
+    if os.name == "nt":
+        names.insert(0, "nls.exe")
+
+    for candidate in fallback_candidates:
+        if _is_executable(candidate):
+            return candidate
+
+    for root in search_roots:
+        if not root.exists():
+            continue
+        for name in names:
+            try:
+                for candidate in root.rglob(name):
+                    if _is_executable(candidate):
+                        return candidate
+            except PermissionError:
+                continue
+
+    raise FileNotFoundError(f"nls binary not found at {path}")
 
 
 def generate_fixtures(destination: Path, platform_choice: str) -> None:
