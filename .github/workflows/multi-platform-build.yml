@@ -60,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Windows_installer
-          path: ${{ github.workspace }}/_CPack_Packages/win64/NSIS/nicels-${{ env.VERSION }}-win64.exe
+          path: ${{ github.workspace }}/_CPack_Packages/x86_64/NSIS/nicels-${{ env.VERSION }}-x86_64.exe
           if-no-files-found: error
 
   linux-deb:
@@ -96,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Debian_package
-          path: ${{ github.workspace }}/_CPack_Packages/Linux/DEB/nicels-${{ env.VERSION }}-Linux.deb
+          path: ${{ github.workspace }}/_CPack_Packages/x86_64/DEB/nicels-${{ env.VERSION }}-x86_64.deb
           if-no-files-found: error
 
   linux-rpm:
@@ -174,7 +174,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: RPM_package
-          path: ${{ github.workspace }}/_CPack_Packages/Linux/RPM/RPMS/nicels-${{ env.VERSION }}-Linux.rpm
+          path: ${{ github.workspace }}/_CPack_Packages/x86_64/RPM/RPMS/nicels-${{ env.VERSION }}-x86_64.rpm
           if-no-files-found: error
 
   release:
@@ -225,8 +225,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/windows/nicels-${{ env.VERSION }}-win64.exe
-          asset_name: nicels-${{ env.VERSION }}-win64.exe
+          asset_path: artifacts/windows/nicels-${{ env.VERSION }}-x86_64.exe
+          asset_name: nicels-${{ env.VERSION }}-x86_64.exe
           asset_content_type: application/octet-stream
 
       - name: Upload Debian Package (.deb)
@@ -235,8 +235,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/deb/nicels-${{ env.VERSION }}-Linux.deb
-          asset_name: nicels-${{ env.VERSION }}-Linux.deb
+          asset_path: artifacts/deb/nicels-${{ env.VERSION }}-x86_64.deb
+          asset_name: nicels-${{ env.VERSION }}-x86_64.deb
           asset_content_type: application/vnd.debian.binary-package
 
       - name: Upload RPM Package (.rpm)
@@ -245,6 +245,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/rpm/nicels-${{ env.VERSION }}-Linux.rpm
-          asset_name: nicels-${{ env.VERSION }}-Linux.rpm
+          asset_path: artifacts/rpm/nicels-${{ env.VERSION }}-x86_64.rpm
+          asset_name: nicels-${{ env.VERSION }}-x86_64.rpm
           asset_content_type: application/x-rpm
