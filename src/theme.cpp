@@ -243,18 +243,24 @@ struct IconLoadStats {
     std::size_t sources = 0;
     std::size_t entries = 0;
     bool success = true;
+    std::string error_message;
 };
 
 static IconLoadStats LoadIconsFromDatabase(sqlite3* db, IconTheme& icons)
 {
     IconLoadStats stats;
+    bool warned = false;
 
     auto load_map = [&](const std::string& query, auto& target, bool is_alias) {
         sqlite3_stmt* stmt = nullptr;
         int rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr);
         if (rc != SQLITE_OK) {
-            std::cerr << "Warning: Failed to prepare query: " << query << "\n";
             stats.success = false;
+            if (!warned) {
+                const char* msg = sqlite3_errmsg(db);
+                if (msg) stats.error_message = msg;
+                warned = true;
+            }
             return;
         }
         ++stats.sources;
@@ -285,8 +291,12 @@ static IconLoadStats LoadIconsFromDatabase(sqlite3* db, IconTheme& icons)
             ++stats.entries;
         }
         if (rc != SQLITE_DONE) {
-            std::cerr << "Warning: Error executing query: " << query << "\n";
             stats.success = false;
+            if (!warned) {
+                const char* msg = sqlite3_errmsg(db);
+                if (msg) stats.error_message = msg;
+                warned = true;
+            }
         }
         sqlite3_finalize(stmt);
     };
@@ -478,6 +488,7 @@ void Theme::ensure_loaded()
     IconLoadStats aggregated_icon_stats{};
 
     const auto candidates = ResourceManager::databaseCandidates();
+    std::vector<std::pair<std::filesystem::path, std::string>> skipped_databases;
     for (auto it = candidates.rbegin(); it != candidates.rend(); ++it) {
         const auto& candidate = *it;
         if (candidate.empty()) continue;
@@ -493,10 +504,16 @@ void Theme::ensure_loaded()
                 theme_entries += light_entries;
             }
             IconLoadStats icon_stats = LoadIconsFromDatabase(db.get(), icons_);
-            aggregated_icon_stats.sources += icon_stats.sources;
-            aggregated_icon_stats.entries += icon_stats.entries;
-            aggregated_icon_stats.success = aggregated_icon_stats.success && icon_stats.success;
-            database_path_ = candidate;
+            bool loaded_from_candidate = (dark_entries > 0) || (light_entries > 0) || (icon_stats.entries > 0);
+
+            if (loaded_from_candidate) {
+                aggregated_icon_stats.sources += icon_stats.sources;
+                aggregated_icon_stats.entries += icon_stats.entries;
+                aggregated_icon_stats.success = aggregated_icon_stats.success && icon_stats.success;
+                database_path_ = candidate;
+            } else if (!icon_stats.error_message.empty()) {
+                skipped_databases.emplace_back(candidate, icon_stats.error_message);
+            }
         }
     }
 
@@ -512,6 +529,12 @@ void Theme::ensure_loaded()
         perf_manager.IncrementCounter("theme::theme_entries_processed", theme_entries);
         perf_manager.IncrementCounter("theme::icon_sources", aggregated_icon_stats.sources);
         perf_manager.IncrementCounter("theme::icon_entries_processed", aggregated_icon_stats.entries);
+    }
+
+    if (database_path_.empty() && !skipped_databases.empty()) {
+        const auto& [path, message] = skipped_databases.front();
+        std::cerr << "nls: warning: unable to load configuration database '" << path
+                  << "': " << message << "\n";
     }
 }
 
