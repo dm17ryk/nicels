@@ -11,7 +11,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import Callable, Dict, Iterable, Optional
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -23,6 +23,7 @@ class TestCase:
     args: list[str]
     env: Optional[Dict[str, str]] = None
     cwd: Optional[Path] = None
+    verify: Optional[Callable[[Path, Path], Optional[str]]] = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -93,34 +94,24 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
     env = _default_env()
     cwd = REPO_ROOT
 
-    def add(name: str, *args: str, case_env: Optional[Dict[str, str]] = None, case_cwd: Optional[Path] = None) -> None:
+    def add(
+        name: str,
+        *args: str,
+        case_env: Optional[Dict[str, str]] = None,
+        case_cwd: Optional[Path] = None,
+        verify: Optional[Callable[[Path, Path], Optional[str]]] = None,
+    ) -> None:
         args_list = list(args)
         if case_env is None:
             merged_env = env
         else:
             merged_env = env.copy()
             merged_env.update(case_env)
-        cases.append(TestCase(name=name, args=args_list, env=merged_env, cwd=case_cwd or cwd))
+        cases.append(TestCase(name=name, args=args_list, env=merged_env, cwd=case_cwd or cwd, verify=verify))
 
     # General behaviour.
     add("help", "--help")
     add("version", "--version")
-
-    copy_config_root = fixture_dir / "config-home"
-    if copy_config_root.exists():
-        shutil.rmtree(copy_config_root)
-    home_dir = copy_config_root / "home"
-    xdg_dir = copy_config_root / "xdg"
-    home_dir.mkdir(parents=True, exist_ok=True)
-    xdg_dir.mkdir(parents=True, exist_ok=True)
-    add(
-        "copy-config",
-        "--copy-config",
-        case_env={
-            "HOME": str(home_dir),
-            "XDG_CONFIG_HOME": str(xdg_dir),
-        },
-    )
 
     add("default-listing", str(root_dir))
 
@@ -225,6 +216,95 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
     add("combo-appearance", "--no-icons", "--no-color", "--hyperlink", str(root_dir))
     add("combo-information", "-i", "-o", "-g", "-G", "--size", str(root_dir))
 
+    # Database subcommand exercises.
+    db_home = fixture_dir / "db-home"
+    if db_home.exists():
+        shutil.rmtree(db_home)
+    db_home.mkdir(parents=True, exist_ok=True)
+
+    db_env = env.copy()
+    db_env.update({
+        "HOME": str(db_home),
+        "XDG_CONFIG_HOME": str(db_home / ".config"),
+    })
+    if os.name == "nt":
+        appdata = db_home / "AppData"
+        userprofile = db_home / "UserProfile"
+        db_env.setdefault("APPDATA", str(appdata))
+        db_env.setdefault("USERPROFILE", str(userprofile))
+        user_db_dir = Path(db_env["APPDATA"]) / "nicels" / "DB"
+    else:
+        user_db_dir = Path(db_env["HOME"]) / ".nicels" / "DB"
+
+    user_db_path = user_db_dir / "NLS.sqlite3"
+    set_ext = ".fixturedb"
+    alias_name = "fixture-alias"
+
+    def verify_db_update(out_path: Path, _: Path) -> Optional[str]:
+        text = out_path.read_text(encoding="utf-8", errors="replace")
+        expected_phrase = f"updated file icon entry '{set_ext}'"
+        if expected_phrase not in text:
+            return f"expected '{expected_phrase}' in stdout"
+        if not user_db_path.exists():
+            return f"expected {user_db_path} to be created"
+        return None
+
+    def expect_in_stdout(substring: str) -> Callable[[Path, Path], Optional[str]]:
+        def _check(out_path: Path, _: Path) -> Optional[str]:
+            text = out_path.read_text(encoding="utf-8", errors="replace")
+            if substring not in text:
+                return f"expected '{substring}' in stdout"
+            return None
+        return _check
+
+    add("db-show-files", "db", "--show-files", case_env=db_env)
+    add(
+        "db-set-file",
+        "db",
+        "--set-file",
+        "--name",
+        set_ext,
+        "--icon",
+        "@",
+        "--icon_class",
+        "test",
+        "--icon_utf_16_codes",
+        "\\u2605",
+        "--icon_hex_code",
+        "0x2605",
+        "--used_by",
+        "cli-tests",
+        "--description",
+        "Fixture entry",
+        case_env=db_env,
+        verify=verify_db_update,
+    )
+    add(
+        "db-show-files-after-set",
+        "db",
+        "--show-files",
+        case_env=db_env,
+        verify=expect_in_stdout(set_ext),
+    )
+    add(
+        "db-set-file-alias",
+        "db",
+        "--set-file-aliases",
+        "--name",
+        set_ext,
+        "--alias",
+        alias_name,
+        case_env=db_env,
+        verify=expect_in_stdout(f"updated file alias '{alias_name}'"),
+    )
+    add(
+        "db-show-file-aliases",
+        "db",
+        "--show-file-aliases",
+        case_env=db_env,
+        verify=expect_in_stdout(alias_name),
+    )
+
     return cases
 
 
@@ -252,6 +332,15 @@ def run_cases(binary: Path, cases: list[TestCase], log_dir: Path) -> None:
                 f"{step_label} failed with exit code {result.returncode} "
                 f"(stdout: {out_file}, stderr: {err_file})",
             )
+            continue
+
+        if case.verify is not None:
+            message = case.verify(out_file, err_file)
+            if message:
+                failures.append(
+                    f"{step_label} verification failed: {message} "
+                    f"(stdout: {out_file}, stderr: {err_file})",
+                )
 
     if failures:
         raise RuntimeError("\n".join(failures))
@@ -286,6 +375,10 @@ def main() -> int:
     except Exception as exc:  # pragma: no cover
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+    db_home_cleanup = fixtures_root / "db-home"
+    if db_home_cleanup.exists():
+        shutil.rmtree(db_home_cleanup)
 
     print(f"\nAll {len(cases)} CLI checks passed. Logs stored in {log_dir}.")
     return 0

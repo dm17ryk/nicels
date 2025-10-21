@@ -25,30 +25,6 @@ int App::run(int argc, char** argv) {
 
     config_ = &parser_.Parse(argc, argv);
 
-    if (config_->copy_config_only()) {
-        ResourceManager::CopyResult copy_result;
-        std::error_code copy_ec = ResourceManager::copyDefaultsToUserConfig(copy_result);
-        if (copy_ec) {
-            std::cerr << "nls: error: failed to copy configuration files: " << copy_ec.message() << "\n";
-            config_ = nullptr;
-            return 1;
-        }
-
-        if (copy_result.copied.empty() && copy_result.skipped.empty()) {
-            std::cout << "nls: no configuration files found to copy\n";
-        } else {
-            for (const auto& path : copy_result.copied) {
-                std::cout << "nls: copied " << path << "\n";
-            }
-            for (const auto& path : copy_result.skipped) {
-                std::cout << "nls: skipped (already exists) " << path << "\n";
-            }
-        }
-
-        config_ = nullptr;
-        return 0;
-    }
-
     if (config_->db_action() != Config::DbAction::None) {
         int db_rc = runDatabaseCommand(config_->db_action());
         config_ = nullptr;

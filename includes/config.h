@@ -145,9 +145,6 @@ public:
     bool perf_logging() const;
     void set_perf_logging(bool value);
 
-    bool copy_config_only() const;
-    void set_copy_config_only(bool value);
-
     DbAction db_action() const;
     void set_db_action(DbAction value);
 
@@ -248,7 +245,6 @@ private:
     bool zero_terminate_ = false;
     bool show_block_size_ = false;
     bool perf_logging_ = false;
-    bool copy_config_only_ = false;
     DbAction db_action_ = DbAction::None;
     DbIconEntry db_icon_entry_{};
     DbAliasEntry db_alias_entry_{};

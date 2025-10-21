@@ -20,13 +20,6 @@ public:
     static std::filesystem::path userConfigDir();
     static std::filesystem::path envOverrideDir();
 
-    struct CopyResult {
-        std::vector<std::filesystem::path> copied;
-        std::vector<std::filesystem::path> skipped;
-    };
-
-    static std::error_code copyDefaultsToUserConfig(CopyResult& result, bool overwrite_existing = false);
-
 private:
     using Path = std::filesystem::path;
 

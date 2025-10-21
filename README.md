@@ -211,9 +211,9 @@ To customise colours or icons, copy the packaged `NLS.sqlite3` into the user
 configuration directory and edit it with your preferred SQLite tooling. Because
 the configuration lives in a single file, overrides replace the entire
 database—copy the default, modify it, and place the customised version wherever
-you want it to apply (e.g. `~/.nicels/DB/NLS.sqlite3`). The `--copy-config`
-and `--copy-config-only` options copy the currently detected database into the
-user directory for convenience.
+you want it to apply (e.g. `~/.nicels/DB/NLS.sqlite3`). Running any `nls db
+--set-*` command as a regular user bootstraps a personal database automatically
+if one is not present.
 
 ## CLI usage
 ### Quick start
@@ -253,7 +253,10 @@ nls db --set-folder-aliases --name "Documents" --alias ""
 ```
 
 When invoked without `--name`, the commands operate in read-only mode. Update
-operations fail fast if required metadata is omitted.
+operations fail fast if required metadata is omitted. Run the commands as root
+or with elevated privileges to modify the system-wide database; regular users
+automatically receive a private `~/.nicels/DB/NLS.sqlite3` that is created on
+first write and layered on top of the packaged defaults.
 
 ### Keeping this section in sync
 The CLI reference below is generated from the live binary. After changing
@@ -276,7 +279,6 @@ what the executable reports.
 | --- | --- | --- | --- |
 | `-h, --help` | `—` | `—` | Print this help message and exit |
 | `--version` | `—` | `—` | Display program version information and exit |
-| `--copy-config` | `—` | `—` | copy default configuration files to the user configuration directory and exit |
 
 #### Layout options
 

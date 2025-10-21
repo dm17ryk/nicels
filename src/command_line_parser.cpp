@@ -219,11 +219,6 @@ public:
         actions_.emplace_back([value](Config& cfg) { cfg.set_perf_logging(value); });
     }
 
-    void SetCopyConfig(bool value)
-    {
-        actions_.emplace_back([value](Config& cfg) { cfg.set_copy_config_only(value); });
-    }
-
     void SetDbAction(Config::DbAction action)
     {
         db_action_ = action;
@@ -594,9 +589,6 @@ Exit status:
         [&](const std::string& value) { builder.SetDbAlias(value); },
         "alias to assign (empty string removes alias)");
     alias_option->type_name("TEXT");
-
-    program.add_flag_callback("--copy-config", [&]() { builder.SetCopyConfig(true); },
-        "copy default configuration files to the user configuration directory and exit");
 
     const std::map<std::string, Config::Format> format_map{
         {"long", Config::Format::Long},

@@ -53,7 +53,6 @@ void Config::Reset() {
     zero_terminate_ = false;
     show_block_size_ = false;
     perf_logging_ = false;
-    copy_config_only_ = false;
     db_action_ = DbAction::None;
     db_icon_entry_ = {};
     db_alias_entry_ = {};
@@ -167,9 +166,6 @@ void Config::set_show_block_size(bool value) { show_block_size_ = value; }
 
 bool Config::perf_logging() const { return perf_logging_; }
 void Config::set_perf_logging(bool value) { perf_logging_ = value; }
-
-bool Config::copy_config_only() const { return copy_config_only_; }
-void Config::set_copy_config_only(bool value) { copy_config_only_ = value; }
 
 Config::DbAction Config::db_action() const { return db_action_; }
 void Config::set_db_action(DbAction value) { db_action_ = value; }
