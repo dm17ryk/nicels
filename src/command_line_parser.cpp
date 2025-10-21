@@ -29,7 +29,7 @@ namespace nls {
 
 namespace {
 
-enum class ColorMode { Auto, Always, Never };
+using ColorMode = Config::ColorMode;
 
 class ConfigBuilder {
 public:
@@ -322,6 +322,7 @@ public:
             cfg.set_almost_all(false);
         }
         const ColorMode mode = color_mode_.value_or(ColorMode::Auto);
+        cfg.set_color_mode(mode);
         if (mode == ColorMode::Auto) {
             const bool disable_from_env = std::getenv("NO_COLOR") != nullptr;
             cfg.set_no_color(disable_from_env || !Platform::isOutputTerminal());

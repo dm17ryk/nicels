@@ -203,10 +203,11 @@ on the host platform) and walks through every documented CLI option.
 database `NLS.sqlite3`. At startup it searches for the database in this order:
 
 1. A directory specified via the `NLS_DATA_DIR` environment variable (highest priority).
-2. `./DB/` relative to the current working directory (and the working directory itself).
-3. `DB/` next to the executable, the executable's directory, and their parents (for relocatable installs).
-4. System-wide defaults installed with the package, e.g. `/etc/dm17ryk/nicels/DB/NLS.sqlite3` on Linux or `%PROGRAMDATA%\nicels\DB\NLS.sqlite3` on Windows.
-5. Per-user overrides: `~/.nicels/DB/NLS.sqlite3` on Linux/macOS, or `%APPDATA%\nicels\DB\NLS.sqlite3` on Windows (falling back to `%USERPROFILE%\nicels\DB` if `%APPDATA%` is unavailable).
+2. When `NLS_DEV_MODE` is set to a truthy value and `./DB/NLS.sqlite3` exists, that directory is treated as a developer override so you can iterate on themes/icons without touching your installed database.
+3. `./DB/` relative to the current working directory (and the working directory itself).
+4. `DB/` next to the executable, the executable's directory, and their parents (for relocatable installs).
+5. System-wide defaults installed with the package, e.g. `/etc/dm17ryk/nicels/DB/NLS.sqlite3` on Linux or `%PROGRAMDATA%\nicels\DB\NLS.sqlite3` on Windows. On Windows this now also covers the ProgramData known-folder path even if `%PROGRAMDATA%` is not exported to the process environment.
+6. Per-user overrides: `~/.nicels/DB/NLS.sqlite3` on Linux/macOS, or `%APPDATA%\nicels\DB\NLS.sqlite3` on Windows (falling back to `%USERPROFILE%\nicels\DB` if `%APPDATA%` is unavailable).
 
 The first readable database found in that order is used. If none can be opened,
 nicels falls back to the compiled-in defaults.【F:src/resources.cpp†L9-L207】【F:src/theme.cpp†L421-L515】

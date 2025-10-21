@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import os
 import platform
+import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -138,6 +140,150 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
             merged_env = env.copy()
             merged_env.update(case_env)
         cases.append(TestCase(name=name, args=args_list, env=merged_env, cwd=case_cwd or cwd, verify=verify))
+
+    db_path = REPO_ROOT / "DB" / "NLS.sqlite3"
+    if not db_path.exists():
+        raise RuntimeError(f"configuration database not found at {db_path}")
+
+    reset_code = "\x1b[0m"
+
+    def _ansi_from_rgb(value: int) -> str:
+        rgb = value & 0xFFFFFF
+        r = (rgb >> 16) & 0xFF
+        g = (rgb >> 8) & 0xFF
+        b = rgb & 0xFF
+        return f"\x1b[38;2;{r};{g};{b}m"
+
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        theme_colors = {
+            row[0]: _ansi_from_rgb(int(row[1]))
+            for row in cursor.execute(
+                "SELECT lower(t.element), c.value FROM Theme_colors t "
+                "JOIN Colors c ON t.color_id = c.id WHERE t.id = 1"
+            )
+        }
+        file_icons = {
+            row[0]: row[1]
+            for row in cursor.execute("SELECT lower(name), icon FROM Files WHERE icon IS NOT NULL")
+        }
+        folder_icons = {
+            row[0]: row[1]
+            for row in cursor.execute("SELECT lower(name), icon FROM Folders WHERE icon IS NOT NULL")
+        }
+
+    fallback_file_icon = file_icons.get("file", "\uf15b")
+    fallback_folder_icon = folder_icons.get("folder", "\uf07b")
+
+    def expect_colored_entry(
+        text: str,
+        *,
+        name: str,
+        icon_key: str,
+        color_key: str,
+        is_dir: bool = False,
+    ) -> Optional[str]:
+        icon_map = folder_icons if is_dir else file_icons
+        fallback_icon = fallback_folder_icon if is_dir else fallback_file_icon
+        icon = icon_map.get(icon_key.lower(), fallback_icon)
+        if not icon:
+            return f"expected icon for key '{icon_key}'"
+        color = theme_colors.get(color_key.lower())
+        if not color:
+            return f"expected theme color '{color_key}'"
+        target_name = f"{name}/" if is_dir else name
+        expected = f"{color}{icon} {target_name}{reset_code}"
+        if expected not in text:
+            return f"expected '{expected}' in stdout"
+        return None
+
+    def verify_linux_basic_colors(out_path: Path, _: Path) -> Optional[str]:
+        text = out_path.read_text(encoding="utf-8", errors="replace")
+        checks = [
+            ("readme.txt", "txt", "recognized_file", False),
+            ("random.bin", "bin", "recognized_file", False),
+            ("mixed.case", "file", "unrecognized_file", False),
+        ]
+        for name, icon_key, color_key, is_dir in checks:
+            message = expect_colored_entry(
+                text,
+                name=name,
+                icon_key=icon_key,
+                color_key=color_key,
+                is_dir=is_dir,
+            )
+            if message:
+                return message
+        return None
+
+    def verify_linux_directory_colors(out_path: Path, _: Path) -> Optional[str]:
+        text = out_path.read_text(encoding="utf-8", errors="replace")
+        return expect_colored_entry(
+            text,
+            name="basic",
+            icon_key="folder",
+            color_key="dir",
+            is_dir=True,
+        )
+
+    def verify_git_status_colors(out_path: Path, _: Path) -> Optional[str]:
+        text = out_path.read_text(encoding="utf-8", errors="replace")
+        mod_color = theme_colors.get("modification")
+        untracked_color = theme_colors.get("untracked")
+        if not mod_color or not untracked_color:
+            return "expected git status colors in theme"
+        if f"{mod_color}M{reset_code}" not in text:
+            return "expected colored modified status 'M'"
+        if f"{untracked_color}?{reset_code}" not in text:
+            return "expected colored untracked status '?'"
+        for filename in ("tracked.txt", "untracked.txt"):
+            message = expect_colored_entry(
+                text,
+                name=filename,
+                icon_key="txt",
+                color_key="recognized_file",
+                is_dir=False,
+            )
+            if message:
+                return message
+        return None
+
+    data_dir_env = {"NLS_DATA_DIR": str(db_path.parent)}
+    linux_root = fixture_dir / "lin"
+    if not linux_root.is_dir():
+        raise RuntimeError(f"expected Linux fixtures at {linux_root}")
+    linux_basic = linux_root / "basic"
+    git_repo = linux_root / "git_repo"
+    if not linux_basic.is_dir():
+        raise RuntimeError(f"expected basic fixture directory at {linux_basic}")
+    if not git_repo.is_dir():
+        raise RuntimeError(f"expected git repo fixture at {git_repo}")
+
+    add(
+        "db-colors-icons-basic",
+        "--color=always",
+        "-1",
+        str(linux_basic),
+        case_env=data_dir_env,
+        verify=verify_linux_basic_colors,
+    )
+    add(
+        "db-directory-colors",
+        "--color=always",
+        "-1",
+        str(linux_root),
+        case_env=data_dir_env,
+        verify=verify_linux_directory_colors,
+    )
+    add(
+        "db-git-status-colors",
+        "--color=always",
+        "--git-status",
+        "-l",
+        str(git_repo),
+        case_env=data_dir_env,
+        verify=verify_git_status_colors,
+    )
 
     # General behaviour.
     add("help", "--help")
@@ -447,7 +593,11 @@ def main() -> int:
     fixtures_root.mkdir(parents=True, exist_ok=True)
 
     platform_choice = resolve_platform_choice(args.platform)
-    generate_fixtures(fixtures_root, platform_choice)
+    if args.platform == "linux":
+        fixture_selection = "linux"
+    else:
+        fixture_selection = "all"
+    generate_fixtures(fixtures_root, fixture_selection)
 
     log_dir = fixtures_root / "_logs"
     if log_dir.exists():

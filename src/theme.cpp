@@ -291,11 +291,6 @@ static IconLoadStats LoadIconsFromDatabase(sqlite3* db, IconTheme& icons)
         sqlite3_finalize(stmt);
     };
 
-    icons.files.clear();
-    icons.folders.clear();
-    icons.file_aliases.clear();
-    icons.folder_aliases.clear();
-
     load_map("SELECT name, icon FROM Files;", icons.files, false);
     load_map("SELECT name, icon FROM Folders;", icons.folders, false);
     load_map("SELECT alias, name FROM File_Aliases;", icons.file_aliases, true);
@@ -480,9 +475,11 @@ void Theme::ensure_loaded()
 
     std::size_t theme_sources = 0;
     std::size_t theme_entries = 0;
-    IconLoadStats icon_stats{};
+    IconLoadStats aggregated_icon_stats{};
 
-    for (const auto& candidate : ResourceManager::databaseCandidates()) {
+    const auto candidates = ResourceManager::databaseCandidates();
+    for (auto it = candidates.rbegin(); it != candidates.rend(); ++it) {
+        const auto& candidate = *it;
         if (candidate.empty()) continue;
         if (auto db = OpenConfigDatabase(candidate)) {
             std::size_t dark_entries = 0;
@@ -495,9 +492,11 @@ void Theme::ensure_loaded()
                 ++theme_sources;
                 theme_entries += light_entries;
             }
-            icon_stats = LoadIconsFromDatabase(db.get(), icons_);
+            IconLoadStats icon_stats = LoadIconsFromDatabase(db.get(), icons_);
+            aggregated_icon_stats.sources += icon_stats.sources;
+            aggregated_icon_stats.entries += icon_stats.entries;
+            aggregated_icon_stats.success = aggregated_icon_stats.success && icon_stats.success;
             database_path_ = candidate;
-            break;
         }
     }
 
@@ -511,8 +510,8 @@ void Theme::ensure_loaded()
     if (perf_enabled) {
         perf_manager.IncrementCounter("theme::theme_sources", theme_sources);
         perf_manager.IncrementCounter("theme::theme_entries_processed", theme_entries);
-        perf_manager.IncrementCounter("theme::icon_sources", icon_stats.sources);
-        perf_manager.IncrementCounter("theme::icon_entries_processed", icon_stats.entries);
+        perf_manager.IncrementCounter("theme::icon_sources", aggregated_icon_stats.sources);
+        perf_manager.IncrementCounter("theme::icon_entries_processed", aggregated_icon_stats.entries);
     }
 }
 

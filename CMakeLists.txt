@@ -272,6 +272,14 @@ target_link_libraries(nls
     CLI11::CLI11
 )
 
+if(WIN32)
+  target_link_libraries(nls
+    PRIVATE
+      Shell32
+      Ole32
+  )
+endif()
+
 target_compile_definitions(nls
   PRIVATE
     NLS_VERSION_MAJOR=${NLS_VERSION_MAJOR}

@@ -1,16 +1,72 @@
 #include "resources.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <system_error>
 
 #include "perf.h"
 
+#ifdef _WIN32
+#    ifndef NOMINMAX
+#        define NOMINMAX 1
+#    endif
+#    include <windows.h>
+#    include <ShlObj.h>
+#    include <KnownFolders.h>
+#endif
+
 namespace nls {
 namespace {
 constexpr const char* kDatabaseFilename = "NLS.sqlite3";
+
+bool EnvValueIsTruthy(const char* value) {
+    if (!value) {
+        return false;
+    }
+    while (*value && std::isspace(static_cast<unsigned char>(*value))) {
+        ++value;
+    }
+    if (*value == '\0') {
+        return false;
+    }
+    std::string token;
+    while (*value && !std::isspace(static_cast<unsigned char>(*value))) {
+        token.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(*value))));
+        ++value;
+    }
+    if (token.empty()) {
+        return false;
+    }
+    if (token == "1" || token == "true" || token == "yes" || token == "on"
+        || token == "enable" || token == "enabled" || token == "dev") {
+        return true;
+    }
+    if (token == "0" || token == "false" || token == "no" || token == "off"
+        || token == "disable" || token == "disabled") {
+        return false;
+    }
+    return false;
+}
+
+#ifdef _WIN32
+std::optional<std::filesystem::path> QueryKnownFolderPath(REFKNOWNFOLDERID folder_id) {
+    PWSTR wide_path = nullptr;
+    HRESULT hr = SHGetKnownFolderPath(folder_id, KF_FLAG_DEFAULT, nullptr, &wide_path);
+    if (FAILED(hr) || wide_path == nullptr) {
+        if (wide_path) {
+            CoTaskMemFree(wide_path);
+        }
+        return std::nullopt;
+    }
+    std::filesystem::path path(wide_path);
+    CoTaskMemFree(wide_path);
+    return path;
+}
+#endif
 }
 
 class ResourceManager::Impl {
@@ -40,6 +96,10 @@ public:
             addNormalizedDir(std::move(normalized));
         };
 
+        std::error_code ec;
+        Path cwd = std::filesystem::current_path(ec);
+        const bool dev_mode_requested = EnvValueIsTruthy(std::getenv("NLS_DEV_MODE"));
+
         if (const char* env = std::getenv("NLS_DATA_DIR")) {
             if (env[0] != '\0') {
                 auto normalized = normalize(Path(env));
@@ -48,19 +108,40 @@ public:
             }
         }
 
+        if (dev_mode_requested && !ec) {
+            Path dev_dir = cwd / "DB";
+            std::error_code dev_ec;
+            if (std::filesystem::exists(dev_dir / kDatabaseFilename, dev_ec) && !dev_ec) {
+                Path normalized = normalize(dev_dir);
+                if (!normalized.empty()) {
+                    if (env_override_dir_.empty()) {
+                        env_override_dir_ = normalized;
+                    }
+                    addNormalizedDir(std::move(normalized));
+                }
+            }
+        }
+
 #ifdef _WIN32
         Path program_data_dir;
         if (const char* programdata = std::getenv("PROGRAMDATA")) {
             if (programdata[0] != '\0') {
-                register_directory(Path(programdata) / "nicels");
-                program_data_dir = Path(programdata) / "nicels" / "DB";
+                Path base(programdata);
+                register_directory(base / "nicels");
+                program_data_dir = base / "nicels" / "DB";
+                register_directory(program_data_dir);
+            }
+        }
+        if (program_data_dir.empty()) {
+            if (auto known_programdata = QueryKnownFolderPath(FOLDERID_ProgramData)) {
+                Path base = *known_programdata / "nicels";
+                register_directory(base);
+                program_data_dir = base / "DB";
                 register_directory(program_data_dir);
             }
         }
 #endif
 
-        std::error_code ec;
-        Path cwd = std::filesystem::current_path(ec);
         if (!ec) {
             register_directory(cwd / "DB");
             register_directory(cwd);

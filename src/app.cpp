@@ -37,7 +37,7 @@ int App::run(int argc, char** argv) {
     if (perf_manager.enabled()) {
         run_timer.emplace("app::run");
     }
-    if (!virtual_terminal_enabled) {
+    if (!virtual_terminal_enabled && config_->color_mode() != Config::ColorMode::Always) {
         config_->set_no_color(true);
     }
 

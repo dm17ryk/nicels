@@ -23,6 +23,7 @@ void Config::Reset() {
 
     format_ = Format::ColumnsVertical;
     indicator_ = IndicatorStyle::Slash;
+    color_mode_ = ColorMode::Auto;
     color_theme_ = ColorTheme::Default;
     sort_ = Sort::Name;
     report_ = Report::None;
@@ -79,6 +80,9 @@ void Config::set_format(Format value) { format_ = value; }
 
 Config::IndicatorStyle Config::indicator() const { return indicator_; }
 void Config::set_indicator(IndicatorStyle value) { indicator_ = value; }
+
+Config::ColorMode Config::color_mode() const { return color_mode_; }
+void Config::set_color_mode(ColorMode value) { color_mode_ = value; }
 
 Config::ColorTheme Config::color_theme() const { return color_theme_; }
 void Config::set_color_theme(ColorTheme value) { color_theme_ = value; }

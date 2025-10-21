@@ -19,6 +19,7 @@ public:
     };
 
     enum class IndicatorStyle { None, Slash };
+    enum class ColorMode { Auto, Always, Never };
     enum class ColorTheme { Default, Light, Dark };
     enum class Sort { Name, Time, Size, Extension, None };
     enum class Report { None, Short, Long };
@@ -57,6 +58,9 @@ public:
 
     IndicatorStyle indicator() const;
     void set_indicator(IndicatorStyle value);
+
+    ColorMode color_mode() const;
+    void set_color_mode(ColorMode value);
 
     ColorTheme color_theme() const;
     void set_color_theme(ColorTheme value);
@@ -215,6 +219,7 @@ private:
 
     Format format_ = Format::ColumnsVertical;
     IndicatorStyle indicator_ = IndicatorStyle::Slash;
+    ColorMode color_mode_ = ColorMode::Auto;
     ColorTheme color_theme_ = ColorTheme::Default;
     Sort sort_ = Sort::Name;
     Report report_ = Report::None;
