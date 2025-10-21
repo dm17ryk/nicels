@@ -33,7 +33,7 @@ locally with CPack (see [Package (Linux)](#package-linux)).
 **Debian / Ubuntu (`.deb`)**
 
 ```sh
-sudo dpkg -i nicels_<version>_amd64.deb
+sudo dpkg -i nicels-<version>_amd64.deb
 # Resolve any missing dependencies reported by dpkg:
 sudo apt-get install -f
 ```
@@ -136,7 +136,8 @@ archives:
 
 ```sh
 cmake --build --preset linux-clang-release
-cpack -G DEB -G RPM --config build/linux-clang/CPackConfig.cmake
+cpack -G DEB --config build/linux-clang/CPackConfig.cmake
+cpack -G RPM --config build/linux-clang/CPackConfig.cmake
 cpack -G TGZ --config build/linux-clang/CPackSourceConfig.cmake
 ```
 
