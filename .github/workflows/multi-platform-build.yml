@@ -258,42 +258,21 @@ jobs:
           path: artifacts/rpm
 
       - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
+        run: gh release create ${{ steps.release_meta.outputs.tag }} --title "nicels ${{ steps.release_meta.outputs.version }}" --notes ""
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.release_meta.outputs.tag }}
-          release_name: nicels ${{ steps.release_meta.outputs.version }}
-          draft: false
-          prerelease: false
 
       - name: Upload Windows Installer (.exe)
-        uses: actions/upload-release-asset@v1
+        run: gh release upload ${{ steps.release_meta.outputs.tag }} artifacts/windows/nicels-${{ env.VERSION }}-x86_64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/windows/nicels-${{ env.VERSION }}-x86_64.exe
-          asset_name: nicels-${{ env.VERSION }}-x86_64.exe
-          asset_content_type: application/octet-stream
 
       - name: Upload Debian Package (.deb)
-        uses: actions/upload-release-asset@v1
+        run: gh release upload ${{ steps.release_meta.outputs.tag }} artifacts/deb/nicels-${{ env.VERSION }}-x86_64.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/deb/nicels-${{ env.VERSION }}-x86_64.deb
-          asset_name: nicels-${{ env.VERSION }}-x86_64.deb
-          asset_content_type: application/vnd.debian.binary-package
 
       - name: Upload RPM Package (.rpm)
-        uses: actions/upload-release-asset@v1
+        run: gh release upload ${{ steps.release_meta.outputs.tag }} artifacts/rpm/nicels-${{ env.VERSION }}-x86_64.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/rpm/nicels-${{ env.VERSION }}-x86_64.rpm
-          asset_name: nicels-${{ env.VERSION }}-x86_64.rpm
-          asset_content_type: application/x-rpm
