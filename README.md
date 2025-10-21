@@ -183,13 +183,17 @@ the file always contains four components, starting at `1.0.0.0`.
 Functional coverage is exercised via CTest. The default target rebuilds the
 fixture directories from the archived assets before each run, so tests can be
 invoked directly without prior setup:
+#### Tests (Windows)
 ```sh
-cmake --build build
-ctest --preset linux-clang-test -R nls_cli_tests
+python test/run_nls_cli_tests.py --binary build/msys-clang/Release/nls.exe
+# OR
+ctest -C Release -R nls_cli_tests --test-dir ./build/msys-clang/
 ```
-or, from an existing build tree:
+#### Tests (Linux)
 ```sh
-ctest -R nls_cli_tests
+python test/run_nls_cli_tests.py
+# OR
+ctest -C Release -R nls_cli_tests --test-dir build/
 ```
 The harness regenerates the Linux or Windows sample trees on the fly (depending
 on the host platform) and walks through every documented CLI option.
