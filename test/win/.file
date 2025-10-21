@@ -1,8 +1,0 @@
-
-*.o
-*.dll
-*.exe
-nls
-build/
-CMakeUserPresets.json
-compile_commands.json

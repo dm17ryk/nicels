@@ -269,15 +269,21 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
     user_db_path = user_db_dir / "NLS.sqlite3"
     set_ext = ".fixturedb"
     alias_name = "fixture-alias"
+    folder_name = "FixtureFolder"
+    folder_alias = "fixture-folder-alias"
 
-    def verify_db_update(out_path: Path, _: Path) -> Optional[str]:
-        text = out_path.read_text(encoding="utf-8", errors="replace")
-        expected_phrase = f"updated file icon entry '{set_ext}'"
-        if expected_phrase not in text:
-            return f"expected '{expected_phrase}' in stdout"
-        if not user_db_path.exists():
-            return f"expected {user_db_path} to be created"
-        return None
+    def make_verify_db_update(target: str, name: str) -> Callable[[Path, Path], Optional[str]]:
+        expected_phrase = f"updated {target} icon entry '{name}'"
+
+        def _verify(out_path: Path, _: Path) -> Optional[str]:
+            text = out_path.read_text(encoding="utf-8", errors="replace")
+            if expected_phrase not in text:
+                return f"expected '{expected_phrase}' in stdout"
+            if not user_db_path.exists():
+                return f"expected {user_db_path} to be created"
+            return None
+
+        return _verify
 
     def expect_in_stdout(substring: str) -> Callable[[Path, Path], Optional[str]]:
         def _check(out_path: Path, _: Path) -> Optional[str]:
@@ -307,7 +313,7 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
         "--description",
         "Fixture entry",
         case_env=db_env,
-        verify=verify_db_update,
+        verify=make_verify_db_update("file", set_ext),
     )
     add(
         "db-show-files-after-set",
@@ -315,6 +321,40 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
         "--show-files",
         case_env=db_env,
         verify=expect_in_stdout(set_ext),
+    )
+    add(
+        "db-show-folders",
+        "db",
+        "--show-folders",
+        case_env=db_env,
+    )
+    add(
+        "db-set-folder",
+        "db",
+        "--set-folder",
+        "--name",
+        folder_name,
+        "--icon",
+        "&",
+        "--icon_class",
+        "test-folder",
+        "--icon_utf_16_codes",
+        "\\u2606",
+        "--icon_hex_code",
+        "0x2606",
+        "--used_by",
+        "cli-tests",
+        "--description",
+        "Folder fixture entry",
+        case_env=db_env,
+        verify=make_verify_db_update("folder", folder_name),
+    )
+    add(
+        "db-show-folders-after-set",
+        "db",
+        "--show-folders",
+        case_env=db_env,
+        verify=expect_in_stdout(folder_name.lower()),
     )
     add(
         "db-set-file-alias",
@@ -328,11 +368,29 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
         verify=expect_in_stdout(f"updated file alias '{alias_name}'"),
     )
     add(
+        "db-set-folder-alias",
+        "db",
+        "--set-folder-aliases",
+        "--name",
+        folder_name,
+        "--alias",
+        folder_alias,
+        case_env=db_env,
+        verify=expect_in_stdout(f"updated folder alias '{folder_alias}'"),
+    )
+    add(
         "db-show-file-aliases",
         "db",
         "--show-file-aliases",
         case_env=db_env,
         verify=expect_in_stdout(alias_name),
+    )
+    add(
+        "db-show-folder-aliases",
+        "db",
+        "--show-folder-aliases",
+        case_env=db_env,
+        verify=expect_in_stdout(folder_alias),
     )
 
     return cases
@@ -350,6 +408,8 @@ def run_cases(binary: Path, cases: list[TestCase], log_dir: Path) -> None:
             env=case.env,
             text=True,
             capture_output=True,
+            encoding="utf-8",
+            errors="replace",
         )
 
         out_file = log_dir / f"{index:03d}_{case.name}.stdout"
