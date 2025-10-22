@@ -98,6 +98,10 @@ def _osc_query_background_rgb(
     Returns:
         A tuple of (r, g, b) integers (0-255) if successful, otherwise None.
     """
+
+    if _is_windows():
+        return None
+
     import select
     import termios
 
@@ -529,7 +533,7 @@ class TerminalThemeDetector:
     # ---- detection pipeline ----
 
     def _detect(self) -> DetectionResult:
-        if rgb := _osc_query_background_rgb():
+        if rgb := None if _is_windows() else _osc_query_background_rgb():
             return DetectionResult(_mode_from_rgb(rgb), "osc-11", rgb)
 
         if cfb := os.environ.get("COLORFGBG"):
