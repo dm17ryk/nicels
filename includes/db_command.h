@@ -89,8 +89,10 @@ private:
     [[nodiscard]] static std::string FormatUtf16(std::optional<std::uint32_t> code);
     [[nodiscard]] static std::string FormatHex(std::optional<std::uint32_t> code);
 
-    void PrintIcons(const IconMap& icons) const;
-    void PrintAliases(const AliasMap& aliases, const IconMap& icons) const;
+    void PrintIcons(const IconMap& icons, std::string_view filter) const;
+    void PrintAliases(const AliasMap& aliases,
+                      const IconMap& icons,
+                      std::string_view filter) const;
 
     std::vector<std::filesystem::path> candidates_;
     IconMap files_;

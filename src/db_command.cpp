@@ -127,6 +127,51 @@ std::vector<std::string> WrapCellText(std::string_view text, std::size_t width) 
     return lines;
 }
 
+bool MatchesWildcard(std::string_view pattern, std::string_view value)
+{
+    if (pattern.empty()) {
+        return true;
+    }
+
+    std::size_t p = 0;
+    std::size_t v = 0;
+    std::size_t star = std::string::npos;
+    std::size_t match = 0;
+
+    while (v < value.size()) {
+        if (p < pattern.size()) {
+            char pc = pattern[p];
+            if (pc == '?') {
+                ++p;
+                ++v;
+                continue;
+            }
+            if (pc == '*') {
+                star = p++;
+                match = v;
+                continue;
+            }
+            if (pc == value[v]) {
+                ++p;
+                ++v;
+                continue;
+            }
+        }
+        if (star != std::string::npos) {
+            p = star + 1;
+            ++match;
+            v = match;
+            continue;
+        }
+        return false;
+    }
+
+    while (p < pattern.size() && pattern[p] == '*') {
+        ++p;
+    }
+    return p == pattern.size();
+}
+
 std::vector<std::size_t> ComputeColumnWidths(const std::vector<std::string>& headers,
                                              const std::vector<std::vector<std::string>>& rows,
                                              std::size_t gap,
@@ -261,6 +306,12 @@ int DatabaseInspector::Execute(Config::DbAction action,
         return 0;
     }
 
+    std::string raw_filter = StringUtils::Trim(icon_entry.name);
+    if (raw_filter.empty()) {
+        raw_filter = StringUtils::Trim(alias_entry.name);
+    }
+    std::string filter = StringUtils::ToLower(raw_filter);
+
     switch (action) {
         case Config::DbAction::ShowFiles:
         case Config::DbAction::ShowFolders:
@@ -278,16 +329,16 @@ int DatabaseInspector::Execute(Config::DbAction action,
             }
             switch (action) {
                 case Config::DbAction::ShowFiles:
-                    PrintIcons(files_);
+                    PrintIcons(files_, filter);
                     break;
                 case Config::DbAction::ShowFolders:
-                    PrintIcons(folders_);
+                    PrintIcons(folders_, filter);
                     break;
                 case Config::DbAction::ShowFileAliases:
-                    PrintAliases(file_aliases_, files_);
+                    PrintAliases(file_aliases_, files_, filter);
                     break;
                 case Config::DbAction::ShowFolderAliases:
-                    PrintAliases(folder_aliases_, folders_);
+                    PrintAliases(folder_aliases_, folders_, filter);
                     break;
                 default:
                     break;
@@ -1207,11 +1258,14 @@ int DatabaseInspector::ApplyAliasEntry(AliasTarget target, const Config::DbAlias
     return 0;
 }
 
-void DatabaseInspector::PrintIcons(const IconMap& icons) const
+void DatabaseInspector::PrintIcons(const IconMap& icons, std::string_view filter) const
 {
     std::vector<const IconRecord*> records;
     records.reserve(icons.size());
-    for (const auto& [_, record] : icons) {
+    for (const auto& [key, record] : icons) {
+        if (!MatchesWildcard(filter, key)) {
+            continue;
+        }
         records.push_back(&record);
     }
 
@@ -1240,12 +1294,19 @@ void DatabaseInspector::PrintIcons(const IconMap& icons) const
     }
 }
 
-void DatabaseInspector::PrintAliases(const AliasMap& aliases, const IconMap& icons) const
+void DatabaseInspector::PrintAliases(const AliasMap& aliases,
+                                     const IconMap& icons,
+                                     std::string_view filter) const
 {
     std::vector<AliasPresentation> rows;
     rows.reserve(aliases.size());
 
-    for (const auto& [_, alias] : aliases) {
+    for (const auto& [alias_key, alias] : aliases) {
+        if (!MatchesWildcard(filter, alias.target_key)) {
+            if (!MatchesWildcard(filter, alias_key)) {
+                continue;
+            }
+        }
         AliasPresentation row;
         row.name = alias.target_name;
         row.alias = alias.alias;

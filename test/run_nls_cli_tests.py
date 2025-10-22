@@ -470,6 +470,24 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
         verify=expect_in_stdout(set_ext),
     )
     add(
+        "db-show-files-filter",
+        "db",
+        "--show-files",
+        "--name",
+        f"*{set_ext}",
+        case_env=db_env,
+        verify=expect_in_stdout(set_ext),
+    )
+    add(
+        "db-show-files-filter-none",
+        "db",
+        "--show-files",
+        "--name",
+        "no-such-entry",
+        case_env=db_env,
+        verify=expect_in_stdout("(no entries)"),
+    )
+    add(
         "db-show-folders",
         "db",
         "--show-folders",
@@ -504,6 +522,15 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
         verify=expect_in_stdout(folder_name.lower()),
     )
     add(
+        "db-show-folders-filter",
+        "db",
+        "--show-folders",
+        "--name",
+        f"{folder_name.lower()}*",
+        case_env=db_env,
+        verify=expect_in_stdout(folder_name.lower()),
+    )
+    add(
         "db-set-file-alias",
         "db",
         "--set-file-aliases",
@@ -533,9 +560,27 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
         verify=expect_in_stdout(alias_name),
     )
     add(
+        "db-show-file-aliases-filter",
+        "db",
+        "--show-file-aliases",
+        "--name",
+        f"*{set_ext}",
+        case_env=db_env,
+        verify=expect_in_stdout(alias_name),
+    )
+    add(
         "db-show-folder-aliases",
         "db",
         "--show-folder-aliases",
+        case_env=db_env,
+        verify=expect_in_stdout(folder_alias),
+    )
+    add(
+        "db-show-folder-aliases-filter",
+        "db",
+        "--show-folder-aliases",
+        "--name",
+        f"{folder_name.lower()}*",
         case_env=db_env,
         verify=expect_in_stdout(folder_alias),
     )

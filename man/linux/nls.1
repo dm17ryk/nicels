@@ -259,6 +259,15 @@ $ nls \-\-copy-config
 .RE
 This will populate your `~/.nicels/DB/NLS.sqlite3` (on Linux/macOS) or `%APPDATA%\\nicels\\DB\\NLS.sqlite3` (on Windows) with the default configuration database if it does not already exist. It prints which files were copied or skipped and then exits:contentReference[oaicite:92]{index=92}:contentReference[oaicite:93]{index=93}.
 
+.IP "5."
+Show database entries for YAML files, limiting the output with a wildcard:
+.RS
+.nf
+$ nls db \-\-show-files \-\-name "*.yaml"
+.fi
+.RE
+This filters the merged configuration database to entries whose names match the supplied pattern (case-insensitive):contentReference[oaicite:91]{index=91}.
+
 .SH AUTHOR
 \fBnls\fR was developed by Dmitry K. (GitHub user **dm17ryk**). It is an open-source project available on GitHub. Feedback, bug reports, and contributions are welcome via the project’s issue tracker.
 

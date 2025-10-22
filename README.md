@@ -243,6 +243,10 @@ nls db --show-folders
 nls db --show-file-aliases
 nls db --show-folder-aliases
 
+Use `--name PATTERN` alongside any `--show-*` flag to narrow the output by
+extension or folder label. The pattern accepts shell-style wildcards (`*`, `?`),
+so `nls db --show-files --name "*.yaml"` limits the listing to YAML entries.
+
 # Add or adjust entries (provide every field you need to change)
 nls db --set-file \
   --name ".blend" \

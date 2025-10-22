@@ -1048,11 +1048,24 @@ show information for the file the link references)");
             throw CLI::ValidationError("db", "icon metadata options are not valid with alias commands");
         }
     } else if (db_mode) {
-        if (name_option->count() > 0 || icon_option->count() > 0 || icon_class_option->count() > 0 ||
-            icon_utf_option->count() > 0 || icon_hex_option->count() > 0 ||
-            description_option->count() > 0 || used_by_option->count() > 0 ||
-            alias_option->count() > 0) {
-            throw CLI::ValidationError("db", "metadata options require a --set-* command");
+        const bool allow_name_filter =
+            db_action == Config::DbAction::ShowFiles ||
+            db_action == Config::DbAction::ShowFolders ||
+            db_action == Config::DbAction::ShowFileAliases ||
+            db_action == Config::DbAction::ShowFolderAliases;
+
+        const bool name_used = name_option->count() > 0;
+        const bool metadata_used = icon_option->count() > 0 || icon_class_option->count() > 0 ||
+                                   icon_utf_option->count() > 0 || icon_hex_option->count() > 0 ||
+                                   description_option->count() > 0 || used_by_option->count() > 0;
+        const bool alias_used = alias_option->count() > 0;
+
+        if (metadata_used || alias_used || (!allow_name_filter && name_used)) {
+            throw CLI::ValidationError(
+                "db",
+                allow_name_filter
+                    ? "only --name may accompany --show-* commands"
+                    : "metadata options require a --set-* command");
         }
     }
 
