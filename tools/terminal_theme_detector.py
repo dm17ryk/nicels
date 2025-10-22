@@ -29,7 +29,6 @@ import pathlib
 import re
 import subprocess
 import sys
-import tty
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -102,6 +101,7 @@ def _osc_query_background_rgb(
     if _is_windows():
         return None
 
+    import tty
     import select
     import termios
 
