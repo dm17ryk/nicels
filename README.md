@@ -263,6 +263,20 @@ or with elevated privileges to modify the system-wide database; regular users
 automatically receive a private `~/.nicels/DB/NLS.sqlite3` that is created on
 first write and layered on top of the packaged defaults.
 
+### Automatic theme selection
+When no explicit palette is requested (`--light`, `--dark`, or `--theme`), nls
+tries to mirror the surrounding terminal. On Windows the personalisation switch
+(`AppsUseLightTheme`) is honoured; on Unix-like desktops nls inspects common
+environment hints such as `GTK_THEME` and `COLORFGBG`. Environments without
+reliable hints fall back to the dark palette to preserve the classic look.
+
+You can override the detection by exporting `NLS_THEME` before launching nls:
+
+```sh
+export NLS_THEME=light   # or 'dark'
+nls
+```
+
 ### Keeping this section in sync
 The CLI reference below is generated from the live binary. After changing
 options in `src/command_line_parser.cpp`, rebuild `nls` and run:

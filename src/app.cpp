@@ -47,10 +47,18 @@ int App::run(int argc, char** argv) {
             scheme = ColorScheme::Light;
             break;
         case Config::ColorTheme::Dark:
-        case Config::ColorTheme::Default:
-        default:
             scheme = ColorScheme::Dark;
             break;
+        case Config::ColorTheme::Default:
+        default: {
+            Platform::SystemTheme detected = Platform::detectSystemTheme();
+            if (detected == Platform::SystemTheme::Light) {
+                scheme = ColorScheme::Light;
+            } else {
+                scheme = ColorScheme::Dark;
+            }
+            break;
+        }
     }
     Theme::instance().initialize(scheme, options().theme_name());
 

@@ -106,6 +106,7 @@ def _default_env() -> dict[str, str]:
     env = os.environ.copy()
     env.setdefault("LC_ALL", "C.UTF-8")
     env.setdefault("LANG", "C.UTF-8")
+    env.setdefault("NLS_THEME", "dark")
     return env
 
 
