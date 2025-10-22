@@ -429,7 +429,3 @@ Directory: ␛[38;2;65;105;225m/workspace/nicels␛[0m
 ### Windows (cmd example)
 ![Windows cmd](images/Windows-cmd-alAL_2025-10-02.png)
 
-## Packaging and artifacts
-Binary packaging is not configured yet. Use `cmake --install` to stage files for
-archiving or distribution; the install target copies headers to
-`include/nls/` and the executable to `bin/`.【F:CMakeLists.txt†L151-L156】
