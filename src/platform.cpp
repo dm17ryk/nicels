@@ -195,24 +195,28 @@ std::optional<Rgb> queryOscBackground()
     }
     tcdrain(fd);
 
-    fd_set read_fds;
-    FD_ZERO(&read_fds);
-    FD_SET(fd, &read_fds);
-
-    timeval timeout{};
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
-
-    if (::select(fd + 1, &read_fds, nullptr, nullptr, &timeout) <= 0) {
-        tcsetattr(fd, TCSANOW, &original);
-        ::close(fd);
-        return std::nullopt;
-    }
-
     std::string buffer;
     buffer.reserve(128);
-    char ch = 0;
+    bool first_wait = true;
+
     while (true) {
+        fd_set read_fds;
+        FD_ZERO(&read_fds);
+        FD_SET(fd, &read_fds);
+        timeval wait_time{};
+        if (first_wait) {
+            wait_time.tv_sec = 1;
+            wait_time.tv_usec = 0;
+        } else {
+            wait_time.tv_sec = 0;
+            wait_time.tv_usec = 200000; // 200 ms for subsequent chunks
+        }
+
+        int ready = ::select(fd + 1, &read_fds, nullptr, nullptr, &wait_time);
+        if (ready <= 0) {
+            break;
+        }
+        char ch = 0;
         ssize_t n = ::read(fd, &ch, 1);
         if (n <= 0) {
             break;
@@ -227,8 +231,10 @@ std::optional<Rgb> queryOscBackground()
         if (buffer.size() > 200) {
             break;
         }
+        first_wait = false;
     }
 
+    tcflush(fd, TCIFLUSH);
     tcsetattr(fd, TCSANOW, &original);
     ::close(fd);
 
@@ -314,7 +320,10 @@ std::optional<std::string> runCommand(const char* command)
 
 Platform::SystemTheme detectDesktopPreference()
 {
-    if (auto out = runCommand("gdbus call --session --dest org.freedesktop.portal.Desktop --object-path /org/freedesktop/portal/desktop --method org.freedesktop.portal.Settings.Read org.freedesktop.appearance color-scheme")) {
+    if (auto out = runCommand("gdbus call --session --dest org.freedesktop.portal.Desktop "
+                              "--object-path /org/freedesktop/portal/desktop "
+                              "--method org.freedesktop.portal.Settings.Read "
+                              "org.freedesktop.appearance color-scheme 2>/dev/null")) {
         for (char ch : *out) {
             if (ch == '1') {
                 return Platform::SystemTheme::Dark;
@@ -325,7 +334,7 @@ Platform::SystemTheme detectDesktopPreference()
         }
     }
 
-    if (auto out = runCommand("gsettings get org.gnome.desktop.interface color-scheme")) {
+    if (auto out = runCommand("gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null")) {
         std::string lowered = *out;
         std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char c) {
             return static_cast<char>(std::tolower(c));

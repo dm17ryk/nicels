@@ -150,22 +150,36 @@ struct SqliteStmtFinalizer {
 using SqliteDbPtr = std::unique_ptr<sqlite3, SqliteCloser>;
 using SqliteStmtPtr = std::unique_ptr<sqlite3_stmt, SqliteStmtFinalizer>;
 
-static std::string PathToUtf8(const std::filesystem::path& path)
+static std::string MakeSqliteOpenPath(const std::filesystem::path& path, bool use_uri, bool immutable)
 {
-    auto u8 = path.u8string();
-    std::string out;
-    out.reserve(u8.size());
-    for (char8_t ch : u8) {
-        out.push_back(static_cast<char>(ch));
+    auto write_u8 = [](const std::u8string& u8) {
+        std::string out;
+        out.reserve(u8.size());
+        for (char8_t ch : u8) {
+            out.push_back(static_cast<char>(ch));
+        }
+        return out;
+    };
+
+    if (!use_uri) {
+        return write_u8(path.u8string());
     }
-    return out;
+
+    std::string base = write_u8(path.generic_u8string());
+    std::string uri = "file:";
+    uri += base;
+    if (immutable) {
+        uri += (uri.find('?') == std::string::npos) ? "?immutable=1" : "&immutable=1";
+    }
+    return uri;
 }
 
 static SqliteDbPtr OpenConfigDatabase(const std::filesystem::path& path)
 {
     sqlite3* raw = nullptr;
-    const std::string utf8 = PathToUtf8(path);
-    int rc = sqlite3_open_v2(utf8.c_str(), &raw, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nullptr);
+    const int flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_URI;
+    std::string open_path = MakeSqliteOpenPath(path, true, true);
+    int rc = sqlite3_open_v2(open_path.c_str(), &raw, flags, nullptr);
     if (rc != SQLITE_OK) {
         if (raw) {
             std::cerr << "nls: error: failed to open config database '" << path << "': "

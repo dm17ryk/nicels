@@ -46,14 +46,28 @@ void FinalizeSqlite(sqlite3_stmt* stmt)
 using SqliteDbPtr = std::unique_ptr<sqlite3, decltype(&CloseSqlite)>;
 using SqliteStmtPtr = std::unique_ptr<sqlite3_stmt, decltype(&FinalizeSqlite)>;
 
-std::string PathToUtf8(const std::filesystem::path& path) {
-    auto u8 = path.u8string();
-    std::string out;
-    out.reserve(u8.size());
-    for (char8_t ch : u8) {
-        out.push_back(static_cast<char>(ch));
+std::string MakeSqliteOpenPath(const std::filesystem::path& path, bool use_uri, bool immutable)
+{
+    auto write_u8 = [&](const std::u8string& u8) {
+        std::string out;
+        out.reserve(u8.size());
+        for (char8_t ch : u8) {
+            out.push_back(static_cast<char>(ch));
+        }
+        return out;
+    };
+
+    if (!use_uri) {
+        return write_u8(path.u8string());
     }
-    return out;
+
+    std::string base = write_u8(path.generic_u8string());
+    std::string uri = "file:";
+    uri += base;
+    if (immutable) {
+        uri += (uri.find('?') == std::string::npos) ? "?immutable=1" : "&immutable=1";
+    }
+    return uri;
 }
 
 std::vector<std::string> WrapCellText(std::string_view text, std::size_t width) {
@@ -640,8 +654,10 @@ bool DatabaseInspector::EnsureSchema(sqlite3* db)
 std::unique_ptr<sqlite3, void(*)(sqlite3*)> DatabaseInspector::OpenDatabase(const std::filesystem::path& path, int flags, std::string& error)
 {
     sqlite3* raw = nullptr;
-    const std::string utf8 = PathToUtf8(path);
-    int rc = sqlite3_open_v2(utf8.c_str(), &raw, flags, nullptr);
+    const bool use_uri = (flags & SQLITE_OPEN_URI) != 0;
+    const bool immutable = (flags & SQLITE_OPEN_READONLY) != 0 && (flags & SQLITE_OPEN_READWRITE) == 0;
+    std::string open_path = MakeSqliteOpenPath(path, use_uri, immutable);
+    int rc = sqlite3_open_v2(open_path.c_str(), &raw, flags, nullptr);
     if (rc != SQLITE_OK) {
         if (raw) {
             std::ostringstream oss;
