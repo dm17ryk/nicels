@@ -1,14 +1,18 @@
 #include "db_command.h"
 
 #include <algorithm>
+#include <array>
+#include <cctype>
 #include <charconv>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <ranges>
 #include <sstream>
 #include <string_view>
 #include <stdexcept>
+#include <vector>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -17,6 +21,7 @@
 #include <unistd.h>
 #endif
 
+#include "platform.h"
 #include "resources.h"
 #include "string_utils.h"
 
@@ -41,8 +46,7 @@ void FinalizeSqlite(sqlite3_stmt* stmt)
 using SqliteDbPtr = std::unique_ptr<sqlite3, decltype(&CloseSqlite)>;
 using SqliteStmtPtr = std::unique_ptr<sqlite3_stmt, decltype(&FinalizeSqlite)>;
 
-std::string PathToUtf8(const std::filesystem::path& path)
-{
+std::string PathToUtf8(const std::filesystem::path& path) {
     auto u8 = path.u8string();
     std::string out;
     out.reserve(u8.size());
@@ -50,6 +54,192 @@ std::string PathToUtf8(const std::filesystem::path& path)
         out.push_back(static_cast<char>(ch));
     }
     return out;
+}
+
+std::vector<std::string> WrapCellText(std::string_view text, std::size_t width) {
+    constexpr std::size_t kFallbackWidth = 8;
+    if (width == 0) {
+        width = kFallbackWidth;
+    }
+
+    std::vector<std::string> lines;
+    std::string current;
+
+    auto flush_line = [&]() {
+        if (!current.empty()) {
+            lines.push_back(current);
+            current.clear();
+        }
+    };
+
+    std::size_t pos = 0;
+    while (pos < text.size()) {
+        if (text[pos] == '\n') {
+            flush_line();
+            ++pos;
+            continue;
+        }
+
+        if (std::isspace(static_cast<unsigned char>(text[pos]))) {
+            while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])) &&
+                   text[pos] != '\n') {
+                ++pos;
+            }
+            if (!current.empty() && current.size() < width) {
+                current.push_back(' ');
+            }
+            continue;
+        }
+
+        std::size_t next = pos;
+        while (next < text.size() && !std::isspace(static_cast<unsigned char>(text[next]))) {
+            ++next;
+        }
+        std::string word(text.substr(pos, next - pos));
+        pos = next;
+
+        if (word.size() > width) {
+            flush_line();
+            std::size_t offset = 0;
+            while (offset < word.size()) {
+                std::size_t chunk = std::min<std::size_t>(width, word.size() - offset);
+                lines.emplace_back(word.substr(offset, chunk));
+                offset += chunk;
+            }
+            continue;
+        }
+
+        if (current.empty()) {
+            current = std::move(word);
+        } else if (current.size() + 1 + word.size() <= width) {
+            current.push_back(' ');
+            current += word;
+        } else {
+            flush_line();
+            current = std::move(word);
+        }
+    }
+
+    flush_line();
+    if (lines.empty()) {
+        lines.emplace_back();
+    }
+    return lines;
+}
+
+std::vector<std::size_t> ComputeColumnWidths(const std::vector<std::string>& headers,
+                                             const std::vector<std::vector<std::string>>& rows,
+                                             std::size_t gap,
+                                             std::size_t terminal_width) {
+    const std::size_t column_count = headers.size();
+    std::vector<std::size_t> widths(column_count, 0);
+    std::vector<std::size_t> min_widths(column_count, 0);
+
+    constexpr std::size_t kDefaultMax = 48;
+    constexpr std::size_t kDefaultMin = 6;
+
+    for (std::size_t col = 0; col < column_count; ++col) {
+        std::size_t header_len = headers[col].size();
+        widths[col] = std::clamp<std::size_t>(header_len, kDefaultMin, kDefaultMax);
+        min_widths[col] = std::clamp<std::size_t>(header_len, kDefaultMin, kDefaultMax);
+    }
+
+    for (const auto& row : rows) {
+        for (std::size_t col = 0; col < column_count && col < row.size(); ++col) {
+            std::size_t len = row[col].size();
+            widths[col] = std::clamp<std::size_t>(std::max(widths[col], len), min_widths[col], kDefaultMax);
+        }
+    }
+
+    std::size_t total = 0;
+    for (auto w : widths) {
+        total += w;
+    }
+    if (column_count > 0) {
+        total += gap * (column_count - 1);
+    }
+
+    if (terminal_width > 0 && total > terminal_width) {
+        std::size_t minimum_total = column_count * kDefaultMin + (column_count > 0 ? gap * (column_count - 1) : 0);
+        std::size_t limit = std::max<std::size_t>(terminal_width, minimum_total);
+        while (total > limit) {
+            std::size_t candidate = std::numeric_limits<std::size_t>::max();
+            std::size_t best_slack = 0;
+            for (std::size_t i = 0; i < column_count; ++i) {
+                if (widths[i] > min_widths[i]) {
+                    std::size_t slack = widths[i] - min_widths[i];
+                    if (slack > best_slack) {
+                        best_slack = slack;
+                        candidate = i;
+                    }
+                }
+            }
+            if (candidate == std::numeric_limits<std::size_t>::max()) {
+                break;
+            }
+            --widths[candidate];
+            --total;
+        }
+    }
+
+    return widths;
+}
+
+void RenderTable(std::ostream& os,
+                 const std::vector<std::string>& headers,
+                 const std::vector<std::vector<std::string>>& rows) {
+    if (headers.empty()) {
+        return;
+    }
+
+    constexpr std::size_t kGap = 2;
+    int term_width = Platform::isOutputTerminal() ? Platform::terminalWidth() : 0;
+    std::size_t effective_width = term_width > 0 ? static_cast<std::size_t>(std::max(term_width, 40)) : 0;
+    std::vector<std::size_t> widths = ComputeColumnWidths(headers, rows, kGap, effective_width);
+    const std::size_t column_count = headers.size();
+    std::string gap(kGap, ' ');
+
+    auto print_row = [&](const std::vector<std::string>& cells) {
+        std::vector<std::vector<std::string>> cell_lines;
+        cell_lines.reserve(column_count);
+        std::size_t max_lines = 0;
+        for (std::size_t i = 0; i < column_count; ++i) {
+            std::string cell = i < cells.size() ? cells[i] : std::string{};
+            auto wrapped = WrapCellText(cell, widths[i]);
+            max_lines = std::max<std::size_t>(max_lines, wrapped.size());
+            cell_lines.emplace_back(std::move(wrapped));
+        }
+
+        for (std::size_t line = 0; line < max_lines; ++line) {
+            for (std::size_t col = 0; col < column_count; ++col) {
+                std::string piece = line < cell_lines[col].size() ? cell_lines[col][line] : std::string{};
+                if (piece.size() > widths[col]) {
+                    piece = piece.substr(0, widths[col]);
+                }
+                os << piece;
+                if (piece.size() < widths[col]) {
+                    os << std::string(widths[col] - piece.size(), ' ');
+                }
+                if (col + 1 < column_count) {
+                    os << gap;
+                }
+            }
+            os << '\n';
+        }
+    };
+
+    print_row(headers);
+    for (std::size_t i = 0; i < column_count; ++i) {
+        os << std::string(widths[i], '-');
+        if (i + 1 < column_count) {
+            os << gap;
+        }
+    }
+    os << '\n';
+
+    for (const auto& row : rows) {
+        print_row(row);
+    }
 }
 
 }  // namespace
@@ -1029,16 +1219,24 @@ void DatabaseInspector::PrintIcons(const IconMap& icons) const
         return lhs->name < rhs->name;
     });
 
-    std::cout << "name\ticon\ticon_class\tIcon_UTF_16_codes\tIcon_Hex_Code\tdescription\tused_by\n";
-
+    std::vector<std::vector<std::string>> rows;
+    rows.reserve(records.size());
     for (const IconRecord* record : records) {
-        std::cout << record->name << '\t'
-                  << record->icon << '\t'
-                  << record->icon_class << '\t'
-                  << FormatUtf16(record->icon_utf16) << '\t'
-                  << FormatHex(record->icon_hex) << '\t'
-                  << record->description << '\t'
-                  << record->used_by << '\n';
+        rows.push_back({record->name,
+                        record->icon,
+                        record->icon_class,
+                        FormatUtf16(record->icon_utf16),
+                        FormatHex(record->icon_hex),
+                        record->description,
+                        record->used_by});
+    }
+
+    const std::vector<std::string> headers = {
+        "Name", "Icon", "Icon Class", "UTF-16", "Hex", "Description", "Used By"};
+
+    RenderTable(std::cout, headers, rows);
+    if (rows.empty()) {
+        std::cout << "(no entries)\n";
     }
 }
 
@@ -1073,21 +1271,36 @@ void DatabaseInspector::PrintAliases(const AliasMap& aliases, const IconMap& ico
         return lhs.name < rhs.name;
     });
 
-    std::cout << "name\talias\ticon\ticon_class\tIcon_UTF_16_codes\tIcon_Hex_Code\tdescription\tused_by\n";
+    std::vector<std::vector<std::string>> table_rows;
+    table_rows.reserve(rows.size());
+    std::vector<std::string> warnings;
 
     for (const auto& row : rows) {
         if (row.missing_target) {
-            std::cerr << "nls: warning: alias '" << row.alias << "' references missing entry '"
-                      << row.name << "'\n";
+            std::ostringstream oss;
+            oss << "nls: warning: alias '" << row.alias << "' references missing entry '" << row.name << '\'';
+            warnings.push_back(oss.str());
         }
-        std::cout << row.name << '\t'
-                  << row.alias << '\t'
-                  << row.icon << '\t'
-                  << row.icon_class << '\t'
-                  << FormatUtf16(row.icon_utf16) << '\t'
-                  << FormatHex(row.icon_hex) << '\t'
-                  << row.description << '\t'
-                  << row.used_by << '\n';
+        table_rows.push_back({row.name,
+                              row.alias,
+                              row.icon,
+                              row.icon_class,
+                              FormatUtf16(row.icon_utf16),
+                              FormatHex(row.icon_hex),
+                              row.description,
+                              row.used_by});
+    }
+
+    const std::vector<std::string> headers = {
+        "Name", "Alias", "Icon", "Icon Class", "UTF-16", "Hex", "Description", "Used By"};
+
+    RenderTable(std::cout, headers, table_rows);
+    if (table_rows.empty()) {
+        std::cout << "(no entries)\n";
+    }
+
+    for (const auto& warning : warnings) {
+        std::cerr << warning << '\n';
     }
 }
 
