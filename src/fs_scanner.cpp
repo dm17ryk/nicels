@@ -243,6 +243,10 @@ private:
                 target.erase(0, unc_prefix.size());
                 target.insert(0, L"\\\\");
             }
+            // If target is a volume GUID path, prefix with \\?\\ to resolve mount point
+            else if (target.rfind(L"Volume{", 0) == 0) {
+                target.insert(0, L"\\\\?\\");
+            }
         }
         return target;
     }
@@ -370,9 +374,24 @@ void FileScanner::populate_entry(const fs::directory_entry& de, Entry& entry) co
     entry.info.size = entry.info.is_dir ? 0 : (is_reg ? de.file_size(info_ec) : 0);
     if (info_ec) {
         entry.info.size = 0;
+#ifdef _WIN32
+        // Fallback: retrieve size and timestamp via attributes if direct file access is denied
+        WIN32_FILE_ATTRIBUTE_DATA fad;
+        if (GetFileAttributesExW(entry.info.path.c_str(), GetFileExInfoStandard, &fad)) {
+            ULARGE_INTEGER fileSize;
+            fileSize.LowPart = fad.nFileSizeLow;
+            fileSize.HighPart = fad.nFileSizeHigh;
+            entry.info.size = static_cast<uintmax_t>(fileSize.QuadPart);
+            ULARGE_INTEGER ft;
+            ft.LowPart = fad.ftLastWriteTime.dwLowDateTime;
+            ft.HighPart = fad.ftLastWriteTime.dwHighDateTime;
+            entry.info.mtime = fs::file_time_type(fs::file_time_type::duration(ft.QuadPart));
+        }
+#endif
         info_ec.clear();
+    } else {
+        entry.info.mtime = de.last_write_time(info_ec);
     }
-    entry.info.mtime = de.last_write_time(info_ec);
     entry.info.is_exec = ExecutableClassifier::IsExecutable(de);
     entry.info.is_hidden = StringUtils::IsHidden(entry.info.name);
     auto is_missing_error = [](const std::error_code& ec) {
@@ -603,4 +622,3 @@ VisitResult FileScanner::collect_entries(const fs::path& dir,
 }
 
 }  // namespace nls
-

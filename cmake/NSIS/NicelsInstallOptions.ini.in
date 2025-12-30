@@ -1,21 +1,34 @@
-[Settings]
+; NicelsInstallOptions.ini.in
+; Страница дополнительных опций установщика (InstallOptions)
+; Цели:
+;  - По умолчанию: ДОБАВИТЬ nicels в системный PATH для всех пользователей.
+;  - "Не добавлять в PATH" — НЕ по умолчанию.
+;  - Ярлык на рабочем столе — по умолчанию снят (CLI утилита).
+;  - Работает и в тихой установке (NSIS возьмёт эти default State).
+
+[Settings]adsadadadasd
 NumFields=9
+NextButtonText=Next
+
+; =========================
+; Раздел: Область установки
+; =========================
 
 [Field 1]
 Type=label
-Text=Choose who can use @CPACK_PACKAGE_NAME@ after installation.
+Text=Select install scope:
 Left=0
 Right=-1
 Top=0
-Bottom=12
+Bottom=10
 
 [Field 2]
 Type=radiobutton
 Text=Install for all users (requires administrator approval)
 Left=0
 Right=-1
-Top=14
-Bottom=24
+Top=12
+Bottom=22
 Flags=GROUP
 State=1
 
@@ -24,56 +37,65 @@ Type=radiobutton
 Text=Install just for me
 Left=0
 Right=-1
-Top=24
-Bottom=34
+Top=22
+Bottom=32
 State=0
 
-[Field 4]
-Type=label
-Text=
-Left=0
-Right=-1
-Top=36
-Bottom=40
+; ===============================
+; Раздел: Добавление в системный PATH
+; ===============================
+
+; [Field 4]
+; Type=label
+; Text=PATH options:
+; Left=0
+; Right=-1
+; Top=42
+; Bottom=52
+
+; ; Радиокнопки — группа из трёх: не добавлять / добавить всем / добавить текущему пользователю
+; [Field 6]
+; Type=radiobutton
+; Text=Do not add @CPACK_PACKAGE_NAME@ to the system PATH
+; Left=0
+; Right=-1
+; Top=56
+; Bottom=66
+; Flags=GROUP
+; State=0
+
+; [Field 7]
+; Type=radiobutton
+; Text=Add @CPACK_PACKAGE_NAME@ to the system PATH for all users
+; Left=0
+; Right=-1
+; Top=66
+; Bottom=76
+; State=1
+
+; [Field 8]
+; Type=radiobutton
+; Text=Add @CPACK_PACKAGE_NAME@ to the system PATH for the current user only
+; Left=0
+; Right=-1
+; Top=76
+; Bottom=86
+; State=0
+
+; ===============================
+; Раздел: Ярлык на рабочем столе
+; ===============================
 
 [Field 5]
 Type=label
-Text=Control how @CPACK_PACKAGE_NAME@ is added to the PATH environment variable.
+Text=Shortcuts:
 Left=0
 Right=-1
-Top=42
-Bottom=54
-
-[Field 6]
-Type=radiobutton
-Text=Do not add @CPACK_PACKAGE_NAME@ to the system PATH
-Left=0
-Right=-1
-Top=56
-Bottom=66
-Flags=GROUP
-State=1
-
-[Field 7]
-Type=radiobutton
-Text=Add @CPACK_PACKAGE_NAME@ to the system PATH for all users
-Left=0
-Right=-1
-Top=66
-Bottom=76
-State=0
-
-[Field 8]
-Type=radiobutton
-Text=Add @CPACK_PACKAGE_NAME@ to the system PATH for the current user only
-Left=0
-Right=-1
-Top=76
-Bottom=86
-State=0
+Top=90
+Bottom=96
 
 [Field 9]
-Type=CheckBox
+Type=checkbox
 Text=Create @CPACK_PACKAGE_NAME@ Desktop Icon
 Left=0
 Right=-1

@@ -567,8 +567,9 @@ if(WIN32)
   # doubled backslash the resulting installer aborts while writing the
   # DisplayIcon registry entry.
   set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\nls.exe")
-  set(CPACK_NSIS_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NSIS/NicelsNSISTemplate.in")
-  set(CPACK_NSIS_INSTALL_OPTIONS_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NSIS/NicelsInstallOptions.ini.in")
+  # set(CPACK_NSIS_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NSIS/NicelsNSISTemplate.in")
+  # set(CPACK_NSIS_INSTALL_OPTIONS_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NSIS/NicelsInstallOptions.ini.in")
+  # set(CPACK_NSIS_INCLUDE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NSIS/CustomPathPage.nsh")
   set(CPACK_NSIS_MUI_ICON "${_nls_app_icon}")
   set(CPACK_NSIS_MUI_UNIICON "${_nls_app_icon}")
   set(CPACK_NSIS_INSTALLER_ICON "${_nls_app_icon}")
