@@ -65,6 +65,11 @@ public:
         });
     }
 
+    void SetRecursiveFlat(bool value)
+    {
+        actions_.emplace_back([value](Config& cfg) { cfg.set_recursive_flat(value); });
+    }
+
     void SetReport(Config::Report report)
     {
         actions_.emplace_back([report](Config& cfg) { cfg.set_report(report); });
@@ -692,6 +697,12 @@ or comma (-m) (default: vertical))");
     tree_option->option_text("[=DEPTH]");
     tree_option->expected(0, 1);
     tree_option->default_str("0");
+
+    auto recursive_option = layout->add_flag_callback("-R,--recursive",
+        [&]() { builder.SetRecursiveFlat(true); },
+        "recursively list subdirectories in flat format (like ls -R)");
+    recursive_option->excludes(tree_option);
+    tree_option->excludes(recursive_option);
 
     std::string report_value;
     auto report_option = layout->add_flag("--report{long}", report_value,

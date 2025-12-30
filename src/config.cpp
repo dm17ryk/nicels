@@ -47,6 +47,7 @@ void Config::Reset() {
     hyperlink_ = false;
     header_ = false;
     tree_ = false;
+    recursive_flat_ = false;
     numeric_uid_gid_ = false;
     dereference_ = false;
     ignore_backups_ = false;
@@ -149,6 +150,9 @@ void Config::set_header(bool value) { header_ = value; }
 
 bool Config::tree() const { return tree_; }
 void Config::set_tree(bool value) { tree_ = value; }
+
+bool Config::recursive_flat() const { return recursive_flat_; }
+void Config::set_recursive_flat(bool value) { recursive_flat_ = value; }
 
 bool Config::numeric_uid_gid() const { return numeric_uid_gid_; }
 void Config::set_numeric_uid_gid(bool value) { numeric_uid_gid_ = value; }

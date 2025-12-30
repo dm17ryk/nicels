@@ -64,6 +64,10 @@ VisitResult PathProcessor::listPath(const fs::path& path) {
         return status;
     }
 
+    if (options().recursive_flat()) {
+        return listRecursiveFlat(path);
+    }
+
     std::vector<Entry> items;
     VisitResult collect_status = scanner().collect_entries(path, items, true);
     status = VisitResultAggregator::Combine(status, collect_status);
@@ -82,6 +86,66 @@ VisitResult PathProcessor::listPath(const fs::path& path) {
     renderer().RenderEntries(items);
     renderer().RenderReport(items);
     if (options().paths().size() > 1) renderer().TerminateLine();
+    return status;
+}
+
+VisitResult PathProcessor::listRecursiveFlat(const fs::path& path) {
+    std::error_code dir_ec;
+    const bool is_directory = fs::is_directory(path, dir_ec);
+    (void)dir_ec;
+
+    if (!is_directory) {
+        if (recursive_block_printed_) {
+            renderer().TerminateLine();
+        }
+        std::vector<Entry> items;
+        VisitResult collect_status = scanner().collect_entries(path, items, true);
+        VisitResult status = collect_status;
+        if (collect_status == VisitResult::Serious) {
+            return status;
+        }
+        applyGitStatus(items, path.parent_path());
+        sortEntries(items);
+        renderer().RenderEntries(items);
+        renderer().RenderReport(items);
+        recursive_block_printed_ = true;
+        return status;
+    }
+
+    return listRecursiveDirectory(path, true);
+}
+
+VisitResult PathProcessor::listRecursiveDirectory(const fs::path& dir, bool is_top_level) {
+    std::vector<Entry> items;
+    VisitResult status = scanner().collect_entries(dir, items, is_top_level);
+    if (status == VisitResult::Serious) {
+        return status;
+    }
+    applyGitStatus(items, dir);
+    sortEntries(items);
+
+    if (recursive_block_printed_) {
+        renderer().TerminateLine();
+    }
+    renderer().PrintPathHeader(dir);
+    renderer().RenderEntries(items);
+    renderer().RenderReport(items);
+    recursive_block_printed_ = true;
+
+    std::vector<fs::path> subdirs;
+    subdirs.reserve(items.size());
+    for (const auto& item : items) {
+        const bool is_dir = item.info.is_dir && !item.info.is_symlink;
+        if (!is_dir) continue;
+        if (item.info.name == "." || item.info.name == "..") continue;
+        subdirs.push_back(item.info.path);
+    }
+
+    for (const auto& subdir : subdirs) {
+        VisitResult child_status = listRecursiveDirectory(subdir, false);
+        status = VisitResultAggregator::Combine(status, child_status);
+    }
+
     return status;
 }
 

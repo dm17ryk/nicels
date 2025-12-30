@@ -249,6 +249,37 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
                 return message
         return None
 
+    def make_recursive_flat_verify(
+        expected_headers: Iterable[Path],
+        *,
+        must_include: Optional[Iterable[str]] = None,
+        must_exclude: Optional[Iterable[str]] = None,
+    ) -> Callable[[Path, Path], Optional[str]]:
+        header_strings = [f"{path}:" for path in expected_headers]
+        include_list = list(must_include or [])
+        exclude_list = list(must_exclude or [])
+
+        def _verify(out_path: Path, _: Path) -> Optional[str]:
+            text = out_path.read_text(encoding="utf-8", errors="replace")
+            normalized = text.replace("\r\n", "\n")
+            for header in header_strings:
+                if header not in normalized:
+                    return f"expected header '{header}' in stdout"
+            if "\n\n" not in normalized:
+                return "expected blank line between directory blocks"
+            for glyph in ("\u251c", "\u2514", "\u2502", "\u2500"):
+                if glyph in normalized:
+                    return f"unexpected tree glyph '{glyph}' in stdout"
+            for snippet in include_list:
+                if snippet not in normalized:
+                    return f"expected '{snippet}' in stdout"
+            for snippet in exclude_list:
+                if snippet in normalized:
+                    return f"did not expect '{snippet}' in stdout"
+            return None
+
+        return _verify
+
     data_dir_env = {"NLS_DATA_DIR": str(db_path.parent)}
     linux_root = fixture_dir / "lin"
     if not linux_root.is_dir():
@@ -305,6 +336,61 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
     add("width", "-w", "120", str(root_dir))
     add("tree", "--tree", str(root_dir))
     add("tree-depth", "--tree=2", str(root_dir))
+    if root_dir.name == "lin":
+        recursive_root = root_dir / "nested"
+        recursive_headers = [
+            recursive_root,
+            recursive_root / "level1",
+            recursive_root / "level1" / "level2",
+        ]
+        hidden_root = recursive_root
+        hidden_headers = recursive_headers
+        hidden_entry = ".level2hidden"
+        ignore_root = root_dir / "mixed"
+        ignore_headers = [ignore_root, ignore_root / "numeric_names"]
+        ignore_pattern = "*.log"
+        ignore_missing = ["001-start.log", "010-middle.log", "999-end.log"]
+    else:
+        recursive_root = root_dir / "folder1"
+        recursive_headers = [recursive_root, recursive_root / "folder3"]
+        hidden_root = root_dir
+        hidden_headers = [hidden_root, hidden_root / "folder1"]
+        hidden_entry = ".file"
+        ignore_root = recursive_root
+        ignore_headers = recursive_headers
+        ignore_pattern = "*.xml"
+        ignore_missing = ["file.xml", "file2.xml"]
+
+    add(
+        "recursive-flat",
+        "-R",
+        "--no-icons",
+        "--no-color",
+        "-1",
+        str(recursive_root),
+        verify=make_recursive_flat_verify(recursive_headers),
+    )
+    add(
+        "recursive-flat-all",
+        "-R",
+        "-a",
+        "--no-icons",
+        "--no-color",
+        "-1",
+        str(hidden_root),
+        verify=make_recursive_flat_verify(hidden_headers, must_include=[hidden_entry]),
+    )
+    add(
+        "recursive-flat-ignore",
+        "-R",
+        "--ignore",
+        ignore_pattern,
+        "--no-icons",
+        "--no-color",
+        "-1",
+        str(ignore_root),
+        verify=make_recursive_flat_verify(ignore_headers, must_exclude=ignore_missing),
+    )
     for report_opt in ("short", "long"):
         add(f"report-{report_opt}", f"--report={report_opt}", str(root_dir))
     add("zero-terminated", "--zero", str(root_dir))

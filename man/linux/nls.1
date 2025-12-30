@@ -42,6 +42,9 @@ Assume tab stops every \fICOLS\fR columns (default 8) when aligning output:conte
 \fB\-w, \-\-width\fR \fICOLS\fR
 Set the output width to \fICOLS\fR columns. By default, \fBnls\fR detects the terminal width; use \fB--width=0\fR for no limit:contentReference[oaicite:15]{index=15}.
 .TP 
+.B "\-R, \-\-recursive"
+Recursively list subdirectories in flat format (like \fBls \-R\fR). This is distinct from \fB\-\-tree\fR and cannot be combined with it.
+.TP 
 \fB\-\-tree[=\fIDEPTH\fR]\fR
 Recursively list directories in a tree view. Optionally limit recursion to \fIDEPTH\fR levels (0 means no limit):contentReference[oaicite:16]{index=16}:contentReference[oaicite:17]{index=17}. For example, \fB--tree=2\fR lists two levels deep. If \fIDEFTH\fR is not provided, it defaults to 0 (fully recursive).
 .TP 

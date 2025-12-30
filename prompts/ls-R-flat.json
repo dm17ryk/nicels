@@ -1,0 +1,77 @@
+{
+  "title": "Add nls -R flat recursive mode like ls -R (plus docs)",
+  "priority": "high",
+  "type": "feature",
+  "owner": "codex-cli",
+  "labels": ["cli", "feature", "docs", "manpage", "tests"],
+  "summary": "Implement -R/--recursive for nicels (nls) to recursively list subdirectories in flat format like GNU ls -R, without changing --tree behavior. Update --help and man page.",
+  "requirements": {
+    "cli": {
+      "flags": [
+        {
+          "short": "-R",
+          "long": "--recursive",
+          "description": "Recursively list subdirectories in flat format (like ls -R).",
+          "mutual_exclusion": ["--tree"]
+        }
+      ],
+      "help_update": true
+    },
+    "behavior": [
+      "When -R is set, list each directory in a separate block: print a header '<dirpath>:' followed by that directory's listing, then recurse into subdirectories.",
+      "Insert a blank line between directory blocks (like ls -R).",
+      "Apply sorting and filtering per-directory block (not globally).",
+      "Respect existing options in recursive mode: -a/-A, --hide/--ignore, sorting, --group-directories-first, --color, --icons, etc.",
+      "Multiple input paths should behave like ls: show separate blocks and headers appropriately.",
+      "Do not change existing --tree behavior; -R is a distinct flat recursion mode."
+    ],
+    "errors": [
+      "If a directory cannot be read, print an error (existing style) and continue recursion for other directories.",
+      "Avoid infinite recursion through symlinked directories according to current symlink policy (do not introduce following-dir-symlinks unless already supported)."
+    ]
+  },
+  "implementation_plan": [
+    {
+      "step": "Add config flag",
+      "files": ["src/config.h", "src/config.cpp"],
+      "notes": "Add boolean (e.g. recursive_flat_) and accessor (e.g. recursive_flat()). Ensure default false."
+    },
+    {
+      "step": "Parse CLI option",
+      "files": ["src/command_line_parser.cpp"],
+      "notes": "Add -R and --recursive; set config flag. Mark as incompatible with --tree (either enforce or define precedence). Update help text."
+    },
+    {
+      "step": "Implement traversal",
+      "files": ["src/path_processor.cpp", "src/path_processor.h"],
+      "notes": "Add a recursive flat listing path: render current directory, collect subdirectories, print '<dir>:' headers and blank-line separators, recurse depth-first. Reuse existing per-directory scan/render pipeline so sorting/filtering stays consistent."
+    },
+    {
+      "step": "Directory headers formatting",
+      "files": ["src/renderer.cpp", "src/renderer.h", "src/path_processor.cpp"],
+      "notes": "If a renderer helper exists, add a small helper to print directory header lines and manage blank line separation. Keep output consistent with ls -R conventions."
+    },
+    {
+      "step": "Update man/help docs",
+      "files": ["man/linux/nls.1", "README.md", "docs (if any help/html sources are generated)"],
+      "notes": "Add -R/--recursive entry in OPTIONS. Mention it is flat like ls -R and distinct from --tree."
+    },
+    {
+      "step": "Add/extend tests",
+      "files": ["test/run_nls_cli_tests.py"],
+      "notes": "Add a test directory tree and assert: headers printed, blocks separated by blank lines, recursion present, and no tree glyphs. Also test with -a and ignore/hide patterns."
+    }
+  ],
+  "acceptance_criteria": [
+    "Running `nls -R <dir>` prints flat recursive output with per-directory headers '<dir>:' and blank lines between blocks.",
+    "Sorting/filtering options apply per-directory listing and match non-recursive behavior for each block.",
+    "`nls --tree` output unchanged and `-R` does not enable tree formatting.",
+    "`nls --help` includes -R/--recursive description.",
+    "man page includes -R/--recursive in OPTIONS.",
+    "Tests cover -R mode and pass."
+  ],
+  "notes": [
+    "Prefer depth-first traversal order; exact order only needs to be consistent and documented if it differs from GNU ls.",
+    "If mutual exclusion is hard, define precedence explicitly (recommended: error if both are set)."
+  ]
+}

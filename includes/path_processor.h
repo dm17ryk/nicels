@@ -21,6 +21,8 @@ public:
 
 private:
     [[nodiscard]] VisitResult listPath(const std::filesystem::path& path);
+    [[nodiscard]] VisitResult listRecursiveFlat(const std::filesystem::path& path);
+    [[nodiscard]] VisitResult listRecursiveDirectory(const std::filesystem::path& dir, bool is_top_level);
     [[nodiscard]] std::vector<TreeItem> buildTreeItems(const std::filesystem::path& dir,
                                                        std::size_t depth,
                                                        std::vector<Entry>& flat,
@@ -37,6 +39,7 @@ private:
     FileScanner& scanner_;
     Renderer& renderer_;
     GitStatus& git_status_;
+    bool recursive_block_printed_ = false;
 };
 
 }  // namespace nls

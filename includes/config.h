@@ -128,6 +128,9 @@ public:
     bool tree() const;
     void set_tree(bool value);
 
+    bool recursive_flat() const;
+    void set_recursive_flat(bool value);
+
     bool numeric_uid_gid() const;
     void set_numeric_uid_gid(bool value);
 
@@ -243,6 +246,7 @@ private:
     bool hyperlink_ = false;
     bool header_ = false;
     bool tree_ = false;
+    bool recursive_flat_ = false;
     bool numeric_uid_gid_ = false;
     bool dereference_ = false;
     bool ignore_backups_ = false;

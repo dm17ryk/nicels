@@ -314,11 +314,12 @@ what the executable reports.
 | `--format` | `WORD` | `vertical` | use format: across (-x), horizontal (-x), long (-l), single-column (-1), vertical (-C) or comma (-m) (default: vertical) |
 | `--header` | `—` | `—` | print directory header and column names in long listing |
 | `-m` | `—` | `—` | fill width with a comma separated list of entries |
-| `-T, --tabsize` | `COLS` | `—` | assume tab stops at each COLS instead of 8 |
-| `-w, --width` | `COLS` | `—` | set output width to COLS. 0 means no limit |
-| `--tree{0}` | `—` | `=DEPTH` | show tree view of directories, optionally limited to DEPTH (0 for unlimited) |
-| `--report{long}` | `—` | `=WORD` | show summary report: short, long (default: long) |
-| `--zero` | `—` | `—` | end each output line with NUL, not newline |
+| `-T, --tabsize` | `COLS` | `-` | assume tab stops at each COLS instead of 8 |
+| `-w, --width` | `COLS` | `-` | set output width to COLS. 0 means no limit |
+| `-R, --recursive` | `-` | `-` | recursively list subdirectories in flat format (like ls -R); incompatible with --tree |
+| `--tree{0}` | `-` | `=DEPTH` | show tree view of directories, optionally limited to DEPTH (0 for unlimited) |
+| `--report{long}` | `-` | `=WORD` | show summary report: short, long (default: long) |
+| `--zero` | `-` | `-` | end each output line with NUL, not newline |
 
 #### Filtering options
 
