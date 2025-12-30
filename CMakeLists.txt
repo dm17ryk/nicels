@@ -440,10 +440,10 @@ install(TARGETS nls
 
 if(UNIX AND NOT APPLE)
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/man/linux/nls.1"
-    DESTINATION "/usr/share/man/man1")
+    DESTINATION "share/man/man1")
 elseif(APPLE)
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/man/linux/nls.1"
-    DESTINATION "/usr/share/man/man1")
+    DESTINATION "share/man/man1")
 endif()
 
 set(_nls_db_source "${CMAKE_CURRENT_SOURCE_DIR}/DB/NLS.sqlite3")
