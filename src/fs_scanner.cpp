@@ -943,4 +943,53 @@ VisitResult FileScanner::collect_entries(const fs::path& dir,
     return status;
 }
 
+VisitResult FileScanner::collect_child_directories(const fs::path& dir,
+                                                   std::vector<fs::path>& out,
+                                                   bool is_top_level) const {
+    std::error_code iter_ec;
+    fs::directory_iterator it(dir, iter_ec);
+    if (iter_ec) {
+        report_path_error(dir, iter_ec, "Unable to open directory");
+        return is_top_level ? VisitResult::Serious : VisitResult::Minor;
+    }
+
+    fs::directory_iterator end;
+    while (it != end) {
+        const fs::directory_entry& de = *it;
+        const std::string name = de.path().filename().string();
+        if (name == "." || name == "..") {
+            it.increment(iter_ec);
+            if (iter_ec) break;
+            continue;
+        }
+        if (!should_include(name, false)) {
+            it.increment(iter_ec);
+            if (iter_ec) break;
+            continue;
+        }
+#ifdef _WIN32
+        if (WindowsLinkInspector::Inspect(de.path()).is_link) {
+            it.increment(iter_ec);
+            if (iter_ec) break;
+            continue;
+        }
+#endif
+
+        std::error_code info_ec;
+        const bool is_dir = de.is_directory(info_ec);
+        if (!info_ec && is_dir && !de.is_symlink(info_ec)) {
+            out.push_back(de.path());
+        }
+
+        it.increment(iter_ec);
+        if (iter_ec) break;
+    }
+
+    if (iter_ec) {
+        report_path_error(dir, iter_ec, "Unable to read directory");
+        return is_top_level ? VisitResult::Serious : VisitResult::Minor;
+    }
+    return VisitResult::Ok;
+}
+
 }  // namespace nls

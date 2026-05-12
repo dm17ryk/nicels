@@ -53,47 +53,6 @@ Platform::SystemTheme parseThemeString(std::string_view theme)
     return Platform::SystemTheme::Unknown;
 }
 
-Platform::SystemTheme detectFromGtkTheme()
-{
-    if (const char* value = std::getenv("GTK_THEME")) {
-        std::string lowered(value);
-        std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char ch) {
-            return static_cast<char>(std::tolower(ch));
-        });
-        if (lowered.find("dark") != std::string::npos) {
-            return Platform::SystemTheme::Dark;
-        }
-        if (lowered.find("light") != std::string::npos) {
-            return Platform::SystemTheme::Light;
-        }
-    }
-    if (const char* value = std::getenv("QT_QPA_PLATFORMTHEME")) {
-        std::string lowered(value);
-        std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char ch) {
-            return static_cast<char>(std::tolower(ch));
-        });
-        if (lowered.find("dark") != std::string::npos) {
-            return Platform::SystemTheme::Dark;
-        }
-        if (lowered.find("light") != std::string::npos) {
-            return Platform::SystemTheme::Light;
-        }
-    }
-    if (const char* value = std::getenv("QT_STYLE_OVERRIDE")) {
-        std::string lowered(value);
-        std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char ch) {
-            return static_cast<char>(std::tolower(ch));
-        });
-        if (lowered.find("dark") != std::string::npos) {
-            return Platform::SystemTheme::Dark;
-        }
-        if (lowered.find("light") != std::string::npos) {
-            return Platform::SystemTheme::Light;
-        }
-    }
-    return Platform::SystemTheme::Unknown;
-}
-
 struct Rgb {
     int r = 0;
     int g = 0;
@@ -164,6 +123,47 @@ Platform::SystemTheme detectFromWindowsPersonalization()
 #endif
 
 #ifndef _WIN32
+
+Platform::SystemTheme detectFromGtkTheme()
+{
+    if (const char* value = std::getenv("GTK_THEME")) {
+        std::string lowered(value);
+        std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
+        if (lowered.find("dark") != std::string::npos) {
+            return Platform::SystemTheme::Dark;
+        }
+        if (lowered.find("light") != std::string::npos) {
+            return Platform::SystemTheme::Light;
+        }
+    }
+    if (const char* value = std::getenv("QT_QPA_PLATFORMTHEME")) {
+        std::string lowered(value);
+        std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
+        if (lowered.find("dark") != std::string::npos) {
+            return Platform::SystemTheme::Dark;
+        }
+        if (lowered.find("light") != std::string::npos) {
+            return Platform::SystemTheme::Light;
+        }
+    }
+    if (const char* value = std::getenv("QT_STYLE_OVERRIDE")) {
+        std::string lowered(value);
+        std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
+        if (lowered.find("dark") != std::string::npos) {
+            return Platform::SystemTheme::Dark;
+        }
+        if (lowered.find("light") != std::string::npos) {
+            return Platform::SystemTheme::Light;
+        }
+    }
+    return Platform::SystemTheme::Unknown;
+}
 
 std::optional<Rgb> queryOscBackground()
 {
@@ -443,20 +443,22 @@ Platform::SystemTheme Platform::detectSystemTheme()
 
     return SystemTheme::Unknown;
 #else
-    if (auto rgb = queryOscBackground()) {
-        return themeFromRgb(*rgb);
-    }
-
     if (auto color_theme = detectFromColorFgbg(); color_theme != SystemTheme::Unknown) {
         return color_theme;
     }
 
-    if (auto desktop = detectDesktopPreference(); desktop != SystemTheme::Unknown) {
-        return desktop;
-    }
-
     if (auto gtk_theme = detectFromGtkTheme(); gtk_theme != SystemTheme::Unknown) {
         return gtk_theme;
+    }
+
+    if (::isatty(STDOUT_FILENO) != 0) {
+        if (auto rgb = queryOscBackground()) {
+            return themeFromRgb(*rgb);
+        }
+    }
+
+    if (auto desktop = detectDesktopPreference(); desktop != SystemTheme::Unknown) {
+        return desktop;
     }
 
     return SystemTheme::Unknown;

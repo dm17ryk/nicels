@@ -51,7 +51,9 @@ int App::run(int argc, char** argv) {
             break;
         case Config::ColorTheme::Default:
         default: {
-            Platform::SystemTheme detected = Platform::detectSystemTheme();
+            Platform::SystemTheme detected = options().no_color()
+                ? Platform::SystemTheme::Unknown
+                : Platform::detectSystemTheme();
             if (detected == Platform::SystemTheme::Light) {
                 scheme = ColorScheme::Light;
             } else {

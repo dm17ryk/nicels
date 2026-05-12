@@ -468,6 +468,7 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
         ignore_headers = [ignore_root, ignore_root / "numeric_names"]
         ignore_pattern = "*.log"
         ignore_missing = ["001-start.log", "010-middle.log", "999-end.log"]
+        recursive_files_only_include = "deep.txt"
     else:
         recursive_root = root_dir / "folder1"
         recursive_headers = [recursive_root, recursive_root / "folder3"]
@@ -478,6 +479,7 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
         ignore_headers = recursive_headers
         ignore_pattern = "*.xml"
         ignore_missing = ["file.xml", "file2.xml"]
+        recursive_files_only_include = "file.cmd"
 
     add(
         "recursive-flat",
@@ -487,6 +489,16 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
         "-1",
         str(recursive_root),
         verify=make_recursive_flat_verify(recursive_headers),
+    )
+    add(
+        "recursive-flat-files-only",
+        "-R",
+        "-f",
+        "--no-icons",
+        "--no-color",
+        "-1",
+        str(recursive_root),
+        verify=make_recursive_flat_verify(recursive_headers, must_include=[recursive_files_only_include]),
     )
     add(
         "recursive-flat-all",
