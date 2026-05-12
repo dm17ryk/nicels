@@ -22,8 +22,18 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 case "$artifact_path" in
   *.pkg)
-    sudo installer -pkg "$artifact_path" -target /
-    binary_path="$(command -v nls || true)"
+    expanded_pkg="$tmp_dir/pkg"
+    extracted_payload="$tmp_dir/pkg-root"
+    pkgutil --expand-full "$artifact_path" "$expanded_pkg"
+    binary_path="$(find "$expanded_pkg" -type f -path '*/bin/nls' -perm -111 | head -n 1)"
+    if [ -z "$binary_path" ]; then
+      payload_path="$(find "$expanded_pkg" -type f -name Payload | head -n 1)"
+      if [ -n "$payload_path" ]; then
+        mkdir -p "$extracted_payload"
+        ditto -x -z "$payload_path" "$extracted_payload"
+        binary_path="$(find "$extracted_payload" -type f -path '*/bin/nls' -perm -111 | head -n 1)"
+      fi
+    fi
     ;;
   *.tar.gz|*.tgz)
     tar -xzf "$artifact_path" -C "$tmp_dir"

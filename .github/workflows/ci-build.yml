@@ -239,16 +239,31 @@ jobs:
           docker run --rm -v "$PWD:/work" -w /work ${{ matrix.image }} bash -lc '
             set -euo pipefail
             dnf install -y cmake ninja-build clang llvm lld pkgconf-pkg-config openssl-devel rpm-build python3 git
-            python3 -m unittest discover -s test -p "test_*.py"
-            cmake --preset linux-clang -DNLS_PACKAGE_VARIANT=${{ matrix.variant }}
-            cmake --build --preset linux-clang-release
-            ctest -C Release -R nls_cli_tests --test-dir build/linux-clang/ --output-on-failure
-            cpack -G RPM --config build/linux-clang/CPackConfig.cmake
+            builder_uid="$(stat -c "%u" /work)"
+            builder_gid="$(stat -c "%g" /work)"
+            builder_group="$(getent group "$builder_gid" | cut -d: -f1 || true)"
+            if [ -z "$builder_group" ]; then
+              groupadd -g "$builder_gid" nicels-builder
+              builder_group=nicels-builder
+            fi
+            builder_user="$(getent passwd "$builder_uid" | cut -d: -f1 || true)"
+            if [ -z "$builder_user" ]; then
+              useradd -m -u "$builder_uid" -g "$builder_group" nicels-builder
+              builder_user=nicels-builder
+            fi
+            git config --global --add safe.directory /work
+            runuser -u "$builder_user" -- git config --global --add safe.directory /work
+            runuser -u "$builder_user" -- python3 -m unittest discover -s test -p "test_*.py"
+            runuser -u "$builder_user" -- cmake --preset linux-clang -DNLS_PACKAGE_VARIANT=${{ matrix.variant }}
+            runuser -u "$builder_user" -- cmake --build --preset linux-clang-release
+            runuser -u "$builder_user" -- ctest -C Release -R nls_cli_tests --test-dir build/linux-clang/ --output-on-failure
+            runuser -u "$builder_user" -- cpack -G RPM --config build/linux-clang/CPackConfig.cmake
             mkdir -p artifacts/packages
             find . -maxdepth 1 -type f -name "*.rpm" -exec cp "{}" artifacts/packages/ ";"
             find _CPack_Packages -type f -name "*.rpm" -exec cp "{}" artifacts/packages/ ";"
             package="$(find artifacts/packages -type f -name "*.rpm" | head -n 1)"
-            bash tools/ci/validate_linux_package.sh "$package" --run-regression
+            bash tools/ci/validate_linux_package.sh "$package"
+            runuser -u "$builder_user" -- python3 test/run_nls_cli_tests.py --binary "$(command -v nls)" --fixtures test --platform linux
           '
 
       - name: Upload RPM package
