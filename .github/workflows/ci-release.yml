@@ -48,6 +48,7 @@ jobs:
           release_type=""
           run_id=""
           source_ref="${GITHUB_REF_NAME}"
+          source_sha="${GITHUB_SHA}"
 
           if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
             run_id="${{ github.event.workflow_run.id }}"
@@ -72,10 +73,10 @@ jobs:
             release_type="${{ inputs.release_type }}"
             run_id="${{ inputs.ci-run-id }}"
             if [ -z "$run_id" ]; then
-              run_id="$(gh run list --workflow ci-build.yml --branch "$source_ref" --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+              run_id="$(gh run list --workflow ci-build.yml --commit "$source_sha" --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
             fi
             if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
-              echo "No successful CI Build run found for $source_ref" >&2
+              echo "No successful CI Build run found for $source_ref ($source_sha)" >&2
               exit 1
             fi
             head_sha="$(gh run view "$run_id" --json headSha --jq '.headSha')"
