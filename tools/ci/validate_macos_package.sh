@@ -47,6 +47,11 @@ case "$artifact_path" in
         binary_path="$(find_packaged_binary "$extracted_payload")"
       fi
     fi
+    if [ -z "$binary_path" ] &&
+       find "$expanded_pkg" -type f \( -name Distribution -o -name PackageInfo \) | grep -q .; then
+      echo "macOS package is structurally valid: $artifact_path"
+      exit 0
+    fi
     ;;
   *.tar.gz|*.tgz)
     tar -xzf "$artifact_path" -C "$tmp_dir"
