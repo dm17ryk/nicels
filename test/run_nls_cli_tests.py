@@ -694,8 +694,8 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
     if os.name == "nt":
         appdata = db_home / "AppData"
         userprofile = db_home / "UserProfile"
-        db_env.setdefault("APPDATA", str(appdata))
-        db_env.setdefault("USERPROFILE", str(userprofile))
+        db_env["APPDATA"] = str(appdata)
+        db_env["USERPROFILE"] = str(userprofile)
         user_db_dir = Path(db_env["APPDATA"]) / "nicels" / "DB"
     else:
         user_db_dir = Path(db_env["HOME"]) / ".nicels" / "DB"
