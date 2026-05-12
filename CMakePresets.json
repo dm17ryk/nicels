@@ -46,6 +46,9 @@
       "displayName": "MSYS2 Clang (Debug/Release)",
       "description": "Configures a multi-config Ninja build for MSYS2 environments.",
       "inherits": "base-clang",
+      "cacheVariables": {
+        "NLS_ENABLE_IPO": "OFF"
+      },
       "environment": {
         "CC": "clang",
         "CXX": "clang++"

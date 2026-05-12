@@ -17,6 +17,9 @@ if [ ! -f "$package_path" ]; then
   exit 1
 fi
 
+package_dir="$(cd "$(dirname "$package_path")" && pwd -P)"
+package_path="${package_dir}/$(basename "$package_path")"
+
 if command -v sudo >/dev/null 2>&1; then
   sudo_cmd=(sudo)
 else

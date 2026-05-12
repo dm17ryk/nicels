@@ -513,6 +513,17 @@ set(CPACK_PACKAGE_VERSION_MAJOR ${NLS_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${NLS_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${NLS_VERSION_MAINTENANCE})
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+if(APPLE)
+  set(_nls_cpack_aux_dir "${CMAKE_CURRENT_BINARY_DIR}/cpack")
+  file(MAKE_DIRECTORY "${_nls_cpack_aux_dir}")
+  set(_nls_cpack_license_file "${_nls_cpack_aux_dir}/LICENSE.txt")
+  file(COPY_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
+    "${_nls_cpack_license_file}"
+    ONLY_IF_DIFFERENT
+  )
+  set(CPACK_RESOURCE_FILE_LICENSE "${_nls_cpack_license_file}")
+endif()
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/dm17ryk/nicels")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 
@@ -653,6 +664,7 @@ elseif(APPLE)
   set(CPACK_PRODUCTBUILD_DOMAINS_ROOT ON)
 endif()
 unset(_nls_cpack_aux_dir)
+unset(_nls_cpack_license_file)
 
 set(CPACK_SOURCE_GENERATOR "TGZ")
 set(CPACK_SOURCE_IGNORE_FILES
