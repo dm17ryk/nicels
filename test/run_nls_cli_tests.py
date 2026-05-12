@@ -147,7 +147,7 @@ def _create_exclusive_windows_handle(path: Path):
     )
     invalid_handle = ctypes.c_void_p(-1).value
     if handle == invalid_handle:
-        raise OSError(ctypes.get_last_error(), f"CreateFileW failed for {path}")
+        return None
     return handle
 
 
@@ -204,6 +204,9 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
             merged_env = env.copy()
             merged_env.update(case_env)
         cases.append(TestCase(name=name, args=args_list, env=merged_env, cwd=case_cwd or cwd, verify=verify))
+
+    def skip_case(name: str, reason: str) -> None:
+        print(f"[skip] {name}: {reason}")
 
     db_path = REPO_ROOT / "DB" / "NLS.sqlite3"
     if not db_path.exists():
@@ -312,6 +315,14 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
                 return message
         return None
 
+    def has_long_iso_timestamp_for(text: str, name: str) -> bool:
+        for line in text.splitlines():
+            if name not in line:
+                continue
+            if re.search(r"\b\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\b", line):
+                return True
+        return False
+
     def verify_locked_windows_metadata(out_path: Path, err_path: Path) -> Optional[str]:
         text = out_path.read_text(encoding="utf-8", errors="replace")
         err_text = err_path.read_text(encoding="utf-8", errors="replace")
@@ -323,8 +334,8 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
             return "expected concrete mode for locked-system.bin"
         if "4.0 KiB" not in text and "4 KiB" not in text and "4096" not in text:
             return "expected locked-system.bin size in stdout"
-        if re.search(r"\d{4}-\d{2}-\d{2}|\w{3} \w{3}", text) is None:
-            return "expected formatted timestamp in stdout"
+        if not has_long_iso_timestamp_for(text, "locked-system.bin"):
+            return "expected long-iso timestamp for locked-system.bin"
         return None
 
     def verify_system_paging_file_metadata(out_path: Path, err_path: Path) -> Optional[str]:
@@ -338,8 +349,8 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
             return "expected concrete mode for paging files"
         if re.search(r"\b0 B\b", text):
             return "expected nonzero paging file size"
-        if re.search(r"\d{4}-\d{2}-\d{2}|\w{3} \w{3}", text) is None:
-            return "expected formatted paging file timestamp"
+        if not any(has_long_iso_timestamp_for(text, name) for name in ("pagefile.sys", "swapfile.sys")):
+            return "expected long-iso timestamp for paging files"
         return None
 
     def verify_volume_junction(out_path: Path, err_path: Path) -> Optional[str]:
@@ -577,19 +588,24 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
         locked_file.write_bytes(b"x" * 4096)
         locked_handle = _create_exclusive_windows_handle(locked_file)
 
-        def verify_locked_and_release(out_path: Path, err_path: Path) -> Optional[str]:
-            try:
-                return verify_locked_windows_metadata(out_path, err_path)
-            finally:
-                _close_windows_handle(locked_handle)
+        if locked_handle is None:
+            skip_case("windows-locked-file-metadata", "exclusive test handle is not available")
+        else:
+            def verify_locked_and_release(out_path: Path, err_path: Path) -> Optional[str]:
+                try:
+                    return verify_locked_windows_metadata(out_path, err_path)
+                finally:
+                    _close_windows_handle(locked_handle)
 
-        add(
-            "windows-locked-file-metadata",
-            "-l",
-            "--header",
-            str(locked_file),
-            verify=verify_locked_and_release,
-        )
+            add(
+                "windows-locked-file-metadata",
+                "-l",
+                "--header",
+                "--time-style",
+                "long-iso",
+                str(locked_file),
+                verify=verify_locked_and_release,
+            )
 
         paging_files = [str(path) for path in (Path("C:/pagefile.sys"), Path("C:/swapfile.sys")) if path.exists()]
         if paging_files:
@@ -597,6 +613,8 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
                 "windows-paging-file-metadata",
                 "-l",
                 "--header",
+                "--time-style",
+                "long-iso",
                 *paging_files,
                 verify=verify_system_paging_file_metadata,
             )
@@ -610,7 +628,10 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
                 text=True,
                 capture_output=True,
             )
-            if mklink.returncode == 0:
+            if mklink.returncode != 0:
+                reason = mklink.stderr.strip() or mklink.stdout.strip() or f"mklink exited {mklink.returncode}"
+                skip_case("windows-volume-junction-not-dead", reason)
+            else:
                 def verify_volume_junction_and_cleanup(out_path: Path, err_path: Path) -> Optional[str]:
                     try:
                         return verify_volume_junction(out_path, err_path)

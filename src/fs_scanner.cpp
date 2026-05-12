@@ -897,6 +897,7 @@ VisitResult FileScanner::collect_entries(const fs::path& dir,
                 if (name.empty()) {
                     name = dir.string();
                 }
+                // The fallback handles an explicit command-line path; directory/file filters apply below.
                 if (!should_include(name, true)) {
                     return status;
                 }
