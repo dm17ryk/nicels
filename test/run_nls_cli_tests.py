@@ -687,20 +687,19 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
     db_home.mkdir(parents=True, exist_ok=True)
 
     db_env = env.copy()
+    db_override_dir = db_home / "data-dir"
     db_env.update({
         "HOME": str(db_home),
         "XDG_CONFIG_HOME": str(db_home / ".config"),
+        "NLS_DATA_DIR": str(db_override_dir),
     })
     if os.name == "nt":
         appdata = db_home / "AppData"
         userprofile = db_home / "UserProfile"
         db_env["APPDATA"] = str(appdata)
         db_env["USERPROFILE"] = str(userprofile)
-        user_db_dir = Path(db_env["APPDATA"]) / "nicels" / "DB"
-    else:
-        user_db_dir = Path(db_env["HOME"]) / ".nicels" / "DB"
 
-    user_db_path = user_db_dir / "NLS.sqlite3"
+    user_db_path = db_override_dir / "NLS.sqlite3"
     set_ext = ".fixturedb"
     alias_name = "fixture-alias"
     folder_name = "FixtureFolder"
