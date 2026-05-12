@@ -82,7 +82,10 @@ def _safe_extract(archive: Path, destination: Path) -> None:
                 member_path.resolve().relative_to(dest_root)
             except ValueError as exc:
                 raise RuntimeError(f"archive member {member.name!r} escapes destination {dest_root}") from exc
-        bundle.extractall(dest_root)
+        try:
+            bundle.extractall(dest_root, filter="fully_trusted")
+        except TypeError:
+            bundle.extractall(dest_root)
 
 
 def _post_process(destination: Path, platform: str) -> None:
