@@ -170,6 +170,100 @@ struct WindowsFileMetadata {
     }
 };
 
+class ScopedWindowsHandle {
+public:
+    explicit ScopedWindowsHandle(HANDLE handle = INVALID_HANDLE_VALUE) noexcept
+        : handle_(handle) {}
+
+    ScopedWindowsHandle(const ScopedWindowsHandle&) = delete;
+    ScopedWindowsHandle& operator=(const ScopedWindowsHandle&) = delete;
+
+    ScopedWindowsHandle(ScopedWindowsHandle&& other) noexcept
+        : handle_(other.release()) {}
+
+    ScopedWindowsHandle& operator=(ScopedWindowsHandle&& other) noexcept {
+        if (this != &other) {
+            reset(other.release());
+        }
+        return *this;
+    }
+
+    ~ScopedWindowsHandle() {
+        reset();
+    }
+
+    [[nodiscard]] HANDLE get() const noexcept {
+        return handle_;
+    }
+
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return handle_ != INVALID_HANDLE_VALUE && handle_ != nullptr;
+    }
+
+    HANDLE release() noexcept {
+        HANDLE handle = handle_;
+        handle_ = INVALID_HANDLE_VALUE;
+        return handle;
+    }
+
+    void reset(HANDLE handle = INVALID_HANDLE_VALUE) noexcept {
+        if (*this) {
+            ::CloseHandle(handle_);
+        }
+        handle_ = handle;
+    }
+
+private:
+    HANDLE handle_ = INVALID_HANDLE_VALUE;
+};
+
+class ScopedFindHandle {
+public:
+    explicit ScopedFindHandle(HANDLE handle = INVALID_HANDLE_VALUE) noexcept
+        : handle_(handle) {}
+
+    ScopedFindHandle(const ScopedFindHandle&) = delete;
+    ScopedFindHandle& operator=(const ScopedFindHandle&) = delete;
+
+    ScopedFindHandle(ScopedFindHandle&& other) noexcept
+        : handle_(other.release()) {}
+
+    ScopedFindHandle& operator=(ScopedFindHandle&& other) noexcept {
+        if (this != &other) {
+            reset(other.release());
+        }
+        return *this;
+    }
+
+    ~ScopedFindHandle() {
+        reset();
+    }
+
+    [[nodiscard]] HANDLE get() const noexcept {
+        return handle_;
+    }
+
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return handle_ != INVALID_HANDLE_VALUE && handle_ != nullptr;
+    }
+
+    HANDLE release() noexcept {
+        HANDLE handle = handle_;
+        handle_ = INVALID_HANDLE_VALUE;
+        return handle;
+    }
+
+    void reset(HANDLE handle = INVALID_HANDLE_VALUE) noexcept {
+        if (*this) {
+            ::FindClose(handle_);
+        }
+        handle_ = handle;
+    }
+
+private:
+    HANDLE handle_ = INVALID_HANDLE_VALUE;
+};
+
 [[nodiscard]] std::wstring NativeWindowsPath(const fs::path& path) {
     return path.wstring();
 }
@@ -227,6 +321,30 @@ struct WindowsFileMetadata {
     return metadata;
 }
 
+[[nodiscard]] WindowsFileMetadata MakeWindowsMetadata(const WIN32_FILE_ATTRIBUTE_DATA& data) {
+    return MakeWindowsMetadata(data.dwFileAttributes,
+                               data.nFileSizeHigh,
+                               data.nFileSizeLow,
+                               data.ftLastWriteTime);
+}
+
+[[nodiscard]] WindowsFileMetadata MakeWindowsMetadata(const WIN32_FIND_DATAW& data) {
+    return MakeWindowsMetadata(data.dwFileAttributes,
+                               data.nFileSizeHigh,
+                               data.nFileSizeLow,
+                               data.ftLastWriteTime);
+}
+
+[[nodiscard]] std::optional<WindowsFileMetadata> ReadWindowsFileMetadataByFindFirst(const fs::path& path) {
+    const std::wstring native_path = NativeWindowsPath(path);
+    WIN32_FIND_DATAW find_data{};
+    ScopedFindHandle find(::FindFirstFileW(native_path.c_str(), &find_data));
+    if (!find) {
+        return std::nullopt;
+    }
+    return MakeWindowsMetadata(find_data);
+}
+
 [[nodiscard]] std::optional<WindowsFileMetadata> ReadWindowsFileMetadataFromParent(const fs::path& path) {
     fs::path parent = path.parent_path();
     fs::path filename = path.filename();
@@ -240,46 +358,32 @@ struct WindowsFileMetadata {
     fs::path pattern = parent / L"*";
     const std::wstring pattern_native = NativeWindowsPath(pattern);
     WIN32_FIND_DATAW find_data{};
-    HANDLE find = ::FindFirstFileW(pattern_native.c_str(), &find_data);
-    if (find == INVALID_HANDLE_VALUE) {
+    ScopedFindHandle find(::FindFirstFileW(pattern_native.c_str(), &find_data));
+    if (!find) {
         return std::nullopt;
     }
 
     const std::wstring wanted = NativeWindowsPath(filename);
     do {
         if (::_wcsicmp(find_data.cFileName, wanted.c_str()) == 0) {
-            ::FindClose(find);
-            return MakeWindowsMetadata(find_data.dwFileAttributes,
-                                       find_data.nFileSizeHigh,
-                                       find_data.nFileSizeLow,
-                                       find_data.ftLastWriteTime);
+            return MakeWindowsMetadata(find_data);
         }
-    } while (::FindNextFileW(find, &find_data) != 0);
+    } while (::FindNextFileW(find.get(), &find_data) != 0);
 
-    ::FindClose(find);
     return std::nullopt;
 }
 
 [[nodiscard]] std::optional<WindowsFileMetadata> ReadWindowsFileMetadata(const fs::path& path) {
     const std::wstring native_path = NativeWindowsPath(path);
     WIN32_FILE_ATTRIBUTE_DATA data{};
-    if (::GetFileAttributesExW(native_path.c_str(), GetFileExInfoStandard, &data) == 0) {
-        WIN32_FIND_DATAW find_data{};
-        HANDLE find = ::FindFirstFileW(native_path.c_str(), &find_data);
-        if (find == INVALID_HANDLE_VALUE) {
-            return ReadWindowsFileMetadataFromParent(path);
-        }
-        ::FindClose(find);
-        return MakeWindowsMetadata(find_data.dwFileAttributes,
-                                   find_data.nFileSizeHigh,
-                                   find_data.nFileSizeLow,
-                                   find_data.ftLastWriteTime);
+    if (::GetFileAttributesExW(native_path.c_str(), GetFileExInfoStandard, &data) != 0) {
+        return MakeWindowsMetadata(data);
     }
 
-    return MakeWindowsMetadata(data.dwFileAttributes,
-                               data.nFileSizeHigh,
-                               data.nFileSizeLow,
-                               data.ftLastWriteTime);
+    if (auto metadata = ReadWindowsFileMetadataByFindFirst(path)) {
+        return metadata;
+    }
+    return ReadWindowsFileMetadataFromParent(path);
 }
 
 class WindowsLinkInspector final {
@@ -295,22 +399,21 @@ public:
             return info;
         }
 
-        HANDLE handle = CreateFileW(native_path.c_str(), 0,
-                                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                    nullptr, OPEN_EXISTING,
-                                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
-                                    nullptr);
-        if (handle == INVALID_HANDLE_VALUE) {
+        ScopedWindowsHandle handle(CreateFileW(native_path.c_str(), 0,
+                                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                               nullptr, OPEN_EXISTING,
+                                               FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                                               nullptr));
+        if (!handle) {
             info.is_link = true;
             return info;
         }
 
         std::array<unsigned char, MAXIMUM_REPARSE_DATA_BUFFER_SIZE> buffer{};
         DWORD bytes_returned = 0;
-        BOOL ok = DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+        BOOL ok = DeviceIoControl(handle.get(), FSCTL_GET_REPARSE_POINT, nullptr, 0,
                                   buffer.data(), static_cast<DWORD>(buffer.size()),
                                   &bytes_returned, nullptr);
-        CloseHandle(handle);
         if (!ok) {
             info.is_link = true;
             return info;

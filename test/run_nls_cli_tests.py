@@ -342,7 +342,11 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
             return "expected formatted paging file timestamp"
         return None
 
-    def verify_volume_junction(out_path: Path, _: Path) -> Optional[str]:
+    def verify_volume_junction(out_path: Path, err_path: Path) -> Optional[str]:
+        stderr_text = err_path.read_text(encoding="utf-8", errors="replace")
+        if stderr_text.strip():
+            return "expected no stderr output when listing volume-junction"
+
         text = out_path.read_text(encoding="utf-8", errors="replace")
         if "volume-junction" not in text:
             return "expected volume-junction in stdout"
