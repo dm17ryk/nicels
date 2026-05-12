@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--platform",
-        choices=("linux", "windows", "all"),
+        choices=("linux", "macos", "windows", "all"),
         default="all",
         help="Select which fixture set to unpack (default: all).",
     )
@@ -59,7 +59,7 @@ def _rmtree(path: Path) -> None:
 
 
 def _platform_entries(selection: str) -> list[tuple[str, Path]]:
-    if selection == "linux":
+    if selection == "linux" or selection == "macos":
         return [("linux", LIN_ARCHIVE)]
     if selection == "windows":
         return [("windows", WIN_ARCHIVE)]

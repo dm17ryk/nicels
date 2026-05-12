@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--platform",
-        choices=("auto", "linux", "windows", "all"),
+        choices=("auto", "linux", "macos", "windows", "all"),
         default="auto",
         help="Fixture set to unpack before running the checks (default: auto)",
     )
@@ -117,6 +117,8 @@ def resolve_platform_choice(selection: str) -> str:
     system = platform.system().lower()
     if "windows" in system:
         return "windows"
+    if "darwin" in system:
+        return "macos"
     return "linux"
 
 
@@ -924,7 +926,7 @@ def main() -> int:
     fixtures_root.mkdir(parents=True, exist_ok=True)
 
     platform_choice = resolve_platform_choice(args.platform)
-    if args.platform == "linux":
+    if platform_choice in ("linux", "macos"):
         fixture_selection = "linux"
     else:
         fixture_selection = "all"

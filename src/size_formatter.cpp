@@ -1,8 +1,9 @@
 #include "size_formatter.h"
 
 #include <cmath>
-#include <format>
+#include <iomanip>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -78,10 +79,9 @@ std::string SizeFormatter::FormatHumanReadable(uintmax_t bytes, UnitSystem syste
     }
 
     int precision = (unit_index == 0 || value >= 10.0) ? 0 : 1;
-    if (precision == 0) {
-        return std::format("{:.0f} {}", value, units[unit_index]);
-    }
-    return std::format("{:.{}f} {}", value, precision, units[unit_index]);
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(precision) << value << ' ' << units[unit_index];
+    return out.str();
 }
 
 }  // namespace nls

@@ -41,7 +41,11 @@ if ($Arch -eq "aarch64") {
     Write-Host "Staged ARM64 binary: $($binary.FullName)"
     $dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
     if ($dumpbin) {
-        & $dumpbin.Source /headers $binary.FullName | Select-String -Pattern "machine \((ARM64|AA64)\)" | Out-Null
+        $dumpbinOutput = & $dumpbin.Source /headers $binary.FullName |
+            Select-String -Pattern "machine \((ARM64|AA64)\)"
+        if (-not $dumpbinOutput) {
+            throw "Staged ARM64 binary is not an ARM64/AA64 binary: $($binary.FullName)"
+        }
     }
     exit 0
 }

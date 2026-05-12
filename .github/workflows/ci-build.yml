@@ -76,6 +76,7 @@ jobs:
         shell: msys2 {0}
         run: |
           set -euo pipefail
+          python -m unittest discover -s test -p 'test_*.py'
           cmake --preset msys-clang
           cmake --build --preset msys-clang-release
           ctest -C Release -R nls_cli_tests --test-dir build/msys-clang/
@@ -166,7 +167,9 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Configure
-        run: cmake --preset linux-clang -DNLS_PACKAGE_VARIANT=${{ matrix.variant }}
+        run: |
+          python3 -m unittest discover -s test -p 'test_*.py'
+          cmake --preset linux-clang -DNLS_PACKAGE_VARIANT=${{ matrix.variant }}
 
       - name: Build
         run: cmake --build --preset linux-clang-release
@@ -237,6 +240,7 @@ jobs:
           docker run --rm -v "$PWD:/work" -w /work ${{ matrix.image }} bash -lc '
             set -euo pipefail
             dnf install -y cmake ninja-build clang llvm lld pkgconf-pkg-config openssl-devel rpm-build python3
+            python3 -m unittest discover -s test -p "test_*.py"
             cmake --preset linux-clang -DNLS_PACKAGE_VARIANT=${{ matrix.variant }}
             cmake --build --preset linux-clang-release
             ctest -C Release -R nls_cli_tests --test-dir build/linux-clang/
@@ -279,7 +283,9 @@ jobs:
           brew install ninja
 
       - name: Configure
-        run: cmake --preset macos-clang
+        run: |
+          python3 -m unittest discover -s test -p 'test_*.py'
+          cmake --preset macos-clang
 
       - name: Build
         run: cmake --build --preset macos-clang-release

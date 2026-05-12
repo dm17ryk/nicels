@@ -44,5 +44,5 @@ fi
 "$binary_path" --help >/dev/null
 
 if [ "$run_regression" -eq 1 ]; then
-  python3 test/run_nls_cli_tests.py --binary "$binary_path" --fixtures test --platform linux
+  python3 test/run_nls_cli_tests.py --binary "$binary_path" --fixtures test --platform macos
 fi
