@@ -15,7 +15,8 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install",
+        "CMAKE_CXX_SCAN_FOR_MODULES": "OFF"
       }
     },
     {
@@ -30,13 +31,44 @@
       }
     },
     {
+      "name": "macos-clang",
+      "displayName": "macOS Clang (Debug/Release)",
+      "description": "Configures a multi-config Ninja build on macOS using clang/clang++.",
+      "inherits": "base-clang",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
       "name": "msys-clang",
       "displayName": "MSYS2 Clang (Debug/Release)",
       "description": "Configures a multi-config Ninja build for MSYS2 environments.",
       "inherits": "base-clang",
+      "cacheVariables": {
+        "NLS_ENABLE_IPO": "OFF"
+      },
       "environment": {
         "CC": "clang",
         "CXX": "clang++"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-msvc-arm64",
+      "displayName": "Windows ARM64 MSVC (Debug/Release)",
+      "description": "Cross-compiles nicels for Windows ARM64 from a VS Developer Command Prompt.",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/windows-msvc-arm64.cmake",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install",
+        "NLS_ENABLE_IPO": "OFF"
       },
       "condition": {
         "type": "equals",
@@ -90,6 +122,11 @@
       "configuration": "Release"
     },
     {
+      "name": "macos-clang-release",
+      "configurePreset": "macos-clang",
+      "configuration": "Release"
+    },
+    {
       "name": "msys-clang-debug",
       "configurePreset": "msys-clang",
       "configuration": "Debug"
@@ -97,6 +134,11 @@
     {
       "name": "msys-clang-release",
       "configurePreset": "msys-clang",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-msvc-arm64-release",
+      "configurePreset": "windows-msvc-arm64",
       "configuration": "Release"
     },
     {

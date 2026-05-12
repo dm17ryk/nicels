@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--platform",
-        choices=("linux", "windows", "all"),
+        choices=("linux", "macos", "windows", "all"),
         default="all",
         help="Select which fixture set to unpack (default: all).",
     )
@@ -59,7 +59,7 @@ def _rmtree(path: Path) -> None:
 
 
 def _platform_entries(selection: str) -> list[tuple[str, Path]]:
-    if selection == "linux":
+    if selection == "linux" or selection == "macos":
         return [("linux", LIN_ARCHIVE)]
     if selection == "windows":
         return [("windows", WIN_ARCHIVE)]
@@ -82,7 +82,10 @@ def _safe_extract(archive: Path, destination: Path) -> None:
                 member_path.resolve().relative_to(dest_root)
             except ValueError as exc:
                 raise RuntimeError(f"archive member {member.name!r} escapes destination {dest_root}") from exc
-        bundle.extractall(dest_root)
+        try:
+            bundle.extractall(dest_root, filter="fully_trusted")
+        except TypeError:
+            bundle.extractall(dest_root)
 
 
 def _post_process(destination: Path, platform: str) -> None:

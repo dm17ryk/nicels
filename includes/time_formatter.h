@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <filesystem>
-#include <locale>
 #include <string>
 
 namespace nls {
@@ -26,15 +25,11 @@ private:
 
     std::string format_spec_;
     std::string fallback_spec_;
-    Mode mode_ = Mode::ChronoFormat;
-    bool use_locale_names_ = false;
-    mutable bool locale_initialized_ = false;
-    mutable std::locale locale_{};
+    Mode mode_ = Mode::Strftime;
 
     static std::chrono::system_clock::time_point ToSystemTime(
         const std::filesystem::file_time_type& timestamp);
     static std::tm ToLocalTime(std::chrono::system_clock::time_point time);
-    std::string FormatChrono(std::chrono::system_clock::time_point time) const;
     std::string FormatStrftime(const std::tm& time) const;
 };
 

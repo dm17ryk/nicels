@@ -1,0 +1,190 @@
+name: "CI Release"
+
+on:
+  workflow_run:
+    workflows: ["CI Build"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      ci-run-id:
+        description: "Successful CI Build run ID to release. Defaults to the latest successful CI Build run for this ref."
+        required: false
+        default: ""
+      release_type:
+        description: "Release type: continuous or stable"
+        required: true
+        default: "continuous"
+        type: choice
+        options:
+          - continuous
+          - stable
+      version:
+        description: "Version override. Defaults to the downloaded VERSION artifact."
+        required: false
+        default: ""
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  release:
+    name: Publish release assets
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          skip=false
+          release_type=""
+          run_id=""
+          source_ref="${GITHUB_REF_NAME}"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
+            run_id="${{ github.event.workflow_run.id }}"
+            source_ref="${{ github.event.workflow_run.head_branch }}"
+            head_sha="${{ github.event.workflow_run.head_sha }}"
+            git fetch --tags --force --quiet
+            version_tag="$(git tag --points-at "$head_sha" | grep -E '^[0-9]+(\.[0-9]+){1,3}$' | sort -V | tail -n 1 || true)"
+
+            if [ "${{ github.event.workflow_run.event }}" != "push" ]; then
+              skip=true
+            elif [ "$source_ref" = "master" ]; then
+              release_type="continuous"
+            elif [[ "$source_ref" =~ ^[0-9]+(\.[0-9]+){1,3}$ ]]; then
+              release_type="stable"
+            elif [ -n "$version_tag" ]; then
+              source_ref="$version_tag"
+              release_type="stable"
+            else
+              skip=true
+            fi
+          else
+            release_type="${{ inputs.release_type }}"
+            run_id="${{ inputs.ci-run-id }}"
+            if [ -z "$run_id" ]; then
+              run_id="$(gh run list --workflow ci-build.yml --branch "$source_ref" --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+            fi
+            if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+              echo "No successful CI Build run found for $source_ref" >&2
+              exit 1
+            fi
+            head_sha="$(gh run view "$run_id" --json headSha --jq '.headSha')"
+          fi
+
+          {
+            echo "skip=$skip"
+            echo "release_type=$release_type"
+            echo "run_id=$run_id"
+            echo "source_ref=$source_ref"
+            echo "head_sha=$head_sha"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Stop when no release is requested
+        if: steps.meta.outputs.skip == 'true'
+        run: echo "CI Build source ref '${{ steps.meta.outputs.source_ref }}' does not publish a release."
+
+      - name: Download CI artifacts
+        if: steps.meta.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nicels-*
+          path: downloaded-artifacts
+          merge-multiple: true
+          run-id: ${{ steps.meta.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare release assets
+        if: steps.meta.outputs.skip != 'true'
+        id: assets
+        run: |
+          set -euo pipefail
+
+          version="${{ inputs.version }}"
+          if [ -z "$version" ]; then
+            if [ -f downloaded-artifacts/VERSION.txt ]; then
+              version="$(tr -d '\r\n' < downloaded-artifacts/VERSION.txt)"
+            else
+              version="$(tr -d '\r\n' < VERSION)"
+            fi
+          fi
+
+          if [ -z "$version" ]; then
+            echo "Release version is empty" >&2
+            exit 1
+          fi
+
+          mkdir -p release-assets
+          find downloaded-artifacts -type f \( \
+            -name '*.exe' -o \
+            -name '*.deb' -o \
+            -name '*.rpm' -o \
+            -name '*.pkg' -o \
+            -name '*.tar.gz' \
+          \) -exec cp '{}' release-assets/ ';'
+
+          asset_count="$(find release-assets -type f | wc -l | tr -d ' ')"
+          if [ "$asset_count" -eq 0 ]; then
+            echo "No release assets were downloaded" >&2
+            exit 1
+          fi
+
+          (cd release-assets && sha256sum --binary * > "nicels-${version}-sha256.txt")
+
+          if [ "${{ steps.meta.outputs.release_type }}" = "continuous" ]; then
+            tag="continuous-${version}"
+            title="nicels continuous ${version}"
+            prerelease=true
+          else
+            tag="${version}"
+            title="nicels ${version}"
+            prerelease=false
+          fi
+
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "title=$title"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+
+          ls -la release-assets
+
+      - name: Publish GitHub release
+        if: steps.meta.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          tag="${{ steps.assets.outputs.tag }}"
+          title="${{ steps.assets.outputs.title }}"
+          target="${{ steps.meta.outputs.head_sha }}"
+          prerelease="${{ steps.assets.outputs.prerelease }}"
+
+          if [ "$prerelease" = "true" ]; then
+            gh release delete "$tag" --yes --cleanup-tag || true
+            gh release create "$tag" release-assets/* \
+              --target "$target" \
+              --title "$title" \
+              --notes "" \
+              --prerelease
+          else
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release upload "$tag" release-assets/* --clobber
+            else
+              gh release create "$tag" release-assets/* \
+                --target "$target" \
+                --title "$title" \
+                --notes ""
+            fi
+          fi

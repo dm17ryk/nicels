@@ -4,7 +4,6 @@
 #include <chrono>
 #include <cctype>
 #include <cstdint>
-#include <format>
 #include <iomanip>
 #include <iostream>
 #include <iterator>
@@ -125,17 +124,23 @@ std::string ShellQuote(std::string_view text, bool always) {
 std::string ShellEscape(std::string_view text, bool always) {
     bool needs = always || NeedsShellQuotes(text);
     if (!needs) return std::string(text);
-    return std::format("$'{}'", CStyleEscape(text, false, true));
+    std::string out = "$'";
+    out += CStyleEscape(text, false, true);
+    out.push_back('\'');
+    return out;
 }
 
 std::string PercentEncode(std::string_view input) {
+    constexpr char kHex[] = "0123456789ABCDEF";
     std::string out;
     out.reserve(input.size());
     for (unsigned char ch : input) {
         if (std::isalnum(ch) || ch == '-' || ch == '_' || ch == '.' || ch == '~' || ch == '/') {
             out.push_back(static_cast<char>(ch));
         } else {
-            std::format_to(std::back_inserter(out), "%{:02X}", static_cast<int>(ch));
+            out.push_back('%');
+            out.push_back(kHex[(ch >> 4) & 0x0F]);
+            out.push_back(kHex[ch & 0x0F]);
         }
     }
     return out;
@@ -346,7 +351,7 @@ std::string Renderer::FileUri(const fs::path& path) const {
         generic.insert(generic.begin(), '/');
     }
 #endif
-    return std::format("file://{}", PercentEncode(generic));
+    return "file://" + PercentEncode(generic);
 }
 
 std::string Renderer::StyledName(const Entry& entry) const {

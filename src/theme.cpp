@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <cctype>
 #include <filesystem>
-#include <format>
 #include <memory>
 #include <optional>
 #include <iostream>
@@ -125,7 +124,8 @@ public:
 private:
     static std::string MakeAnsi(int r, int g, int b)
     {
-        return std::format("\x1b[38;2;{};{};{}m", r, g, b);
+        return "\x1b[38;2;" + std::to_string(r) + ";" +
+               std::to_string(g) + ";" + std::to_string(b) + "m";
     }
 };
 

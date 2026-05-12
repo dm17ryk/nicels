@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT
+# Toolchain file for cross-compiling nicels to Windows ARM64 with MSVC.
+
+set(CMAKE_SYSTEM_NAME Windows CACHE STRING "")
+set(CMAKE_SYSTEM_PROCESSOR ARM64 CACHE STRING "")
+
+set(CMAKE_C_COMPILER cl.exe CACHE FILEPATH "" FORCE)
+set(CMAKE_CXX_COMPILER cl.exe CACHE FILEPATH "" FORCE)
+
+set(CMAKE_RC_COMPILER rc.exe CACHE FILEPATH "" FORCE)
+set(CMAKE_MT mt.exe CACHE FILEPATH "" FORCE)

@@ -1,0 +1,334 @@
+name: "CI Build"
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "*"
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Save version
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Save version artifact
+        run: |
+          tr -d '\r\n' < VERSION > VERSION.txt
+          cat VERSION.txt
+
+      - name: Upload version artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nicels-version
+          path: VERSION.txt
+          if-no-files-found: error
+
+  windows:
+    name: Windows (${{ matrix.arch }})
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            artifact: windows-x86_64
+          - arch: aarch64
+            artifact: windows-aarch64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup MSYS2 for x86_64
+        if: matrix.arch == 'x86_64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-clang
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-llvm
+            mingw-w64-ucrt-x86_64-llvm-libs
+            mingw-w64-ucrt-x86_64-lld
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-nsis
+
+      - name: Build, test, and package x86_64
+        if: matrix.arch == 'x86_64'
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s test -p 'test_*.py'
+          cmake --preset msys-clang
+          cmake --build --preset msys-clang-release
+          ctest -C Release -R nls_cli_tests --test-dir build/msys-clang/ --output-on-failure
+          cpack -G NSIS --config build/msys-clang/CPackConfig.cmake
+          mkdir -p artifacts/packages
+          find . -maxdepth 1 -type f -name '*.exe' -exec cp '{}' artifacts/packages/ ';'
+          find _CPack_Packages -type f -name '*.exe' -exec cp '{}' artifacts/packages/ ';'
+
+      - name: Install ARM64 package tools
+        if: matrix.arch == 'aarch64'
+        shell: pwsh
+        run: |
+          choco install ninja nsis -y --no-progress
+          "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Prepare ARM64 compiler environment
+        if: matrix.arch == 'aarch64'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_arm64
+
+      - name: Build and package ARM64
+        if: matrix.arch == 'aarch64'
+        shell: pwsh
+        run: |
+          cmake --preset windows-msvc-arm64
+          cmake --build --preset windows-msvc-arm64-release
+          cpack -G NSIS --config build/windows-msvc-arm64/CPackConfig.cmake
+          New-Item -ItemType Directory -Path artifacts/packages -Force | Out-Null
+          Get-ChildItem -Path . -Filter *.exe |
+            Copy-Item -Destination artifacts/packages -Force
+          Get-ChildItem -Path _CPack_Packages -Filter *.exe -Recurse |
+            Copy-Item -Destination artifacts/packages -Force
+
+      - name: Validate package
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem -Path artifacts/packages -Filter *.exe | Select-Object -First 1
+          if (-not $package) { throw "No Windows installer was produced" }
+          $staging = Join-Path (Get-Location) "_CPack_Packages"
+          $runRegression = "${{ matrix.arch }}" -eq "x86_64"
+          if ($runRegression) {
+            tools/ci/validate_windows_package.ps1 -PackagePath $package.FullName -StagingRoot $staging -Arch "${{ matrix.arch }}" -RunRegression
+          } else {
+            tools/ci/validate_windows_package.ps1 -PackagePath $package.FullName -StagingRoot $staging -Arch "${{ matrix.arch }}"
+          }
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nicels-${{ matrix.artifact }}
+          path: artifacts/packages/*
+          if-no-files-found: error
+          retention-days: 14
+
+  linux-deb:
+    name: Linux DEB (${{ matrix.variant }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: ubuntu22.04
+            runner: ubuntu-22.04
+            arch: x86_64
+          - variant: ubuntu24.04
+            runner: ubuntu-24.04
+            arch: x86_64
+          - variant: ubuntu22.04
+            runner: ubuntu-22.04-arm
+            arch: aarch64
+          - variant: ubuntu24.04
+            runner: ubuntu-24.04-arm
+            arch: aarch64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm lld pkg-config libssl-dev dpkg-dev python3 python3-pip
+          python3 -m pip install --user --upgrade cmake ninja || \
+            python3 -m pip install --user --break-system-packages --upgrade cmake ninja
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Configure
+        run: |
+          python3 -m unittest discover -s test -p 'test_*.py'
+          cmake --preset linux-clang -DNLS_PACKAGE_VARIANT=${{ matrix.variant }}
+
+      - name: Build
+        run: cmake --build --preset linux-clang-release
+
+      - name: Test
+        run: ctest -C Release -R nls_cli_tests --test-dir build/linux-clang/ --output-on-failure
+
+      - name: Package
+        run: |
+          cpack -G DEB --config build/linux-clang/CPackConfig.cmake
+          mkdir -p artifacts/packages
+          find . -maxdepth 1 -type f -name '*.deb' -exec cp '{}' artifacts/packages/ ';'
+          find _CPack_Packages -type f -name '*.deb' -exec cp '{}' artifacts/packages/ ';'
+
+      - name: Validate package install
+        run: |
+          package="$(find artifacts/packages -type f -name '*.deb' | head -n 1)"
+          bash tools/ci/validate_linux_package.sh "$package" --run-regression
+
+      - name: Upload Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nicels-deb-${{ matrix.variant }}-${{ matrix.arch }}
+          path: artifacts/packages/*
+          if-no-files-found: error
+          retention-days: 14
+
+  linux-rpm:
+    name: Linux RPM (${{ matrix.variant }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: fedora40
+            image: fedora:40
+            runner: ubuntu-24.04
+            arch: x86_64
+          - variant: fedora41
+            image: fedora:41
+            runner: ubuntu-24.04
+            arch: x86_64
+          - variant: fedora42
+            image: fedora:42
+            runner: ubuntu-24.04
+            arch: x86_64
+          - variant: fedora40
+            image: fedora:40
+            runner: ubuntu-24.04-arm
+            arch: aarch64
+          - variant: fedora41
+            image: fedora:41
+            runner: ubuntu-24.04-arm
+            arch: aarch64
+          - variant: fedora42
+            image: fedora:42
+            runner: ubuntu-24.04-arm
+            arch: aarch64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build, package, and validate in Fedora container
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work ${{ matrix.image }} bash -lc '
+            set -euo pipefail
+            dnf install -y cmake ninja-build clang llvm lld pkgconf-pkg-config openssl-devel rpm-build python3 git
+            builder_uid="$(stat -c "%u" /work)"
+            builder_gid="$(stat -c "%g" /work)"
+            builder_group="$(getent group "$builder_gid" | cut -d: -f1 || true)"
+            if [ -z "$builder_group" ]; then
+              groupadd -g "$builder_gid" nicels-builder
+              builder_group=nicels-builder
+            fi
+            builder_user="$(getent passwd "$builder_uid" | cut -d: -f1 || true)"
+            if [ -z "$builder_user" ]; then
+              useradd -m -u "$builder_uid" -g "$builder_group" nicels-builder
+              builder_user=nicels-builder
+            fi
+            git config --global --add safe.directory /work
+            runuser -u "$builder_user" -- git config --global --add safe.directory /work
+            runuser -u "$builder_user" -- python3 -m unittest discover -s test -p "test_*.py"
+            runuser -u "$builder_user" -- cmake --preset linux-clang -DNLS_PACKAGE_VARIANT=${{ matrix.variant }}
+            runuser -u "$builder_user" -- cmake --build --preset linux-clang-release
+            runuser -u "$builder_user" -- ctest -C Release -R nls_cli_tests --test-dir build/linux-clang/ --output-on-failure
+            runuser -u "$builder_user" -- cpack -G RPM --config build/linux-clang/CPackConfig.cmake
+            mkdir -p artifacts/packages
+            find . -maxdepth 1 -type f -name "*.rpm" -exec cp "{}" artifacts/packages/ ";"
+            find _CPack_Packages -type f -name "*.rpm" -exec cp "{}" artifacts/packages/ ";"
+            package="$(find artifacts/packages -type f -name "*.rpm" | head -n 1)"
+            bash tools/ci/validate_linux_package.sh "$package"
+            runuser -u "$builder_user" -- python3 test/run_nls_cli_tests.py --binary "$(command -v nls)" --fixtures test --platform linux
+          '
+
+      - name: Upload RPM package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nicels-rpm-${{ matrix.variant }}-${{ matrix.arch }}
+          path: artifacts/packages/*
+          if-no-files-found: error
+          retention-days: 14
+
+  macos:
+    name: macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-15-intel
+          - arch: aarch64
+            runner: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          brew install ninja
+
+      - name: Configure
+        run: |
+          python3 -m unittest discover -s test -p 'test_*.py'
+          cmake --preset macos-clang
+
+      - name: Build
+        run: cmake --build --preset macos-clang-release
+
+      - name: Test
+        run: ctest -C Release -R nls_cli_tests --test-dir build/macos-clang/ --output-on-failure
+
+      - name: Package
+        run: |
+          cpack -G productbuild --config build/macos-clang/CPackConfig.cmake
+          cpack -G TGZ --config build/macos-clang/CPackConfig.cmake
+          mkdir -p artifacts/packages
+          find . -maxdepth 1 -type f \( -name '*.pkg' -o -name '*.tar.gz' \) -exec cp '{}' artifacts/packages/ ';'
+          find _CPack_Packages -type f \( -name '*.pkg' -o -name '*.tar.gz' \) -exec cp '{}' artifacts/packages/ ';'
+
+      - name: Validate archive
+        run: |
+          archive="$(find artifacts/packages -type f -name '*.tar.gz' | head -n 1)"
+          bash tools/ci/validate_macos_package.sh "$archive" --run-regression
+
+      - name: Validate package
+        run: |
+          package="$(find artifacts/packages -type f -name '*.pkg' | head -n 1)"
+          bash tools/ci/validate_macos_package.sh "$package"
+
+      - name: Upload macOS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nicels-macos-${{ matrix.arch }}
+          path: artifacts/packages/*
+          if-no-files-found: error
+          retention-days: 14

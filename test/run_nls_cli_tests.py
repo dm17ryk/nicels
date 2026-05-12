@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--platform",
-        choices=("auto", "linux", "windows", "all"),
+        choices=("auto", "linux", "macos", "windows", "all"),
         default="auto",
         help="Fixture set to unpack before running the checks (default: auto)",
     )
@@ -117,6 +117,8 @@ def resolve_platform_choice(selection: str) -> str:
     system = platform.system().lower()
     if "windows" in system:
         return "windows"
+    if "darwin" in system:
+        return "macos"
     return "linux"
 
 
@@ -685,20 +687,19 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
     db_home.mkdir(parents=True, exist_ok=True)
 
     db_env = env.copy()
+    db_override_dir = db_home / "data-dir"
     db_env.update({
         "HOME": str(db_home),
         "XDG_CONFIG_HOME": str(db_home / ".config"),
+        "NLS_DATA_DIR": str(db_override_dir),
     })
     if os.name == "nt":
         appdata = db_home / "AppData"
         userprofile = db_home / "UserProfile"
-        db_env.setdefault("APPDATA", str(appdata))
-        db_env.setdefault("USERPROFILE", str(userprofile))
-        user_db_dir = Path(db_env["APPDATA"]) / "nicels" / "DB"
-    else:
-        user_db_dir = Path(db_env["HOME"]) / ".nicels" / "DB"
+        db_env["APPDATA"] = str(appdata)
+        db_env["USERPROFILE"] = str(userprofile)
 
-    user_db_path = user_db_dir / "NLS.sqlite3"
+    user_db_path = db_override_dir / "NLS.sqlite3"
     set_ext = ".fixturedb"
     alias_name = "fixture-alias"
     folder_name = "FixtureFolder"
@@ -924,7 +925,7 @@ def main() -> int:
     fixtures_root.mkdir(parents=True, exist_ok=True)
 
     platform_choice = resolve_platform_choice(args.platform)
-    if args.platform == "linux":
+    if platform_choice in ("linux", "macos"):
         fixture_selection = "linux"
     else:
         fixture_selection = "all"
