@@ -133,12 +133,10 @@ VisitResult PathProcessor::listRecursiveDirectory(const fs::path& dir, bool is_t
     recursive_block_printed_ = true;
 
     std::vector<fs::path> subdirs;
-    subdirs.reserve(items.size());
-    for (const auto& item : items) {
-        const bool is_dir = item.info.is_dir && !item.info.is_symlink;
-        if (!is_dir) continue;
-        if (item.info.name == "." || item.info.name == "..") continue;
-        subdirs.push_back(item.info.path);
+    VisitResult subdir_status = scanner().collect_child_directories(dir, subdirs, is_top_level);
+    status = VisitResultAggregator::Combine(status, subdir_status);
+    if (subdir_status == VisitResult::Serious) {
+        return status;
     }
 
     for (const auto& subdir : subdirs) {

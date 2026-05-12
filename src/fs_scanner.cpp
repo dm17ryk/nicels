@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
+#include <cstdint>
+#include <cwchar>
 #include <iostream>
 #include <optional>
 #include <system_error>
@@ -156,11 +159,239 @@ struct WindowsLinkInfo {
     fs::path target;
 };
 
+struct WindowsFileMetadata {
+    DWORD attributes = INVALID_FILE_ATTRIBUTES;
+    uintmax_t size = 0;
+    fs::file_time_type mtime{};
+    fs::file_status status{};
+
+    [[nodiscard]] bool is_directory() const {
+        return (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    }
+};
+
+class ScopedWindowsHandle {
+public:
+    explicit ScopedWindowsHandle(HANDLE handle = INVALID_HANDLE_VALUE) noexcept
+        : handle_(handle) {}
+
+    ScopedWindowsHandle(const ScopedWindowsHandle&) = delete;
+    ScopedWindowsHandle& operator=(const ScopedWindowsHandle&) = delete;
+
+    ScopedWindowsHandle(ScopedWindowsHandle&& other) noexcept
+        : handle_(other.release()) {}
+
+    ScopedWindowsHandle& operator=(ScopedWindowsHandle&& other) noexcept {
+        if (this != &other) {
+            reset(other.release());
+        }
+        return *this;
+    }
+
+    ~ScopedWindowsHandle() {
+        reset();
+    }
+
+    [[nodiscard]] HANDLE get() const noexcept {
+        return handle_;
+    }
+
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return handle_ != INVALID_HANDLE_VALUE && handle_ != nullptr;
+    }
+
+    HANDLE release() noexcept {
+        HANDLE handle = handle_;
+        handle_ = INVALID_HANDLE_VALUE;
+        return handle;
+    }
+
+    void reset(HANDLE handle = INVALID_HANDLE_VALUE) noexcept {
+        if (*this) {
+            ::CloseHandle(handle_);
+        }
+        handle_ = handle;
+    }
+
+private:
+    HANDLE handle_ = INVALID_HANDLE_VALUE;
+};
+
+class ScopedFindHandle {
+public:
+    explicit ScopedFindHandle(HANDLE handle = INVALID_HANDLE_VALUE) noexcept
+        : handle_(handle) {}
+
+    ScopedFindHandle(const ScopedFindHandle&) = delete;
+    ScopedFindHandle& operator=(const ScopedFindHandle&) = delete;
+
+    ScopedFindHandle(ScopedFindHandle&& other) noexcept
+        : handle_(other.release()) {}
+
+    ScopedFindHandle& operator=(ScopedFindHandle&& other) noexcept {
+        if (this != &other) {
+            reset(other.release());
+        }
+        return *this;
+    }
+
+    ~ScopedFindHandle() {
+        reset();
+    }
+
+    [[nodiscard]] HANDLE get() const noexcept {
+        return handle_;
+    }
+
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return handle_ != INVALID_HANDLE_VALUE && handle_ != nullptr;
+    }
+
+    HANDLE release() noexcept {
+        HANDLE handle = handle_;
+        handle_ = INVALID_HANDLE_VALUE;
+        return handle;
+    }
+
+    void reset(HANDLE handle = INVALID_HANDLE_VALUE) noexcept {
+        if (*this) {
+            ::FindClose(handle_);
+        }
+        handle_ = handle;
+    }
+
+private:
+    HANDLE handle_ = INVALID_HANDLE_VALUE;
+};
+
+[[nodiscard]] std::wstring NativeWindowsPath(const fs::path& path) {
+    return path.wstring();
+}
+
+[[nodiscard]] fs::file_time_type FileTimeToFilesystemTime(const FILETIME& file_time) {
+    ULARGE_INTEGER ticks{};
+    ticks.LowPart = file_time.dwLowDateTime;
+    ticks.HighPart = file_time.dwHighDateTime;
+
+    constexpr std::uint64_t kUnixEpochAsFileTime = 116444736000000000ull;
+    if (ticks.QuadPart < kUnixEpochAsFileTime) {
+        return {};
+    }
+
+    using FiletimeDuration = std::chrono::duration<std::int64_t, std::ratio<1, 10000000>>;
+    const auto since_unix_epoch = FiletimeDuration(static_cast<std::int64_t>(ticks.QuadPart - kUnixEpochAsFileTime));
+    const auto system_time = std::chrono::system_clock::time_point(
+        std::chrono::duration_cast<std::chrono::system_clock::duration>(since_unix_epoch));
+    return fs::file_time_type::clock::now() +
+           std::chrono::duration_cast<fs::file_time_type::duration>(system_time - std::chrono::system_clock::now());
+}
+
+[[nodiscard]] fs::perms PermissionsFromWindowsAttributes(DWORD attributes) {
+    using fs::perms;
+
+    perms result = perms::owner_read | perms::group_read | perms::others_read;
+    if ((attributes & FILE_ATTRIBUTE_READONLY) == 0) {
+        result |= perms::owner_write;
+    }
+    if ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+        result |= perms::owner_exec | perms::group_exec | perms::others_exec;
+    }
+    return result;
+}
+
+[[nodiscard]] fs::file_status StatusFromWindowsAttributes(DWORD attributes) {
+    fs::file_type type = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0
+        ? fs::file_type::directory
+        : fs::file_type::regular;
+    return fs::file_status(type, PermissionsFromWindowsAttributes(attributes));
+}
+
+[[nodiscard]] WindowsFileMetadata MakeWindowsMetadata(DWORD attributes,
+                                                      DWORD file_size_high,
+                                                      DWORD file_size_low,
+                                                      const FILETIME& last_write_time) {
+    WindowsFileMetadata metadata;
+    metadata.attributes = attributes;
+    ULARGE_INTEGER file_size{};
+    file_size.LowPart = file_size_low;
+    file_size.HighPart = file_size_high;
+    metadata.size = metadata.is_directory() ? 0 : static_cast<uintmax_t>(file_size.QuadPart);
+    metadata.mtime = FileTimeToFilesystemTime(last_write_time);
+    metadata.status = StatusFromWindowsAttributes(metadata.attributes);
+    return metadata;
+}
+
+[[nodiscard]] WindowsFileMetadata MakeWindowsMetadata(const WIN32_FILE_ATTRIBUTE_DATA& data) {
+    return MakeWindowsMetadata(data.dwFileAttributes,
+                               data.nFileSizeHigh,
+                               data.nFileSizeLow,
+                               data.ftLastWriteTime);
+}
+
+[[nodiscard]] WindowsFileMetadata MakeWindowsMetadata(const WIN32_FIND_DATAW& data) {
+    return MakeWindowsMetadata(data.dwFileAttributes,
+                               data.nFileSizeHigh,
+                               data.nFileSizeLow,
+                               data.ftLastWriteTime);
+}
+
+[[nodiscard]] std::optional<WindowsFileMetadata> ReadWindowsFileMetadataByFindFirst(const fs::path& path) {
+    const std::wstring native_path = NativeWindowsPath(path);
+    WIN32_FIND_DATAW find_data{};
+    ScopedFindHandle find(::FindFirstFileW(native_path.c_str(), &find_data));
+    if (!find) {
+        return std::nullopt;
+    }
+    return MakeWindowsMetadata(find_data);
+}
+
+[[nodiscard]] std::optional<WindowsFileMetadata> ReadWindowsFileMetadataFromParent(const fs::path& path) {
+    fs::path parent = path.parent_path();
+    fs::path filename = path.filename();
+    if (parent == path.root_name() && !path.root_directory().empty()) {
+        parent = path.root_path();
+    }
+    if (parent.empty() || filename.empty()) {
+        return std::nullopt;
+    }
+
+    fs::path pattern = parent / L"*";
+    const std::wstring pattern_native = NativeWindowsPath(pattern);
+    WIN32_FIND_DATAW find_data{};
+    ScopedFindHandle find(::FindFirstFileW(pattern_native.c_str(), &find_data));
+    if (!find) {
+        return std::nullopt;
+    }
+
+    const std::wstring wanted = NativeWindowsPath(filename);
+    do {
+        if (::_wcsicmp(find_data.cFileName, wanted.c_str()) == 0) {
+            return MakeWindowsMetadata(find_data);
+        }
+    } while (::FindNextFileW(find.get(), &find_data) != 0);
+
+    return std::nullopt;
+}
+
+[[nodiscard]] std::optional<WindowsFileMetadata> ReadWindowsFileMetadata(const fs::path& path) {
+    const std::wstring native_path = NativeWindowsPath(path);
+    WIN32_FILE_ATTRIBUTE_DATA data{};
+    if (::GetFileAttributesExW(native_path.c_str(), GetFileExInfoStandard, &data) != 0) {
+        return MakeWindowsMetadata(data);
+    }
+
+    if (auto metadata = ReadWindowsFileMetadataByFindFirst(path)) {
+        return metadata;
+    }
+    return ReadWindowsFileMetadataFromParent(path);
+}
+
 class WindowsLinkInspector final {
 public:
     [[nodiscard]] static WindowsLinkInfo Inspect(const fs::path& path) {
         WindowsLinkInfo info;
-        DWORD attrs = GetFileAttributesW(path.c_str());
+        const std::wstring native_path = NativeWindowsPath(path);
+        DWORD attrs = GetFileAttributesW(native_path.c_str());
         if (attrs == INVALID_FILE_ATTRIBUTES) {
             return info;
         }
@@ -168,22 +399,21 @@ public:
             return info;
         }
 
-        HANDLE handle = CreateFileW(path.c_str(), 0,
-                                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                    nullptr, OPEN_EXISTING,
-                                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
-                                    nullptr);
-        if (handle == INVALID_HANDLE_VALUE) {
+        ScopedWindowsHandle handle(CreateFileW(native_path.c_str(), 0,
+                                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                               nullptr, OPEN_EXISTING,
+                                               FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                                               nullptr));
+        if (!handle) {
             info.is_link = true;
             return info;
         }
 
         std::array<unsigned char, MAXIMUM_REPARSE_DATA_BUFFER_SIZE> buffer{};
         DWORD bytes_returned = 0;
-        BOOL ok = DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+        BOOL ok = DeviceIoControl(handle.get(), FSCTL_GET_REPARSE_POINT, nullptr, 0,
                                   buffer.data(), static_cast<DWORD>(buffer.size()),
                                   &bytes_returned, nullptr);
-        CloseHandle(handle);
         if (!ok) {
             info.is_link = true;
             return info;
@@ -255,9 +485,9 @@ private:
 
 class ExecutableClassifier final {
 public:
-    [[nodiscard]] static bool IsExecutable(const fs::directory_entry& de) {
+    [[nodiscard]] static bool IsExecutablePath(const fs::path& path) {
 #ifdef _WIN32
-        std::string n = de.path().filename().string();
+        std::string n = path.filename().string();
         auto pos = n.rfind('.');
         if (pos != std::string::npos) {
             std::string ext = n.substr(pos + 1);
@@ -265,6 +495,19 @@ public:
             return (ext == "exe" || ext == "bat" || ext == "cmd" || ext == "ps1");
         }
         return false;
+#else
+        std::error_code ec;
+        auto perm = fs::status(path, ec).permissions();
+        (void)ec;
+        return ((perm & fs::perms::owner_exec) != fs::perms::none ||
+                (perm & fs::perms::group_exec) != fs::perms::none ||
+                (perm & fs::perms::others_exec) != fs::perms::none);
+#endif
+    }
+
+    [[nodiscard]] static bool IsExecutable(const fs::directory_entry& de) {
+#ifdef _WIN32
+        return IsExecutablePath(de.path());
 #else
         std::error_code ec;
         auto perm = de.status(ec).permissions();
@@ -353,6 +596,7 @@ void FileScanner::populate_entry(const fs::directory_entry& de, Entry& entry) co
 
     fill_symlink_target();
 #ifdef _WIN32
+    std::optional<WindowsFileMetadata> windows_metadata = ReadWindowsFileMetadata(entry.info.path);
     if (!entry.info.is_symlink || !entry.info.has_symlink_target) {
         WindowsLinkInfo link_info = WindowsLinkInspector::Inspect(de.path());
         if (link_info.is_link) {
@@ -364,34 +608,47 @@ void FileScanner::populate_entry(const fs::directory_entry& de, Entry& entry) co
         }
     }
     fill_symlink_target();
+    if (windows_metadata) {
+        if (!entry.info.has_symlink_status) {
+            entry.info.symlink_status = windows_metadata->status;
+            entry.info.has_symlink_status = true;
+        }
+        entry.info.is_dir = windows_metadata->is_directory();
+    }
 #endif
 
     bool is_reg = de.is_regular_file(info_ec);
     if (info_ec) {
-        is_reg = false;
-        info_ec.clear();
-    }
-    entry.info.size = entry.info.is_dir ? 0 : (is_reg ? de.file_size(info_ec) : 0);
-    if (info_ec) {
-        entry.info.size = 0;
 #ifdef _WIN32
-        // Fallback: retrieve size and timestamp via attributes if direct file access is denied
-        WIN32_FILE_ATTRIBUTE_DATA fad;
-        if (GetFileAttributesExW(entry.info.path.c_str(), GetFileExInfoStandard, &fad)) {
-            ULARGE_INTEGER fileSize;
-            fileSize.LowPart = fad.nFileSizeLow;
-            fileSize.HighPart = fad.nFileSizeHigh;
-            entry.info.size = static_cast<uintmax_t>(fileSize.QuadPart);
-            ULARGE_INTEGER ft;
-            ft.LowPart = fad.ftLastWriteTime.dwLowDateTime;
-            ft.HighPart = fad.ftLastWriteTime.dwHighDateTime;
-            entry.info.mtime = fs::file_time_type(fs::file_time_type::duration(ft.QuadPart));
-        }
+        if (windows_metadata) {
+            is_reg = !windows_metadata->is_directory();
+        } else
 #endif
+        {
+            is_reg = false;
+        }
         info_ec.clear();
-    } else {
-        entry.info.mtime = de.last_write_time(info_ec);
     }
+    std::error_code size_ec;
+    entry.info.size = entry.info.is_dir ? 0 : (is_reg ? de.file_size(size_ec) : 0);
+    if (size_ec) {
+#ifdef _WIN32
+        if (windows_metadata) {
+            entry.info.size = windows_metadata->size;
+        } else
+#endif
+        {
+            entry.info.size = 0;
+        }
+    }
+
+    std::error_code time_ec;
+    entry.info.mtime = de.last_write_time(time_ec);
+#ifdef _WIN32
+    if (time_ec && windows_metadata) {
+        entry.info.mtime = windows_metadata->mtime;
+    }
+#endif
     entry.info.is_exec = ExecutableClassifier::IsExecutable(de);
     entry.info.is_hidden = StringUtils::IsHidden(entry.info.name);
     auto is_missing_error = [](const std::error_code& ec) {
@@ -409,7 +666,7 @@ void FileScanner::populate_entry(const fs::directory_entry& de, Entry& entry) co
             is_broken_symlink = true;
         } else if (!status_ec && status_value.type() == fs::file_type::not_found) {
             is_broken_symlink = true;
-        } else {
+        } else if (status_ec) {
             fs::path resolved_path = entry.info.path;
             if (auto resolved = symlink_resolver_.ResolveTarget(entry.info)) {
                 resolved_path = std::move(*resolved);
@@ -436,6 +693,11 @@ void FileScanner::apply_symlink_metadata(Entry& entry) const {
         }
         std::error_code follow_ec;
         auto follow_status = fs::status(follow_path, follow_ec);
+        if (follow_ec && follow_path != entry.info.path) {
+            follow_path = entry.info.path;
+            follow_ec.clear();
+            follow_status = fs::status(follow_path, follow_ec);
+        }
         if (!follow_ec) {
             entry.info.is_dir = fs::is_directory(follow_status);
             entry.info.is_socket = fs::is_socket(follow_status);
@@ -566,7 +828,15 @@ VisitResult FileScanner::collect_entries(const fs::path& dir,
     }
 
     std::error_code exists_ec;
-    if (!fs::exists(dir, exists_ec)) {
+    bool exists = fs::exists(dir, exists_ec);
+#ifdef _WIN32
+    std::optional<WindowsFileMetadata> windows_metadata;
+    if (!exists) {
+        windows_metadata = ReadWindowsFileMetadata(dir);
+        exists = windows_metadata.has_value();
+    }
+#endif
+    if (!exists) {
         report_path_error(dir, exists_ec, "No such file or directory");
         return is_top_level ? VisitResult::Serious : VisitResult::Minor;
     }
@@ -574,8 +844,16 @@ VisitResult FileScanner::collect_entries(const fs::path& dir,
     std::error_code type_ec;
     bool is_directory = fs::is_directory(dir, type_ec);
     if (type_ec) {
+#ifdef _WIN32
+        if (windows_metadata) {
+            is_directory = windows_metadata->is_directory();
+            type_ec.clear();
+        } else
+#endif
+        {
         report_path_error(dir, type_ec, "Unable to access");
         return is_top_level ? VisitResult::Serious : VisitResult::Minor;
+        }
     }
 
     if (is_directory) {
@@ -613,12 +891,105 @@ VisitResult FileScanner::collect_entries(const fs::path& dir,
         std::error_code entry_ec;
         fs::directory_entry de(dir, entry_ec);
         if (entry_ec) {
+#ifdef _WIN32
+            if (windows_metadata) {
+                std::string name = dir.filename().string();
+                if (name.empty()) {
+                    name = dir.string();
+                }
+                // The fallback handles an explicit command-line path; directory/file filters apply below.
+                if (!should_include(name, true)) {
+                    return status;
+                }
+
+                Entry entry{};
+                entry.info.name = std::move(name);
+                entry.info.path = dir;
+                entry.info.is_dir = windows_metadata->is_directory();
+                entry.info.size = windows_metadata->size;
+                entry.info.mtime = windows_metadata->mtime;
+                entry.info.symlink_status = windows_metadata->status;
+                entry.info.has_symlink_status = true;
+                entry.info.is_exec = ExecutableClassifier::IsExecutablePath(dir);
+                entry.info.is_hidden = StringUtils::IsHidden(entry.info.name);
+
+                ownership_resolver_.Populate(entry.info, config_.dereference());
+                apply_icon_and_color(entry);
+
+                if (config_.dirs_only() && !entry.info.is_dir) {
+                    return status;
+                }
+                if (config_.files_only() && entry.info.is_dir) {
+                    return status;
+                }
+
+                out.push_back(std::move(entry));
+                if (perf_enabled) {
+                    perf_manager.IncrementCounter("entries_included");
+                    if (out.back().info.is_dir) {
+                        perf_manager.IncrementCounter("directories_included");
+                    } else {
+                        perf_manager.IncrementCounter("files_included");
+                    }
+                }
+                return status;
+            }
+#endif
             report_path_error(dir, entry_ec, "Unable to access");
             return is_top_level ? VisitResult::Serious : VisitResult::Minor;
         }
         add_entry(de, out, {}, true);
     }
     return status;
+}
+
+VisitResult FileScanner::collect_child_directories(const fs::path& dir,
+                                                   std::vector<fs::path>& out,
+                                                   bool is_top_level) const {
+    std::error_code iter_ec;
+    fs::directory_iterator it(dir, iter_ec);
+    if (iter_ec) {
+        report_path_error(dir, iter_ec, "Unable to open directory");
+        return is_top_level ? VisitResult::Serious : VisitResult::Minor;
+    }
+
+    fs::directory_iterator end;
+    while (it != end) {
+        const fs::directory_entry& de = *it;
+        const std::string name = de.path().filename().string();
+        if (name == "." || name == "..") {
+            it.increment(iter_ec);
+            if (iter_ec) break;
+            continue;
+        }
+        if (!should_include(name, false)) {
+            it.increment(iter_ec);
+            if (iter_ec) break;
+            continue;
+        }
+#ifdef _WIN32
+        if (WindowsLinkInspector::Inspect(de.path()).is_link) {
+            it.increment(iter_ec);
+            if (iter_ec) break;
+            continue;
+        }
+#endif
+
+        std::error_code info_ec;
+        const bool is_dir = de.is_directory(info_ec);
+        if (!info_ec && is_dir && !de.is_symlink(info_ec)) {
+            out.push_back(de.path());
+        }
+
+        it.increment(iter_ec);
+        if (iter_ec) break;
+    }
+
+    if (iter_ec) {
+        report_path_error(dir, iter_ec, "Unable to read directory");
+        return is_top_level ? VisitResult::Serious : VisitResult::Minor;
+    }
+    return VisitResult::Ok;
 }
 
 }  // namespace nls
