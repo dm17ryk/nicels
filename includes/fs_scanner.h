@@ -48,6 +48,9 @@ public:
     VisitResult collect_entries(const std::filesystem::path& dir,
                                 std::vector<Entry>& out,
                                 bool is_top_level) const;
+    VisitResult collect_child_directories(const std::filesystem::path& dir,
+                                          std::vector<std::filesystem::path>& out,
+                                          bool is_top_level) const;
 
 private:
     bool matches_any_pattern(const std::string& name,
