@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import os
 import platform
 import re
@@ -117,6 +118,68 @@ def resolve_platform_choice(selection: str) -> str:
     if "windows" in system:
         return "windows"
     return "linux"
+
+
+def _create_exclusive_windows_handle(path: Path):
+    if os.name != "nt":
+        return None
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = [
+        ctypes.c_wchar_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+    ]
+    create_file.restype = ctypes.c_void_p
+    handle = create_file(
+        str(path),
+        0x80000000,  # GENERIC_READ
+        0,  # no sharing: simulate locked system files
+        None,
+        3,  # OPEN_EXISTING
+        0x80,  # FILE_ATTRIBUTE_NORMAL
+        None,
+    )
+    invalid_handle = ctypes.c_void_p(-1).value
+    if handle == invalid_handle:
+        raise OSError(ctypes.get_last_error(), f"CreateFileW failed for {path}")
+    return handle
+
+
+def _close_windows_handle(handle) -> None:
+    if os.name != "nt" or handle is None:
+        return
+    ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(ctypes.c_void_p(handle))
+
+
+def _remove_windows_junction(path: Path) -> None:
+    if os.name != "nt" or not path.exists():
+        return
+    result = subprocess.run(["cmd", "/c", "rmdir", str(path)], text=True, capture_output=True)
+    if result.returncode != 0:
+        shutil.rmtree(path)
+
+
+def _windows_volume_name_for(path: Path) -> Optional[str]:
+    if os.name != "nt":
+        return None
+
+    root = path.resolve().anchor
+    if not root:
+        return None
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    get_volume_name = kernel32.GetVolumeNameForVolumeMountPointW
+    get_volume_name.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
+    get_volume_name.restype = ctypes.c_int
+    buffer = ctypes.create_unicode_buffer(128)
+    if get_volume_name(root, buffer, len(buffer)) == 0:
+        return None
+    return buffer.value
 
 
 def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
@@ -247,6 +310,46 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
             )
             if message:
                 return message
+        return None
+
+    def verify_locked_windows_metadata(out_path: Path, err_path: Path) -> Optional[str]:
+        text = out_path.read_text(encoding="utf-8", errors="replace")
+        err_text = err_path.read_text(encoding="utf-8", errors="replace")
+        if err_text.strip():
+            return f"expected no stderr, got '{err_text.strip()}'"
+        if "locked-system.bin" not in text:
+            return "expected locked-system.bin in stdout"
+        if "???????????" in text:
+            return "expected concrete mode for locked-system.bin"
+        if "4.0 KiB" not in text and "4 KiB" not in text and "4096" not in text:
+            return "expected locked-system.bin size in stdout"
+        if re.search(r"\d{4}-\d{2}-\d{2}|\w{3} \w{3}", text) is None:
+            return "expected formatted timestamp in stdout"
+        return None
+
+    def verify_system_paging_file_metadata(out_path: Path, err_path: Path) -> Optional[str]:
+        text = out_path.read_text(encoding="utf-8", errors="replace")
+        err_text = err_path.read_text(encoding="utf-8", errors="replace")
+        if err_text.strip():
+            return f"expected no stderr, got '{err_text.strip()}'"
+        if "pagefile.sys" not in text and "swapfile.sys" not in text:
+            return "expected at least one paging file in stdout"
+        if "???????????" in text:
+            return "expected concrete mode for paging files"
+        if re.search(r"\b0 B\b", text):
+            return "expected nonzero paging file size"
+        if re.search(r"\d{4}-\d{2}-\d{2}|\w{3} \w{3}", text) is None:
+            return "expected formatted paging file timestamp"
+        return None
+
+    def verify_volume_junction(out_path: Path, _: Path) -> Optional[str]:
+        text = out_path.read_text(encoding="utf-8", errors="replace")
+        if "volume-junction" not in text:
+            return "expected volume-junction in stdout"
+        if "volume-junction" in text and "[Dead link]" in text:
+            return "expected volume-junction not to be marked as a dead link"
+        if re.search(r"Dead links\s+:\s*[1-9]", text):
+            return "expected report to show zero dead links"
         return None
 
     def make_recursive_flat_verify(
@@ -461,6 +564,65 @@ def build_cases(fixture_dir: Path, root_dir: Path) -> list[TestCase]:
     add("block-size", "--block-size", "1K", str(root_dir))
     add("dereference", "-L", str(root_dir))
     add("git-status", "--git-status", str(root_dir))
+
+    if os.name == "nt":
+        special_root = root_dir / "windows_specials"
+        special_root.mkdir(parents=True, exist_ok=True)
+
+        locked_file = special_root / "locked-system.bin"
+        locked_file.write_bytes(b"x" * 4096)
+        locked_handle = _create_exclusive_windows_handle(locked_file)
+
+        def verify_locked_and_release(out_path: Path, err_path: Path) -> Optional[str]:
+            try:
+                return verify_locked_windows_metadata(out_path, err_path)
+            finally:
+                _close_windows_handle(locked_handle)
+
+        add(
+            "windows-locked-file-metadata",
+            "-l",
+            "--header",
+            str(locked_file),
+            verify=verify_locked_and_release,
+        )
+
+        paging_files = [str(path) for path in (Path("C:/pagefile.sys"), Path("C:/swapfile.sys")) if path.exists()]
+        if paging_files:
+            add(
+                "windows-paging-file-metadata",
+                "-l",
+                "--header",
+                *paging_files,
+                verify=verify_system_paging_file_metadata,
+            )
+
+        volume_name = _windows_volume_name_for(root_dir)
+        if volume_name:
+            junction_path = special_root / "volume-junction"
+            _remove_windows_junction(junction_path)
+            mklink = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(junction_path), volume_name],
+                text=True,
+                capture_output=True,
+            )
+            if mklink.returncode == 0:
+                def verify_volume_junction_and_cleanup(out_path: Path, err_path: Path) -> Optional[str]:
+                    try:
+                        return verify_volume_junction(out_path, err_path)
+                    finally:
+                        _remove_windows_junction(junction_path)
+
+                add(
+                    "windows-volume-junction-not-dead",
+                    "-l",
+                    "-L",
+                    "--header",
+                    "--report",
+                    "long",
+                    str(special_root),
+                    verify=verify_volume_junction_and_cleanup,
+                )
 
     # Debug / diagnostics.
     add("perf-debug", "--perf-debug", str(root_dir))
