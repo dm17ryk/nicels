@@ -629,25 +629,26 @@ void FileScanner::populate_entry(const fs::directory_entry& de, Entry& entry) co
         }
         info_ec.clear();
     }
-    entry.info.size = entry.info.is_dir ? 0 : (is_reg ? de.file_size(info_ec) : 0);
-    if (info_ec) {
-        entry.info.size = 0;
+    std::error_code size_ec;
+    entry.info.size = entry.info.is_dir ? 0 : (is_reg ? de.file_size(size_ec) : 0);
+    if (size_ec) {
 #ifdef _WIN32
         if (windows_metadata) {
             entry.info.size = windows_metadata->size;
-            entry.info.mtime = windows_metadata->mtime;
-        }
+        } else
 #endif
-        info_ec.clear();
-    } else {
-        entry.info.mtime = de.last_write_time(info_ec);
-#ifdef _WIN32
-        if (info_ec && windows_metadata) {
-            entry.info.mtime = windows_metadata->mtime;
-            info_ec.clear();
+        {
+            entry.info.size = 0;
         }
-#endif
     }
+
+    std::error_code time_ec;
+    entry.info.mtime = de.last_write_time(time_ec);
+#ifdef _WIN32
+    if (time_ec && windows_metadata) {
+        entry.info.mtime = windows_metadata->mtime;
+    }
+#endif
     entry.info.is_exec = ExecutableClassifier::IsExecutable(de);
     entry.info.is_hidden = StringUtils::IsHidden(entry.info.name);
     auto is_missing_error = [](const std::error_code& ec) {
